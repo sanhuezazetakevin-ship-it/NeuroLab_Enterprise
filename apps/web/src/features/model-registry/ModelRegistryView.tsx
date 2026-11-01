@@ -55,55 +55,49 @@ export const ModelRegistryView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-5 animate-in fade-in duration-200">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 text-xs font-semibold uppercase tracking-wider">
-            <Box className="w-4 h-4" /> Módulo 08 • Registro de Modelos (Model Registry)
-          </div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1">
-            Gobernanza de Modelos & Versionado Inmutable
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Ciclo de vida (DRAFT &rarr; REVIEWED &rarr; APPROVED &rarr; RETIRED) con integridad criptográfica SHA-256.
-          </p>
+    <div className="space-y-4 animate-in fade-in duration-200">
+      <div className="pb-2 border-b border-white/10">
+        <div className="flex items-center gap-2 text-white/60 text-xs font-semibold uppercase tracking-wider">
+          <Box className="w-4 h-4 text-white/80" /> Módulo 08 • Registro de Modelos (Model Registry)
         </div>
+        <h1 className="text-xl sm:text-2xl font-semibold text-white dark:text-white light:text-zinc-900 mt-1">
+          Gobernanza de Modelos & Versionado Inmutable
+        </h1>
+        <p className="text-xs text-white/50 dark:text-white/50 light:text-zinc-500 mt-0.5">
+          Ciclo de vida (DRAFT &rarr; REVIEWED &rarr; APPROVED &rarr; RETIRED) con integridad criptográfica SHA-256.
+        </p>
       </div>
 
       <div className="space-y-3.5">
         {models.map((model) => (
-          <div key={model.id} className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
+          <div key={model.id} className="glass-card p-5 rounded-2xl space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold">
+                <div className="w-10 h-10 rounded-xl glass-inset text-white flex items-center justify-center font-bold border border-white/10">
                   <Box className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">{activeScenario.architecture.name}</h3>
-                    <span className="font-mono text-xs px-2 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 font-semibold">
+                    <h3 className="text-sm font-semibold text-white dark:text-white light:text-zinc-900">{activeScenario.architecture.name}</h3>
+                    <span className="font-mono text-xs px-2.5 py-0.5 rounded-full glass-inset text-white/80 border border-white/15">
                       {model.version}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-400 font-mono mt-0.5">{model.storageKey}</p>
+                  <p className="text-xs text-white/40 font-mono mt-0.5">{model.storageKey}</p>
                 </div>
               </div>
 
               {/* Status Badge & Workflow selector */}
-              <div className="flex items-center gap-2.5">
-                <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-lg border border-slate-200 dark:border-slate-800 text-xs font-semibold">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1 glass-inset p-1 rounded-xl border border-white/10 text-xs font-medium">
                   {(['DRAFT', 'REVIEWED', 'APPROVED', 'RETIRED'] as const).map((st) => (
                     <button
                       key={st}
                       onClick={() => updateStatus(model.id, st)}
-                      className={`px-2 py-0.5 rounded transition-all ${
+                      className={`px-2.5 py-1 rounded-lg transition-all ${
                         model.status === st
-                          ? st === 'APPROVED'
-                            ? 'bg-emerald-600 text-white shadow-xs'
-                            : st === 'RETIRED'
-                            ? 'bg-red-600 text-white shadow-xs'
-                            : 'bg-blue-600 text-white shadow-xs'
-                          : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                          ? 'bg-white text-zinc-950 font-semibold shadow-glass-sm'
+                          : 'text-white/50 hover:text-white'
                       }`}
                     >
                       {st}
@@ -113,46 +107,60 @@ export const ModelRegistryView: React.FC = () => {
 
                 <button
                   onClick={() => handleDownload(model.storageKey)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold border border-slate-200 dark:border-slate-700 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl glass-btn-secondary text-xs font-medium"
                 >
-                  <Download className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Descargar (.keras)
+                  <Download className="w-3.5 h-3.5" /> Descargar (.keras)
                 </button>
               </div>
             </div>
 
-            {/* Metrics & Checksum */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 text-xs">
-              <div className="space-y-1">
-                <div className="text-slate-500 text-[10px] uppercase font-bold flex items-center justify-between">
-                  <span>Integridad SHA-256</span>
-                  <button
-                    onClick={() => copyChecksum(model.checksum, model.id)}
-                    className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 normal-case font-sans"
-                  >
-                    {copiedId === model.id ? (
-                      <>
-                        <Check className="w-3 h-3" /> Copiado
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3 h-3" /> Copiar Hash
-                      </>
-                    )}
-                  </button>
-                </div>
-                <div className="p-2 rounded bg-slate-50 dark:bg-slate-950 font-mono text-[11px] text-slate-700 dark:text-slate-300 break-all border border-slate-200 dark:border-slate-800">
-                  {model.checksum}
-                </div>
+            {/* Checksum row */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl glass-inset border border-white/10 text-xs">
+              <div className="flex items-center gap-2 overflow-hidden">
+                <span className="text-[10px] uppercase font-bold text-white/40 tracking-wider">SHA-256</span>
+                <code className="font-mono text-[11px] text-white/80 truncate">{model.checksum}</code>
               </div>
+              <button
+                onClick={() => copyChecksum(model.checksum, model.id)}
+                className="flex items-center gap-1 text-[11px] text-white/70 hover:text-white shrink-0 self-end sm:self-auto font-medium"
+              >
+                {copiedId === model.id ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-400" /> Copiado
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" /> Copiar Hash
+                  </>
+                )}
+              </button>
+            </div>
 
-              <div className="space-y-1">
-                <span className="text-slate-500 text-[10px] uppercase font-bold">Métricas Aprobadas</span>
-                <div className="p-2 rounded bg-slate-50 dark:bg-slate-950 flex items-center justify-between border border-slate-200 dark:border-slate-800 font-mono text-xs">
-                  <span>Acc: <strong className="text-emerald-600 dark:text-emerald-400">{(model.metricsSummary.accuracy * 100).toFixed(1)}%</strong></span>
-                  <span>Loss: <strong className="text-slate-700 dark:text-slate-300">{model.metricsSummary.loss}</strong></span>
-                  <span>Val Acc: <strong className="text-blue-600 dark:text-blue-400">{(model.metricsSummary.valAccuracy * 100).toFixed(1)}%</strong></span>
-                  <span>F1: <strong className="text-amber-600 dark:text-amber-400">{model.metricsSummary.f1Score || '0.941'}</strong></span>
-                </div>
+            {/* Metrics pills */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              <div className="p-2.5 glass-inset rounded-xl">
+                <span className="text-white/40 text-[10px] uppercase font-bold">Accuracy</span>
+                <p className="font-mono font-semibold text-white mt-0.5">
+                  {(model.metricsSummary.accuracy * 100).toFixed(1)}%
+                </p>
+              </div>
+              <div className="p-2.5 glass-inset rounded-xl">
+                <span className="text-white/40 text-[10px] uppercase font-bold">Loss</span>
+                <p className="font-mono font-semibold text-white mt-0.5">
+                  {model.metricsSummary.loss.toFixed(4)}
+                </p>
+              </div>
+              <div className="p-2.5 glass-inset rounded-xl">
+                <span className="text-white/40 text-[10px] uppercase font-bold">Val Accuracy</span>
+                <p className="font-mono font-semibold text-white/80 mt-0.5">
+                  {model.metricsSummary.valAccuracy ? `${(model.metricsSummary.valAccuracy * 100).toFixed(1)}%` : '-'}
+                </p>
+              </div>
+              <div className="p-2.5 glass-inset rounded-xl">
+                <span className="text-white/40 text-[10px] uppercase font-bold">Registro</span>
+                <p className="font-mono text-white/60 text-[11px] mt-0.5">
+                  {new Date(model.createdAt).toLocaleDateString()}
+                </p>
               </div>
             </div>
           </div>

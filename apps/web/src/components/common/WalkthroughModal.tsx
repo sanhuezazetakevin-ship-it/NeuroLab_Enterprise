@@ -29,13 +29,13 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
       icon: Layers,
       badge: 'Semana 11',
       content: (
-        <div className="space-y-3 text-xs text-slate-600 dark:text-slate-300">
+        <div className="space-y-3 text-xs text-white/70 dark:text-white/70 light:text-zinc-600">
           <p>
-            Plataforma enterprise para las operaciones curriculares de la <strong>Semana 11 (Machine Learning & Deep Learning)</strong>.
+            Plataforma enterprise para las operaciones de la <strong>Semana 11 (Machine Learning & Deep Learning)</strong>.
           </p>
-          <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1.5">
-            <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Principios Arquitectónicos</span>
-            <ul className="space-y-1 list-disc list-inside text-slate-500 dark:text-slate-400">
+          <div className="p-3.5 rounded-2xl glass-inset space-y-1.5 border border-white/10">
+            <span className="text-[11px] font-semibold text-white/90 dark:text-white/90 light:text-zinc-900 uppercase tracking-wider">Principios Arquitectónicos</span>
+            <ul className="space-y-1 list-disc list-inside text-white/60 dark:text-white/60 light:text-zinc-500">
               <li><strong>Desacoplamiento:</strong> Entrenamientos en workers asíncronos independientes.</li>
               <li><strong>Trazabilidad:</strong> Modelos inmutables con hashes SHA-256 certificados.</li>
               <li><strong>Validación en Servidor:</strong> La API FastAPI valida la coherencia dimensional de capas.</li>
@@ -52,11 +52,11 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
       icon: BookOpen,
       badge: 'Módulo 03',
       content: (
-        <div className="space-y-3 text-xs text-slate-600 dark:text-slate-300">
+        <div className="space-y-3 text-xs text-white/70 dark:text-white/70 light:text-zinc-600">
           <p>
             El módulo de <strong>Fundamentos</strong> cuenta con un simulador interactivo del Perceptrón en el lateral derecho con gráficos vectoriales que se pueden ampliar al hacer clic.
           </p>
-          <div className="p-2.5 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 text-blue-800 dark:text-blue-300 text-[11px]">
+          <div className="p-3 rounded-2xl glass-inset border border-white/10 text-white/80 dark:text-white/80 light:text-zinc-700 text-[11px]">
             Ajusta los pesos sinápticos (<code className="font-mono">w1, w2</code>) y el sesgo (<code className="font-mono">bias</code>) para ver en tiempo real el cálculo del potencial de disparo.
           </div>
         </div>
@@ -70,11 +70,11 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
       icon: Cpu,
       badge: 'Módulo 04',
       content: (
-        <div className="space-y-3 text-xs text-slate-600 dark:text-slate-300">
+        <div className="space-y-3 text-xs text-white/70 dark:text-white/70 light:text-zinc-600">
           <p>
             Configura capas para familias <strong>Feedforward (FNN)</strong>, <strong>Convolucionales (CNN)</strong>, <strong>Recurrentes (RNN/LSTM)</strong> y <strong>Generativas (GAN)</strong>.
           </p>
-          <div className="p-2.5 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 text-blue-800 dark:text-blue-300 text-[11px]">
+          <div className="p-3 rounded-2xl glass-inset border border-white/10 text-white/80 dark:text-white/80 light:text-zinc-700 text-[11px]">
             El botón "Guardar y Validar" verifica las dimensiones y parámetros entrenables en la API antes de permitir el entrenamiento.
           </div>
         </div>
@@ -88,11 +88,11 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
       icon: PlayCircle,
       badge: 'Módulo 06',
       content: (
-        <div className="space-y-3 text-xs text-slate-600 dark:text-slate-300">
+        <div className="space-y-3 text-xs text-white/70 dark:text-white/70 light:text-zinc-600">
           <p>
             Lanza un entrenamiento asíncrono y observa en el panel lateral las curvas de <strong>Pérdida (Loss)</strong> y <strong>Exactitud (Accuracy)</strong>. Haz clic en cualquier gráfico para verlo a pantalla completa.
           </p>
-          <div className="p-2.5 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 text-blue-800 dark:text-blue-300 text-[11px]">
+          <div className="p-3 rounded-2xl glass-inset border border-white/10 text-white/80 dark:text-white/80 light:text-zinc-700 text-[11px]">
             Cuenta con simulación de velocidad y botón de cancelación cooperativa.
           </div>
         </div>
@@ -101,125 +101,109 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
       actionTab: 'training'
     },
     {
-      title: '4. Gobernanza & Model Registry',
-      subtitle: 'Inmutabilidad SHA-256 y ciclo de vida de artefactos',
+      title: '4. Registro de Modelos & Auditoría',
+      subtitle: 'Checksums SHA-256 inmutables y ciclo de aprobación',
       icon: Box,
       badge: 'Módulo 08',
       content: (
-        <div className="space-y-3 text-xs text-slate-600 dark:text-slate-300">
+        <div className="space-y-3 text-xs text-white/70 dark:text-white/70 light:text-zinc-600">
           <p>
-            Cada modelo entrenado transita por los estados: <code className="font-mono">DRAFT</code> &rarr; <code className="font-mono">REVIEWED</code> &rarr; <code className="font-mono">APPROVED</code> &rarr; <code className="font-mono">RETIRED</code>.
+            Inspecciona versiones registradas, copia el hash SHA-256 y simula el cambio de estados en el ciclo de vida del modelo corporativo.
           </p>
-          <div className="p-2.5 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 text-blue-800 dark:text-blue-300 text-[11px]">
-            Genera la ficha técnica formal y exporta a formato CSV o PDF imprimible con un clic.
+          <div className="p-3 rounded-2xl glass-inset border border-white/10 text-white/80 dark:text-white/80 light:text-zinc-700 text-[11px]">
+            La aprobación final requiere el rol de <strong>PROJECT_LEAD</strong> o <strong>ADMIN</strong>.
           </div>
         </div>
       ),
-      actionLabel: 'Ir a Registro',
+      actionLabel: 'Ir al Registro',
       actionTab: 'model-registry'
     }
   ];
 
-  const current = steps[currentStep];
-  const StepIcon = current.icon;
+  const step = steps[currentStep];
+  const Icon = step.icon;
 
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
       setWalkthroughOpen(false);
+      setCurrentStep(0);
     }
   };
 
-  const handlePrev = () => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
+  const handleAction = () => {
+    if (step.actionTab) {
+      onNavigateTab(step.actionTab);
     }
-  };
-
-  const handleDirectJump = () => {
-    if (current.actionTab) {
-      onNavigateTab(current.actionTab);
-      setWalkthroughOpen(false);
-    } else {
-      handleNext();
-    }
+    handleNext();
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="relative w-full max-w-lg glass-panel rounded-3xl p-6 shadow-glass border border-white/15 space-y-5 animate-in zoom-in-95 duration-200">
+        <button
+          onClick={() => setWalkthroughOpen(false)}
+          className="absolute right-4 top-4 p-1.5 rounded-xl glass-inset hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+        >
+          <X className="w-4 h-4" />
+        </button>
+
+        {/* Step Indicator */}
+        <div className="flex items-center gap-1.5">
+          {steps.map((_, i) => (
+            <div
+              key={i}
+              className={`h-1.5 rounded-full transition-all duration-300 ${
+                i === currentStep
+                  ? 'w-6 bg-white dark:bg-white light:bg-zinc-900'
+                  : 'w-1.5 bg-white/20 dark:bg-white/20 light:bg-black/20'
+              }`}
+            />
+          ))}
+        </div>
+
         {/* Header */}
-        <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900/60">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400">
-              <StepIcon className="w-4 h-4" />
-            </div>
-            <div>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.2 rounded bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                {current.badge} • Paso {currentStep + 1} de {steps.length}
-              </span>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white mt-0.5 leading-snug">{current.title}</h3>
-            </div>
+        <div className="flex items-start gap-3 pt-1">
+          <div className="p-2.5 rounded-2xl glass-inset border border-white/15 text-white/90">
+            <Icon className="w-5 h-5" />
           </div>
-          <button
-            onClick={() => setWalkthroughOpen(false)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/10 text-white/80 font-semibold border border-white/10">
+                {step.badge}
+              </span>
+              <span className="text-xs text-white/40">Paso {currentStep + 1} de {steps.length}</span>
+            </div>
+            <h2 className="text-lg font-semibold text-white dark:text-white light:text-zinc-900 mt-1">{step.title}</h2>
+            <p className="text-xs text-white/50 dark:text-white/50 light:text-zinc-500">{step.subtitle}</p>
+          </div>
         </div>
 
         {/* Body */}
-        <div className="p-5 space-y-3">
-          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">{current.subtitle}</p>
-          {current.content}
+        <div>{step.content}</div>
 
-          {/* Stepper dots */}
-          <div className="flex justify-center items-center gap-1.5 pt-2">
-            {steps.map((_, idx) => (
-              <button
-                key={idx}
-                onClick={() => setCurrentStep(idx)}
-                className={`h-1.5 rounded-full transition-all ${
-                  idx === currentStep ? 'w-5 bg-blue-600 dark:bg-blue-500' : 'w-1.5 bg-slate-300 dark:bg-slate-700'
-                }`}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="p-4 bg-slate-50 dark:bg-slate-950/60 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+        {/* Footer controls */}
+        <div className="flex items-center justify-between pt-3 border-t border-white/10">
           <button
-            onClick={handlePrev}
+            onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
             disabled={currentStep === 0}
-            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium ${
-              currentStep === 0 ? 'text-slate-400 cursor-not-allowed' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'
+            className={`flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-xl transition-colors ${
+              currentStep === 0
+                ? 'opacity-30 cursor-not-allowed text-white/40'
+                : 'text-white/70 hover:text-white glass-inset'
             }`}
           >
-            <ChevronLeft className="w-3.5 h-3.5" /> Anterior
+            <ChevronLeft className="w-4 h-4" /> Anterior
           </button>
 
-          <div className="flex items-center gap-2">
-            {current.actionTab && (
-              <button
-                onClick={handleDirectJump}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition-colors"
-              >
-                <span>{current.actionLabel}</span>
-                <ArrowRight className="w-3 h-3 text-blue-600 dark:text-blue-400" />
-              </button>
-            )}
-
-            <button
-              onClick={handleNext}
-              className="flex items-center gap-1 px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs transition-colors shadow-xs"
-            >
-              <span>{currentStep === steps.length - 1 ? 'Finalizar' : 'Siguiente'}</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
+          <button
+            onClick={handleAction}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl glass-btn-primary text-xs font-semibold"
+          >
+            <span>{step.actionLabel}</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
     </div>

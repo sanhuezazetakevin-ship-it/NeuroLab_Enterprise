@@ -161,29 +161,29 @@ export const ArchitectureDesignerView: React.FC = () => {
 
   const memoryKB = ((validation.totalParameters * 4) / 1024).toFixed(1);
 
-  // Helper to render horizontal topology
+  // Helper to render horizontal topology in glass style
   const renderTopologyFlow = (isLarge = false) => {
     return (
       <div className="flex items-center gap-2 overflow-x-auto py-2">
-        <div className="shrink-0 p-2.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-center min-w-[90px]">
-          <span className="text-[9px] text-slate-500 uppercase font-bold">Input</span>
-          <div className="text-xs font-mono font-bold text-slate-800 dark:text-white mt-0.5">
+        <div className="shrink-0 p-3 rounded-2xl glass-inset border border-white/10 text-center min-w-[90px]">
+          <span className="text-[9px] text-white/40 uppercase font-bold tracking-wider">Input</span>
+          <div className="text-xs font-mono font-semibold text-white mt-0.5">
             [{family === 'CNN' ? '128,128,1' : inputFeatures}]
           </div>
         </div>
 
         {layers.map((layer, idx) => (
           <React.Fragment key={layer.id}>
-            <ArrowRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-            <div className="shrink-0 p-2.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-center min-w-[95px]">
-              <span className="text-[9px] text-blue-600 dark:text-blue-400 uppercase font-bold">{layer.type}</span>
-              <div className="text-xs font-mono font-bold text-slate-800 dark:text-white">
+            <ArrowRight className="w-3.5 h-3.5 text-white/30 shrink-0" />
+            <div className="shrink-0 p-3 rounded-2xl glass-inset border border-white/10 text-center min-w-[95px]">
+              <span className="text-[9px] text-white/80 uppercase font-bold tracking-wider">{layer.type}</span>
+              <div className="text-xs font-mono font-semibold text-white mt-0.5">
                 {layer.units && `${layer.units}u`}
                 {layer.filters && `${layer.filters}f`}
                 {layer.rate && `r=${layer.rate}`}
               </div>
               {layer.activation && (
-                <span className="inline-block text-[8px] px-1 rounded bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono">
+                <span className="inline-block text-[8px] px-1.5 py-0.2 rounded-full bg-white/10 text-white/70 font-mono mt-1 border border-white/10">
                   {layer.activation}
                 </span>
               )}
@@ -191,10 +191,10 @@ export const ArchitectureDesignerView: React.FC = () => {
           </React.Fragment>
         ))}
 
-        <ArrowRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-        <div className="shrink-0 p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 text-center min-w-[90px]">
-          <span className="text-[9px] text-emerald-600 dark:text-emerald-400 uppercase font-bold">Output</span>
-          <div className="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-300 mt-0.5">
+        <ArrowRight className="w-3.5 h-3.5 text-white/30 shrink-0" />
+        <div className="shrink-0 p-3 rounded-2xl glass-inset border border-white/20 text-center min-w-[90px]">
+          <span className="text-[9px] text-white/60 uppercase font-bold tracking-wider">Output</span>
+          <div className="text-xs font-mono font-semibold text-white mt-0.5">
             {JSON.stringify(validation.outputShape)}
           </div>
         </div>
@@ -203,17 +203,17 @@ export const ArchitectureDesignerView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-5 animate-in fade-in duration-200">
+    <div className="space-y-4 animate-in fade-in duration-200">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-white/10">
         <div>
-          <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 text-xs font-semibold uppercase tracking-wider">
-            <Cpu className="w-4 h-4" /> Módulo 04 • Diseñador de Arquitecturas
+          <div className="flex items-center gap-2 text-white/60 text-xs font-semibold uppercase tracking-wider">
+            <Cpu className="w-4 h-4 text-white/80" /> Módulo 04 • Diseñador de Arquitecturas
           </div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1">
+          <h1 className="text-xl sm:text-2xl font-semibold text-white dark:text-white light:text-zinc-900 mt-1">
             Topologías & Validación Dimensional
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          <p className="text-xs text-white/50 dark:text-white/50 light:text-zinc-500 mt-0.5">
             Configuración de capas y verificación matemática de tensores en servidor FastAPI antes de compilar con TensorFlow.
           </p>
         </div>
@@ -221,10 +221,10 @@ export const ArchitectureDesignerView: React.FC = () => {
         <button
           onClick={handleSaveAndValidate}
           disabled={!validation.valid || isSaving}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-xs transition-colors shadow-xs ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs transition-colors shadow-glass-sm ${
             validation.valid
-              ? 'bg-blue-600 hover:bg-blue-700 text-white'
-              : 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
+              ? 'glass-btn-primary'
+              : 'glass-btn-secondary opacity-40 cursor-not-allowed'
           }`}
         >
           <Save className="w-4 h-4" />
@@ -233,30 +233,30 @@ export const ArchitectureDesignerView: React.FC = () => {
       </div>
 
       {/* Preset Quick Load Strip */}
-      <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs shadow-xs">
-        <span className="text-slate-500 dark:text-slate-400 font-medium">Plantillas de Referencia:</span>
+      <div className="glass-card p-3 rounded-2xl flex flex-wrap items-center justify-between gap-2 text-xs">
+        <span className="text-white/50 dark:text-white/50 light:text-zinc-500 font-medium">Plantillas de Referencia:</span>
         <div className="flex flex-wrap items-center gap-1.5">
           <button
             onClick={() => loadPreset('mlp')}
-            className="px-2.5 py-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium border border-slate-200 dark:border-slate-700"
+            className="px-3 py-1 rounded-xl glass-inset hover:bg-white/10 text-white/80 dark:text-white/80 light:text-zinc-700 font-medium text-xs border border-white/10 transition-colors"
           >
             MLP Feedforward (S11)
           </button>
           <button
             onClick={() => loadPreset('cnn')}
-            className="px-2.5 py-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium border border-slate-200 dark:border-slate-700"
+            className="px-3 py-1 rounded-xl glass-inset hover:bg-white/10 text-white/80 dark:text-white/80 light:text-zinc-700 font-medium text-xs border border-white/10 transition-colors"
           >
             CNN Convolucional
           </button>
           <button
             onClick={() => loadPreset('lstm')}
-            className="px-2.5 py-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium border border-slate-200 dark:border-slate-700"
+            className="px-3 py-1 rounded-xl glass-inset hover:bg-white/10 text-white/80 dark:text-white/80 light:text-zinc-700 font-medium text-xs border border-white/10 transition-colors"
           >
             LSTM Recurrente
           </button>
           <button
             onClick={() => loadPreset('gan')}
-            className="px-2.5 py-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium border border-slate-200 dark:border-slate-700"
+            className="px-3 py-1 rounded-xl glass-inset hover:bg-white/10 text-white/80 dark:text-white/80 light:text-zinc-700 font-medium text-xs border border-white/10 transition-colors"
           >
             Generador GAN
           </button>
@@ -264,23 +264,23 @@ export const ArchitectureDesignerView: React.FC = () => {
       </div>
 
       {/* Configuration Controls */}
-      <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 grid grid-cols-1 md:grid-cols-3 gap-3 shadow-xs text-xs">
+      <div className="glass-card p-5 rounded-2xl grid grid-cols-1 md:grid-cols-3 gap-3.5 text-xs">
         <div>
-          <label className="block text-slate-500 dark:text-slate-400 font-semibold mb-1">Nombre</label>
+          <label className="block text-white/50 dark:text-white/50 font-medium mb-1.5">Nombre</label>
           <input
             type="text"
             value={archName}
             onChange={(e) => setArchName(e.target.value)}
-            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1 text-slate-800 dark:text-white"
+            className="w-full glass-input rounded-xl px-3 py-1.5 text-white"
           />
         </div>
 
         <div>
-          <label className="block text-slate-500 dark:text-slate-400 font-semibold mb-1">Familia</label>
+          <label className="block text-white/50 dark:text-white/50 font-medium mb-1.5">Familia</label>
           <select
             value={family}
             onChange={(e) => setFamily(e.target.value as NetworkFamily)}
-            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1 text-slate-800 dark:text-white"
+            className="w-full glass-input rounded-xl px-3 py-1.5 text-white"
           >
             <option value="FEEDFORWARD">Feedforward (FNN)</option>
             <option value="CNN">Convolucional (CNN)</option>
@@ -290,41 +290,41 @@ export const ArchitectureDesignerView: React.FC = () => {
         </div>
 
         <div>
-          <label className="block text-slate-500 dark:text-slate-400 font-semibold mb-1">Input Shape</label>
+          <label className="block text-white/50 dark:text-white/50 font-medium mb-1.5">Input Shape</label>
           <input
             type="number"
             value={inputFeatures}
             onChange={(e) => setInputFeatures(parseInt(e.target.value) || 1)}
             min="1"
-            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1 text-slate-800 dark:text-white font-mono"
+            className="w-full glass-input rounded-xl px-3 py-1.5 text-white font-mono"
           />
         </div>
       </div>
 
       {/* Main Grid: Left Layer Stack (2 cols) + Right Compact Previews (1 col) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* LEFT COLUMN: Layers Editor */}
         <div className="lg:col-span-2 space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 uppercase tracking-wider">
-              <Layers className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Secuencia de Capas ({layers.length})
+            <h2 className="text-xs font-semibold text-white/90 dark:text-white/90 light:text-zinc-800 flex items-center gap-1.5 uppercase tracking-wider">
+              <Layers className="w-4 h-4 text-white/70" /> Secuencia de Capas ({layers.length})
             </h2>
             <div className="flex items-center gap-1 text-xs">
               <button
                 onClick={() => addLayer('Dense')}
-                className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded border border-slate-200 dark:border-slate-700"
+                className="px-2.5 py-1 rounded-xl glass-inset hover:bg-white/10 text-white/80 border border-white/10"
               >
                 + Dense
               </button>
               <button
                 onClick={() => addLayer('Dropout')}
-                className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded border border-slate-200 dark:border-slate-700"
+                className="px-2.5 py-1 rounded-xl glass-inset hover:bg-white/10 text-white/80 border border-white/10"
               >
                 + Dropout
               </button>
               <button
                 onClick={() => addLayer('BatchNormalization')}
-                className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded border border-slate-200 dark:border-slate-700"
+                className="px-2.5 py-1 rounded-xl glass-inset hover:bg-white/10 text-white/80 border border-white/10"
               >
                 + BatchNorm
               </button>
@@ -335,31 +335,31 @@ export const ArchitectureDesignerView: React.FC = () => {
             {layers.map((layer, index) => (
               <div
                 key={layer.id}
-                className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 transition-colors text-xs"
+                className="glass-card p-3 rounded-xl flex items-center justify-between gap-3 text-xs"
               >
                 <div className="flex items-center gap-2">
                   <div className="flex flex-col gap-0.5">
                     <button
                       onClick={() => moveLayer(index, 'up')}
                       disabled={index === 0}
-                      className="p-0.5 text-slate-400 hover:text-slate-700 dark:hover:text-white disabled:opacity-20"
+                      className="p-0.5 text-white/40 hover:text-white disabled:opacity-20"
                     >
                       <MoveUp className="w-3 h-3" />
                     </button>
                     <button
                       onClick={() => moveLayer(index, 'down')}
                       disabled={index === layers.length - 1}
-                      className="p-0.5 text-slate-400 hover:text-slate-700 dark:hover:text-white disabled:opacity-20"
+                      className="p-0.5 text-white/40 hover:text-white disabled:opacity-20"
                     >
                       <MoveDown className="w-3 h-3" />
                     </button>
                   </div>
 
-                  <span className="w-5 h-5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-mono text-[11px] flex items-center justify-center font-bold">
+                  <span className="w-5 h-5 rounded-lg glass-inset text-white/70 font-mono text-[11px] flex items-center justify-center font-bold">
                     {index + 1}
                   </span>
 
-                  <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-blue-600 dark:text-blue-400">
+                  <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-full glass-inset text-white border border-white/10">
                     {layer.type}
                   </span>
                 </div>
@@ -368,20 +368,20 @@ export const ArchitectureDesignerView: React.FC = () => {
                   {layer.type === 'Dense' && (
                     <>
                       <div className="flex items-center gap-1">
-                        <span className="text-slate-500">Unidades:</span>
+                        <span className="text-white/50">Unidades:</span>
                         <input
                           type="number"
                           value={layer.units || 32}
                           onChange={(e) => updateLayerUnits(layer.id, parseInt(e.target.value) || 1)}
-                          className="w-14 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 text-xs text-slate-800 dark:text-white font-mono"
+                          className="w-16 glass-input rounded-lg px-2 py-0.5 text-xs text-white font-mono"
                         />
                       </div>
                       <div className="flex items-center gap-1">
-                        <span className="text-slate-500">Activación:</span>
+                        <span className="text-white/50">Activación:</span>
                         <select
                           value={layer.activation || 'relu'}
                           onChange={(e) => updateLayerActivation(layer.id, e.target.value)}
-                          className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 text-xs text-slate-800 dark:text-white"
+                          className="glass-input rounded-lg px-2 py-0.5 text-xs text-white"
                         >
                           <option value="relu">ReLU</option>
                           <option value="sigmoid">Sigmoid</option>
@@ -395,7 +395,7 @@ export const ArchitectureDesignerView: React.FC = () => {
 
                   {layer.type === 'Dropout' && (
                     <div className="flex items-center gap-1">
-                      <span className="text-slate-500">Rate:</span>
+                      <span className="text-white/50">Rate:</span>
                       <input
                         type="number"
                         step="0.05"
@@ -403,14 +403,14 @@ export const ArchitectureDesignerView: React.FC = () => {
                         max="0.9"
                         value={layer.rate ?? 0.2}
                         onChange={(e) => updateDropoutRate(layer.id, parseFloat(e.target.value) || 0)}
-                        className="w-16 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 text-xs text-slate-800 dark:text-white font-mono"
+                        className="w-16 glass-input rounded-lg px-2 py-0.5 text-xs text-white font-mono"
                       />
                     </div>
                   )}
 
                   <button
                     onClick={() => removeLayer(layer.id)}
-                    className="p-1 text-slate-400 hover:text-red-500 transition-colors"
+                    className="p-1 text-white/40 hover:text-red-400 transition-colors"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -421,61 +421,61 @@ export const ArchitectureDesignerView: React.FC = () => {
         </div>
 
         {/* RIGHT DOCK: Compact Previews with Click-to-Enlarge */}
-        <div className="space-y-4">
-          <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center justify-between px-1">
-            <span>Visualización (Miniatura)</span>
-            <span className="text-[10px] text-blue-600 dark:text-blue-400">Clic para ampliar</span>
+        <div className="space-y-3.5">
+          <div className="text-xs font-medium text-white/50 dark:text-white/50 light:text-zinc-500 flex items-center justify-between px-1">
+            <span>Visualización (Dock)</span>
+            <span className="text-[10px] text-white/70">Clic para ampliar</span>
           </div>
 
           {/* Compact Card 1: Flow Diagram Preview */}
           <div
             onClick={() => setEnlargedTopologyOpen(true)}
-            className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-500/50 cursor-pointer transition-all shadow-xs group"
+            className="glass-card p-4 rounded-2xl glass-card-hover cursor-pointer space-y-2"
           >
-            <div className="flex items-center justify-between text-xs mb-1.5">
-              <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
-                <Workflow className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Grafo de Topología
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-medium text-white/90 dark:text-white/90 light:text-zinc-800 flex items-center gap-1">
+                <Workflow className="w-3.5 h-3.5 text-white/70" /> Grafo de Topología
               </span>
-              <Maximize2 className="w-3 h-3 text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" />
+              <Maximize2 className="w-3 h-3 text-white/40 hover:text-white transition-colors" />
             </div>
 
-            <div className="p-1 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-100 dark:border-slate-800/80 overflow-hidden">
+            <div className="p-2 glass-inset rounded-xl overflow-hidden">
               {renderTopologyFlow(false)}
             </div>
-            <div className="flex justify-between items-center text-[10px] text-slate-400 mt-1.5 px-0.5">
+            <div className="flex justify-between items-center text-[10px] text-white/40 px-0.5">
               <span>{layers.length} capas encadenadas</span>
-              <span className="text-blue-600 dark:text-blue-400 font-medium">Ampliar &rarr;</span>
+              <span className="text-white/70 font-medium">Ampliar &rarr;</span>
             </div>
           </div>
 
           {/* Technical Summary Card */}
-          <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-2.5 text-xs">
-            <span className="font-semibold text-slate-800 dark:text-slate-200 block border-b border-slate-100 dark:border-slate-800 pb-1.5">
+          <div className="glass-card p-4 rounded-2xl space-y-2 text-xs text-white/60 dark:text-white/60 light:text-zinc-600">
+            <span className="font-semibold text-white/90 dark:text-white/90 light:text-zinc-800 block border-b border-white/10 pb-1.5">
               Resumen Técnico Keras
             </span>
 
             <div className="flex justify-between">
-              <span className="text-slate-500">Parámetros Totales:</span>
-              <span className="font-mono font-bold text-slate-800 dark:text-white">
+              <span>Parámetros Totales:</span>
+              <span className="font-mono font-medium text-white dark:text-white light:text-zinc-800">
                 {validation.totalParameters.toLocaleString()}
               </span>
             </div>
 
             <div className="flex justify-between">
-              <span className="text-slate-500">Parámetros Entrenables:</span>
-              <span className="font-mono font-bold text-blue-600 dark:text-blue-400">
+              <span>Parámetros Entrenables:</span>
+              <span className="font-mono font-medium text-white dark:text-white light:text-zinc-800">
                 {validation.trainableParameters.toLocaleString()}
               </span>
             </div>
 
             <div className="flex justify-between">
-              <span className="text-slate-500">Memoria de Pesos:</span>
-              <span className="font-mono text-slate-700 dark:text-slate-300">{memoryKB} KB</span>
+              <span>Memoria de Pesos:</span>
+              <span className="font-mono text-white/80 dark:text-white/80 light:text-zinc-700">{memoryKB} KB</span>
             </div>
 
             <div className="flex justify-between">
-              <span className="text-slate-500">Salida del Grafo:</span>
-              <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+              <span>Salida del Grafo:</span>
+              <span className="font-mono text-white font-medium">
                 {JSON.stringify(validation.outputShape)}
               </span>
             </div>
@@ -492,11 +492,11 @@ export const ArchitectureDesignerView: React.FC = () => {
         badge={family}
       >
         <div className="space-y-4">
-          <div className="p-6 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
+          <div className="p-6 glass-inset rounded-2xl border border-white/10">
             {renderTopologyFlow(true)}
           </div>
 
-          <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400 space-y-1">
+          <div className="p-3.5 rounded-2xl glass-inset border border-white/10 text-xs text-white/70 space-y-1">
             <div>&bull; Total Parámetros: <strong>{validation.totalParameters.toLocaleString()}</strong> ({validation.trainableParameters.toLocaleString()} entrenables)</div>
             <div>&bull; Memoria aproximada de almacenamiento: <strong>{memoryKB} KB</strong></div>
             <div>&bull; Tensor de salida: <strong>{JSON.stringify(validation.outputShape)}</strong></div>

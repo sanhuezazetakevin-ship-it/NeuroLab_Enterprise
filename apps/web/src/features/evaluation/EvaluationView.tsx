@@ -72,31 +72,31 @@ export const EvaluationView: React.FC = () => {
 
   const renderROCChart = (isLarge = false) => {
     const w = isLarge ? 640 : 260;
-    const h = isLarge ? 280 : 110;
+    const h = isLarge ? 260 : 100;
     const pad = isLarge ? 35 : 12;
 
     return (
       <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-auto overflow-visible select-none">
-        <line x1={pad} y1={pad} x2={w - pad} y2={pad} stroke="#cbd5e1" strokeDasharray="3 3" className="dark:stroke-slate-800" />
-        <line x1={pad} y1={h - pad} x2={w - pad} y2={h - pad} stroke="#94a3b8" className="dark:stroke-slate-700" />
-        <line x1={pad} y1={pad} x2={pad} y2={h - pad} stroke="#94a3b8" className="dark:stroke-slate-700" />
+        <line x1={pad} y1={pad} x2={w - pad} y2={pad} stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
+        <line x1={pad} y1={h - pad} x2={w - pad} y2={h - pad} stroke="rgba(255,255,255,0.15)" />
+        <line x1={pad} y1={pad} x2={pad} y2={h - pad} stroke="rgba(255,255,255,0.15)" />
 
-        {/* Diagonal Guess */}
-        <line x1={pad} y1={h - pad} x2={w - pad} y2={pad} stroke="#94a3b8" strokeDasharray="4 4" strokeWidth="1" className="dark:stroke-slate-700" />
+        {/* Diagonal Baseline */}
+        <line x1={pad} y1={h - pad} x2={w - pad} y2={pad} stroke="rgba(255,255,255,0.2)" strokeDasharray="4 4" strokeWidth="1" />
 
         {/* ROC Curve */}
         <path
-          d={`M ${pad} ${h - pad} C ${pad + 20} ${pad + 50}, ${pad + 60} ${pad + 10}, ${w - pad} ${pad}`}
+          d={`M ${pad} ${h - pad} C ${pad + 20} ${pad + 40}, ${pad + 50} ${pad + 10}, ${w - pad} ${pad}`}
           fill="none"
-          stroke="#2563eb"
-          strokeWidth={isLarge ? "3" : "2"}
+          stroke="#ffffff"
+          strokeWidth={isLarge ? "2.5" : "2"}
           strokeLinecap="round"
         />
 
         {isLarge && (
           <>
-            <text x={w - pad} y={h - 10} fontSize="10" textAnchor="end" fill="#64748b" fontFamily="monospace">False Positive Rate (1 - Specificity)</text>
-            <text x={pad + 10} y={pad + 15} fontSize="10" fill="#64748b" fontFamily="monospace">True Positive Rate (Recall)</text>
+            <text x={w - pad} y={h - 10} fontSize="10" textAnchor="end" fill="rgba(255,255,255,0.4)" fontFamily="monospace">False Positive Rate (1 - Specificity)</text>
+            <text x={pad + 10} y={pad + 15} fontSize="10" fill="rgba(255,255,255,0.4)" fontFamily="monospace">True Positive Rate (Recall)</text>
           </>
         )}
       </svg>
@@ -107,24 +107,24 @@ export const EvaluationView: React.FC = () => {
     return (
       <table className="w-full text-center text-xs font-mono">
         <thead>
-          <tr className="text-slate-500 border-b border-slate-200 dark:border-slate-800">
-            <th className="p-2 text-left font-sans font-semibold">Etiqueta Real</th>
+          <tr className="text-white/40 border-b border-white/10">
+            <th className="p-2 text-left font-sans font-medium">Etiqueta Real</th>
             <th className="p-2">Pred: 0</th>
             <th className="p-2">Pred: 1</th>
             <th className="p-2">Total</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+        <tbody className="divide-y divide-white/5">
           {matrix.map((row, idx) => (
             <tr key={idx}>
-              <td className="p-2.5 text-left font-sans font-medium text-slate-700 dark:text-slate-300">{row.label}</td>
-              <td className={`p-2.5 font-bold ${idx === 0 ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded font-mono' : 'text-slate-500'}`}>
+              <td className="p-2.5 text-left font-sans font-medium text-white/80">{row.label}</td>
+              <td className={`p-2.5 font-bold ${idx === 0 ? 'bg-white/15 text-white rounded-lg font-mono border border-white/10' : 'text-white/40'}`}>
                 {row.pred0}
               </td>
-              <td className={`p-2.5 font-bold ${idx === 1 ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded font-mono' : 'text-slate-500'}`}>
+              <td className={`p-2.5 font-bold ${idx === 1 ? 'bg-white/15 text-white rounded-lg font-mono border border-white/10' : 'text-white/40'}`}>
                 {row.pred1}
               </td>
-              <td className="p-2.5 text-slate-400">{row.total}</td>
+              <td className="p-2.5 text-white/40">{row.total}</td>
             </tr>
           ))}
         </tbody>
@@ -133,95 +133,95 @@ export const EvaluationView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-5 animate-in fade-in duration-200">
+    <div className="space-y-4 animate-in fade-in duration-200">
       {/* Header */}
-      <div>
-        <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 text-xs font-semibold uppercase tracking-wider">
-          <LineChart className="w-4 h-4" /> Módulo 07 • Evaluación & Métricas
+      <div className="pb-2 border-b border-white/10">
+        <div className="flex items-center gap-2 text-white/60 text-xs font-semibold uppercase tracking-wider">
+          <LineChart className="w-4 h-4 text-white/80" /> Módulo 07 • Evaluación & Métricas
         </div>
-        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1">
+        <h1 className="text-xl sm:text-2xl font-semibold text-white dark:text-white light:text-zinc-900 mt-1">
           Rendimiento & Benchmarks del Modelo
         </h1>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+        <p className="text-xs text-white/50 dark:text-white/50 light:text-zinc-500 mt-0.5">
           Generalización en conjunto de prueba no visto, matriz de confusión y discriminabilidad ROC.
         </p>
       </div>
 
       {/* Summary KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
-          <span className="text-[11px] text-slate-500 dark:text-slate-400">Test Accuracy</span>
-          <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400 font-mono mt-0.5">{accuracy}%</div>
-          <span className="text-[10px] text-slate-400">Generalización verificada</span>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+        <div className="glass-card p-4 rounded-2xl">
+          <span className="text-[11px] text-white/50 dark:text-white/50 light:text-zinc-500 font-medium">Test Accuracy</span>
+          <div className="text-xl font-bold text-white dark:text-white light:text-zinc-900 font-mono mt-1">{accuracy}%</div>
+          <span className="text-[10px] text-white/40">Generalización verificada</span>
         </div>
 
-        <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
-          <span className="text-[11px] text-slate-500 dark:text-slate-400">Test Loss</span>
-          <div className="text-xl font-bold text-slate-900 dark:text-white font-mono mt-0.5">{loss}</div>
-          <span className="text-[10px] text-slate-400">Función de coste final</span>
+        <div className="glass-card p-4 rounded-2xl">
+          <span className="text-[11px] text-white/50 dark:text-white/50 light:text-zinc-500 font-medium">Test Loss</span>
+          <div className="text-xl font-bold text-white dark:text-white light:text-zinc-900 font-mono mt-1">{loss}</div>
+          <span className="text-[10px] text-white/40">Función de coste final</span>
         </div>
 
-        <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
-          <span className="text-[11px] text-slate-500 dark:text-slate-400">F1-Score</span>
-          <div className="text-xl font-bold text-blue-600 dark:text-blue-400 font-mono mt-0.5">{f1}</div>
-          <span className="text-[10px] text-slate-400">Media armónica calibrada</span>
+        <div className="glass-card p-4 rounded-2xl">
+          <span className="text-[11px] text-white/50 dark:text-white/50 light:text-zinc-500 font-medium">F1-Score</span>
+          <div className="text-xl font-bold text-white dark:text-white light:text-zinc-900 font-mono mt-1">{f1}</div>
+          <span className="text-[10px] text-white/40">Media armónica calibrada</span>
         </div>
 
-        <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
-          <span className="text-[11px] text-slate-500 dark:text-slate-400">Área ROC (AUC)</span>
-          <div className="text-xl font-bold text-slate-900 dark:text-white font-mono mt-0.5">0.964</div>
-          <span className="text-[10px] text-slate-400">Discriminabilidad excelente</span>
+        <div className="glass-card p-4 rounded-2xl">
+          <span className="text-[11px] text-white/50 dark:text-white/50 light:text-zinc-500 font-medium">Área ROC (AUC)</span>
+          <div className="text-xl font-bold text-white dark:text-white light:text-zinc-900 font-mono mt-1">0.964</div>
+          <span className="text-[10px] text-white/40">Discriminabilidad excelente</span>
         </div>
       </div>
 
       {/* Main Grid: Left Runs Table (2 cols) + Right Compact Previews (1 col) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* LEFT COLUMN: Experiments Comparison Table & Observations */}
         <div className="lg:col-span-2 space-y-4">
-          <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
+          <div className="glass-card p-5 rounded-2xl space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 uppercase tracking-wider">
-                <Award className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Comparativa de Experimentos
+              <h2 className="text-xs font-semibold text-white/90 dark:text-white/90 light:text-zinc-800 flex items-center gap-1.5 uppercase tracking-wider">
+                <Award className="w-3.5 h-3.5 text-white/70" /> Comparativa de Experimentos
               </h2>
-              <span className="text-[10px] text-slate-400 font-mono">3 ejecuciones registradas</span>
+              <span className="text-[10px] text-white/40 font-mono">3 ejecuciones registradas</span>
             </div>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
-                  <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500">
-                    <th className="pb-2 font-semibold">Experimento</th>
-                    <th className="pb-2 font-semibold">Épocas</th>
-                    <th className="pb-2 font-semibold">Exactitud</th>
-                    <th className="pb-2 font-semibold">Loss</th>
-                    <th className="pb-2 font-semibold">F1</th>
-                    <th className="pb-2 font-semibold">Estado</th>
+                  <tr className="border-b border-white/10 text-white/40">
+                    <th className="pb-2.5 font-medium">Experimento</th>
+                    <th className="pb-2.5 font-medium">Épocas</th>
+                    <th className="pb-2.5 font-medium">Exactitud</th>
+                    <th className="pb-2.5 font-medium">Loss</th>
+                    <th className="pb-2.5 font-medium">F1</th>
+                    <th className="pb-2.5 font-medium">Estado</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
+                <tbody className="divide-y divide-white/5 font-mono">
                   {experiments.map((exp) => (
                     <tr
                       key={exp.id}
                       className={`transition-colors ${
                         exp.isBest
-                          ? 'bg-blue-50/60 dark:bg-blue-500/10'
-                          : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                          ? 'bg-white/10 text-white font-semibold'
+                          : 'hover:bg-white/[0.04]'
                       }`}
                     >
-                      <td className="py-2.5 font-sans font-bold text-slate-800 dark:text-slate-200">
+                      <td className="py-3 font-sans font-medium text-white/90">
                         {exp.name}
                         {exp.isBest && (
-                          <span className="ml-1.5 text-[9px] px-1.5 py-0.2 rounded bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 font-mono">
+                          <span className="ml-2 text-[9px] px-2 py-0.5 rounded-full glass-inset text-white font-mono border border-white/15">
                             Mejor
                           </span>
                         )}
                       </td>
-                      <td className="py-2.5 text-slate-600 dark:text-slate-300">{exp.epochs}</td>
-                      <td className="py-2.5 font-bold text-emerald-600 dark:text-emerald-400">{exp.accuracy}</td>
-                      <td className="py-2.5 text-slate-600 dark:text-slate-300">{exp.loss}</td>
-                      <td className="py-2.5 text-blue-600 dark:text-blue-400">{exp.f1Score}</td>
-                      <td className="py-2.5 font-sans">
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                      <td className="py-3 text-white/70">{exp.epochs}</td>
+                      <td className="py-3 font-semibold text-white">{exp.accuracy}</td>
+                      <td className="py-3 text-white/70">{exp.loss}</td>
+                      <td className="py-3 text-white/90">{exp.f1Score}</td>
+                      <td className="py-3 font-sans">
+                        <span className="text-[10px] px-2 py-0.5 rounded-full glass-inset text-white/70 border border-white/10">
                           {exp.status}
                         </span>
                       </td>
@@ -232,65 +232,65 @@ export const EvaluationView: React.FC = () => {
             </div>
           </div>
 
-          <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-2 text-xs">
-            <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-              <Info className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Observaciones de Gobernanza
+          <div className="glass-card p-5 rounded-2xl space-y-2 text-xs">
+            <span className="font-semibold text-white/90 dark:text-white/90 light:text-zinc-800 flex items-center gap-1.5">
+              <Info className="w-3.5 h-3.5 text-white/70" /> Observaciones de Gobernanza
             </span>
-            <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
+            <p className="text-white/50 dark:text-white/50 light:text-zinc-500 leading-relaxed">
               El modelo cumple con el criterio de aceptación técnica: F1 &gt; 0.90 y tasa de error menor al 5.0%. Los pesos están listos para certificación en el Registro de Modelos.
             </p>
           </div>
         </div>
 
         {/* RIGHT DOCK: Compact Previews with Click-to-Enlarge */}
-        <div className="space-y-4">
-          <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center justify-between px-1">
-            <span>Visualizaciones (Miniaturas)</span>
-            <span className="text-[10px] text-blue-600 dark:text-blue-400">Clic para ampliar</span>
+        <div className="space-y-3.5">
+          <div className="text-xs font-medium text-white/50 dark:text-white/50 light:text-zinc-500 flex items-center justify-between px-1">
+            <span>Visualizaciones (Dock)</span>
+            <span className="text-[10px] text-white/70">Clic para ampliar</span>
           </div>
 
           {/* Compact Card 1: Mini Confusion Matrix Preview */}
           <div
             onClick={() => setEnlargedModal('matrix')}
-            className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-500/50 cursor-pointer transition-all shadow-xs group"
+            className="glass-card p-4 rounded-2xl glass-card-hover cursor-pointer space-y-2"
           >
-            <div className="flex items-center justify-between text-xs mb-1.5">
-              <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
-                <Target className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Matriz de Confusión
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-medium text-white/90 dark:text-white/90 light:text-zinc-800 flex items-center gap-1">
+                <Target className="w-3.5 h-3.5 text-white/70" /> Matriz de Confusión
               </span>
-              <Maximize2 className="w-3 h-3 text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" />
+              <Maximize2 className="w-3 h-3 text-white/40 hover:text-white transition-colors" />
             </div>
 
-            <div className="p-1 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-100 dark:border-slate-800/80 overflow-hidden">
+            <div className="p-2 glass-inset rounded-xl overflow-hidden">
               {renderMatrixTable(false)}
             </div>
-            <div className="flex justify-between items-center text-[10px] text-slate-400 mt-1.5 px-0.5">
+            <div className="flex justify-between items-center text-[10px] text-white/40 px-0.5">
               <span>Test Set (1,000 muestras)</span>
-              <span className="text-blue-600 dark:text-blue-400 font-medium">Ampliar &rarr;</span>
+              <span className="text-white/70 font-medium">Ampliar &rarr;</span>
             </div>
           </div>
 
           {/* Compact Card 2: Mini ROC Curve Preview */}
           <div
             onClick={() => setEnlargedModal('roc')}
-            className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-500/50 cursor-pointer transition-all shadow-xs group"
+            className="glass-card p-4 rounded-2xl glass-card-hover cursor-pointer space-y-2"
           >
-            <div className="flex items-center justify-between text-xs mb-1.5">
-              <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
-                <Activity className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Curva ROC
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-medium text-white/90 dark:text-white/90 light:text-zinc-800 flex items-center gap-1">
+                <Activity className="w-3.5 h-3.5 text-white/70" /> Curva ROC
               </span>
               <div className="flex items-center gap-1">
-                <span className="font-mono text-[10px] text-blue-600 dark:text-blue-400 font-bold">AUC 0.964</span>
-                <Maximize2 className="w-3 h-3 text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors ml-1" />
+                <span className="font-mono text-[10px] text-white/80 font-semibold">AUC 0.964</span>
+                <Maximize2 className="w-3 h-3 text-white/40 hover:text-white transition-colors ml-1" />
               </div>
             </div>
 
-            <div className="p-1.5 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-100 dark:border-slate-800/80">
+            <div className="p-2 glass-inset rounded-xl">
               {renderROCChart(false)}
             </div>
-            <div className="flex justify-between items-center text-[10px] text-slate-400 mt-1.5 px-0.5">
+            <div className="flex justify-between items-center text-[10px] text-white/40 px-0.5">
               <span>Sensibilidad vs 1 - Especificidad</span>
-              <span className="text-blue-600 dark:text-blue-400 font-medium">Ampliar &rarr;</span>
+              <span className="text-white/70 font-medium">Ampliar &rarr;</span>
             </div>
           </div>
         </div>
@@ -305,14 +305,14 @@ export const EvaluationView: React.FC = () => {
         badge="Evaluación Final"
       >
         <div className="space-y-4">
-          <div className="p-6 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 flex justify-center">
+          <div className="p-6 glass-inset rounded-2xl border border-white/10 flex justify-center">
             {enlargedModal === 'matrix' && renderMatrixTable(true)}
             {enlargedModal === 'roc' && renderROCChart(true)}
           </div>
 
-          <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400">
+          <div className="p-3.5 rounded-2xl glass-inset border border-white/10 text-xs text-white/60">
             {enlargedModal === 'matrix'
-              ? 'Diagonal resaltada en azul refleja clasificaciones correctas (96.3% de aciertos sobre el total de prueba).'
+              ? 'Diagonal resaltada refleja clasificaciones correctas (96.3% de aciertos sobre el total de prueba).'
               : 'El área bajo la curva (AUC = 0.964) certifica que el modelo supera con creces el baseline aleatorio (0.50).'}
           </div>
         </div>

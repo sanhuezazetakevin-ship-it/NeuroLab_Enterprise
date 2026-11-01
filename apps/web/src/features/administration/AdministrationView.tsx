@@ -114,63 +114,63 @@ export const AdministrationView: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-4 animate-in fade-in duration-200">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-white/10">
         <div>
-          <div className="flex items-center gap-2 text-primary-600 dark:text-primary-400 text-xs font-semibold uppercase tracking-wider">
-            <ShieldCheck className="w-4 h-4" /> Módulo 10 • Administración & Seguridad
+          <div className="flex items-center gap-2 text-white/60 text-xs font-semibold uppercase tracking-wider">
+            <ShieldCheck className="w-4 h-4 text-white/80" /> Módulo 10 • Administración & Seguridad
           </div>
-          <h1 className="text-xl sm:text-2xl font-semibold text-slate-900 dark:text-white mt-1">
+          <h1 className="text-xl sm:text-2xl font-semibold text-white dark:text-white light:text-zinc-900 mt-1">
             Control de Acceso (RBAC), Cuotas & Auditoría
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          <p className="text-xs text-white/50 dark:text-white/50 light:text-zinc-500 mt-0.5">
             Gobernanza corporativa, segregación de roles, límites de cómputo y registro inmutable de auditoría.
           </p>
         </div>
 
         <button
           onClick={() => setShowInviteModal(true)}
-          className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-medium text-xs transition-colors shadow-sm self-start sm:self-auto"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl glass-btn-primary text-xs font-semibold self-start sm:self-auto"
         >
           <UserPlus className="w-4 h-4" /> Invitar Usuario
         </button>
       </div>
 
       {/* Main Grid: User Directory (Left) + Quotas & Hardware Status (Right compact dock) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Left: User Directory */}
-        <div className="lg:col-span-2 p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+        <div className="lg:col-span-2 glass-card p-5 rounded-2xl space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-              <Users className="w-4 h-4 text-primary-600 dark:text-primary-400" /> Directorio de Usuarios ({users.length})
+            <h2 className="text-sm font-semibold text-white dark:text-white light:text-zinc-900 flex items-center gap-2">
+              <Users className="w-4 h-4 text-white/70" /> Directorio de Usuarios ({users.length})
             </h2>
-            <span className="text-[11px] text-slate-500 dark:text-slate-400">Autenticación JWT Segura</span>
+            <span className="text-[11px] text-white/40">Autenticación JWT Segura</span>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400">
-                  <th className="pb-2.5 font-semibold">Usuario</th>
-                  <th className="pb-2.5 font-semibold">Correo Electrónico</th>
-                  <th className="pb-2.5 font-semibold">Rol Asignado</th>
-                  <th className="pb-2.5 font-semibold">Estado</th>
+                <tr className="border-b border-white/10 text-white/40">
+                  <th className="pb-2.5 font-medium">Usuario</th>
+                  <th className="pb-2.5 font-medium">Correo Electrónico</th>
+                  <th className="pb-2.5 font-medium">Rol Asignado</th>
+                  <th className="pb-2.5 font-medium">Estado</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+              <tbody className="divide-y divide-white/5">
                 {users.map((u) => (
-                  <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-850/50 transition-colors">
-                    <td className="py-2.5 font-semibold text-slate-900 dark:text-white">{u.name}</td>
-                    <td className="py-2.5 text-slate-500 dark:text-slate-400">{u.email}</td>
-                    <td className="py-2.5">
-                      <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 font-semibold">
+                  <tr key={u.id} className="hover:bg-white/[0.04] transition-colors">
+                    <td className="py-3 font-semibold text-white dark:text-white light:text-zinc-900">{u.name}</td>
+                    <td className="py-3 text-white/60 dark:text-white/60 light:text-zinc-600">{u.email}</td>
+                    <td className="py-3">
+                      <span className="font-mono text-[10px] px-2.5 py-0.5 rounded-full glass-inset text-white border border-white/10">
                         {u.role}
                       </span>
                     </td>
-                    <td className="py-2.5">
-                      <span className="text-emerald-700 dark:text-emerald-400 font-medium flex items-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> {u.status}
+                    <td className="py-3">
+                      <span className="text-white/80 font-medium flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> {u.status}
                       </span>
                     </td>
                   </tr>
@@ -181,14 +181,14 @@ export const AdministrationView: React.FC = () => {
         </div>
 
         {/* Right Compact Dock: Hardware Quotas Manager */}
-        <div className="p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+        <div className="glass-card p-5 rounded-2xl space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-              <Cpu className="w-4 h-4 text-primary-600 dark:text-primary-400" /> Cuotas de Cómputo
+            <h2 className="text-sm font-semibold text-white dark:text-white light:text-zinc-900 flex items-center gap-2">
+              <Cpu className="w-4 h-4 text-white/70" /> Cuotas de Cómputo
             </h2>
             <button
               onClick={saveQuotas}
-              className="text-xs text-primary-600 dark:text-primary-400 hover:underline font-semibold"
+              className="text-xs text-white hover:underline font-semibold"
             >
               Guardar
             </button>
@@ -196,9 +196,9 @@ export const AdministrationView: React.FC = () => {
 
           <div className="space-y-4 text-xs">
             <div>
-              <div className="flex justify-between text-slate-600 dark:text-slate-400 mb-1">
+              <div className="flex justify-between text-white/60 mb-1">
                 <span>Workers Concurrentes:</span>
-                <span className="text-primary-600 dark:text-primary-400 font-semibold font-mono">{maxWorkers} slots</span>
+                <span className="text-white font-medium font-mono">{maxWorkers} slots</span>
               </div>
               <input
                 type="range"
@@ -206,14 +206,14 @@ export const AdministrationView: React.FC = () => {
                 max="8"
                 value={maxWorkers}
                 onChange={(e) => setMaxWorkers(parseInt(e.target.value))}
-                className="w-full accent-primary-600 cursor-pointer"
+                className="w-full accent-white cursor-pointer"
               />
             </div>
 
             <div>
-              <div className="flex justify-between text-slate-600 dark:text-slate-400 mb-1">
+              <div className="flex justify-between text-white/60 mb-1">
                 <span>Tiempo Máximo por Job:</span>
-                <span className="text-primary-600 dark:text-primary-400 font-semibold font-mono">{maxHours} horas ({maxHours * 3600}s)</span>
+                <span className="text-white font-medium font-mono">{maxHours} horas ({maxHours * 3600}s)</span>
               </div>
               <input
                 type="range"
@@ -221,31 +221,31 @@ export const AdministrationView: React.FC = () => {
                 max="12"
                 value={maxHours}
                 onChange={(e) => setMaxHours(parseInt(e.target.value))}
-                className="w-full accent-primary-600 cursor-pointer"
+                className="w-full accent-white cursor-pointer"
               />
             </div>
 
-            <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+            <div className="pt-3 border-t border-white/10 flex items-center justify-between">
               <div>
-                <span className="font-medium text-slate-800 dark:text-slate-200">Aceleración GPU / CUDA</span>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400">Fallback CPU si GPU no disponible</p>
+                <span className="font-medium text-white/90 dark:text-white/90 light:text-zinc-800">Aceleración GPU / CUDA</span>
+                <p className="text-[10px] text-white/40">Fallback CPU si GPU no disponible</p>
               </div>
               <input
                 type="checkbox"
                 checked={gpuEnabled}
                 onChange={(e) => setGpuEnabled(e.target.checked)}
-                className="w-4 h-4 accent-primary-600 cursor-pointer rounded"
+                className="w-4 h-4 accent-white cursor-pointer rounded"
               />
             </div>
 
-            <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-200 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
+            <div className="p-3.5 glass-inset rounded-xl border border-white/10 text-[11px] text-white/50 space-y-1">
               <div className="flex items-center justify-between">
                 <span>Clúster:</span>
-                <span className="font-mono text-emerald-600 dark:text-emerald-400 font-medium">cluster-primary-us-east</span>
+                <span className="font-mono text-white font-medium">cluster-primary-us-east</span>
               </div>
               <div className="flex items-center justify-between">
                 <span>Capacidad Usada:</span>
-                <span className="font-mono text-slate-700 dark:text-slate-300">2 de {maxWorkers} workers</span>
+                <span className="font-mono text-white/80">2 de {maxWorkers} workers</span>
               </div>
             </div>
           </div>
@@ -253,37 +253,37 @@ export const AdministrationView: React.FC = () => {
       </div>
 
       {/* RBAC Permissions Matrix Table */}
-      <div className="p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+      <div className="glass-card p-5 rounded-2xl space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-            <Lock className="w-4 h-4 text-primary-600 dark:text-primary-400" /> Matriz de Permisos RBAC por Módulo
+          <h2 className="text-sm font-semibold text-white dark:text-white light:text-zinc-900 flex items-center gap-2">
+            <Lock className="w-4 h-4 text-white/70" /> Matriz de Permisos RBAC por Módulo
           </h2>
-          <span className="text-xs text-slate-500 dark:text-slate-400">
-            Rol simulado actualmente: <strong className="text-primary-600 dark:text-primary-400 font-mono">{currentRole}</strong>
+          <span className="text-xs text-white/50">
+            Rol simulado actualmente: <strong className="text-white font-mono">{currentRole}</strong>
           </span>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-center text-xs">
             <thead>
-              <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400">
-                <th className="pb-2.5 text-left font-semibold">Módulo del Sistema</th>
-                <th className="pb-2.5 font-semibold">ADMIN</th>
-                <th className="pb-2.5 font-semibold">PROJECT_LEAD</th>
-                <th className="pb-2.5 font-semibold">AI_ENGINEER</th>
-                <th className="pb-2.5 font-semibold">REVIEWER</th>
-                <th className="pb-2.5 font-semibold">VIEWER</th>
+              <tr className="border-b border-white/10 text-white/40">
+                <th className="pb-2.5 text-left font-medium">Módulo del Sistema</th>
+                <th className="pb-2.5 font-medium">ADMIN</th>
+                <th className="pb-2.5 font-medium">PROJECT_LEAD</th>
+                <th className="pb-2.5 font-medium">AI_ENGINEER</th>
+                <th className="pb-2.5 font-medium">REVIEWER</th>
+                <th className="pb-2.5 font-medium">VIEWER</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono">
+            <tbody className="divide-y divide-white/5 font-mono">
               {rbacModules.map((row, idx) => (
-                <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-850/40">
-                  <td className="py-2.5 text-left font-sans font-medium text-slate-700 dark:text-slate-300">{row.module}</td>
-                  <td className="py-2.5">{row.admin ? <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mx-auto" /> : <X className="w-4 h-4 text-slate-300 dark:text-slate-700 mx-auto" />}</td>
-                  <td className="py-2.5">{row.lead ? <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mx-auto" /> : <X className="w-4 h-4 text-slate-300 dark:text-slate-700 mx-auto" />}</td>
-                  <td className="py-2.5">{row.engineer ? <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mx-auto" /> : <X className="w-4 h-4 text-slate-300 dark:text-slate-700 mx-auto" />}</td>
-                  <td className="py-2.5">{row.reviewer ? <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mx-auto" /> : <X className="w-4 h-4 text-slate-300 dark:text-slate-700 mx-auto" />}</td>
-                  <td className="py-2.5">{row.viewer ? <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mx-auto" /> : <X className="w-4 h-4 text-slate-300 dark:text-slate-700 mx-auto" />}</td>
+                <tr key={idx} className="hover:bg-white/[0.04]">
+                  <td className="py-2.5 text-left font-sans font-medium text-white/80">{row.module}</td>
+                  <td className="py-2.5">{row.admin ? <Check className="w-4 h-4 text-white mx-auto" /> : <X className="w-4 h-4 text-white/20 mx-auto" />}</td>
+                  <td className="py-2.5">{row.lead ? <Check className="w-4 h-4 text-white mx-auto" /> : <X className="w-4 h-4 text-white/20 mx-auto" />}</td>
+                  <td className="py-2.5">{row.engineer ? <Check className="w-4 h-4 text-white mx-auto" /> : <X className="w-4 h-4 text-white/20 mx-auto" />}</td>
+                  <td className="py-2.5">{row.reviewer ? <Check className="w-4 h-4 text-white mx-auto" /> : <X className="w-4 h-4 text-white/20 mx-auto" />}</td>
+                  <td className="py-2.5">{row.viewer ? <Check className="w-4 h-4 text-white mx-auto" /> : <X className="w-4 h-4 text-white/20 mx-auto" />}</td>
                 </tr>
               ))}
             </tbody>
@@ -292,20 +292,20 @@ export const AdministrationView: React.FC = () => {
       </div>
 
       {/* Audit Log */}
-      <div className="p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+      <div className="glass-card p-5 rounded-2xl space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <h2 className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-            <Clock className="w-4 h-4 text-primary-600 dark:text-primary-400" /> Registro Inmutable de Auditoría (Audit Log)
+          <h2 className="text-sm font-semibold text-white dark:text-white light:text-zinc-900 flex items-center gap-2">
+            <Clock className="w-4 h-4 text-white/70" /> Registro Inmutable de Auditoría (Audit Log)
           </h2>
 
           <div className="relative">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-3.5 h-3.5 text-white/40 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="Filtrar por acción o usuario..."
               value={auditSearch}
               onChange={(e) => setAuditSearch(e.target.value)}
-              className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs rounded-lg pl-8 pr-3 py-1.5 w-64 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-primary-500"
+              className="glass-input rounded-xl pl-8 pr-3 py-1.5 w-64 text-xs text-white"
             />
           </div>
         </div>
@@ -313,20 +313,20 @@ export const AdministrationView: React.FC = () => {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs font-mono">
             <thead>
-              <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500">
+              <tr className="border-b border-white/10 text-white/40">
                 <th className="pb-2">Tiempo</th>
                 <th className="pb-2">Actor</th>
                 <th className="pb-2">Acción</th>
                 <th className="pb-2">Detalles / Metadata</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/40">
+            <tbody className="divide-y divide-white/5">
               {filteredLogs.map((log) => (
-                <tr key={log.id} className="hover:bg-slate-50 dark:hover:bg-slate-850/40">
-                  <td className="py-2 text-slate-400 dark:text-slate-500 font-sans">{log.timestamp}</td>
-                  <td className="py-2 text-slate-700 dark:text-slate-300">{log.actor}</td>
-                  <td className="py-2 text-primary-600 dark:text-primary-400 font-semibold">{log.action}</td>
-                  <td className="py-2 text-slate-600 dark:text-slate-400 font-sans">{log.details}</td>
+                <tr key={log.id} className="hover:bg-white/[0.04]">
+                  <td className="py-2.5 text-white/50 font-sans">{log.timestamp}</td>
+                  <td className="py-2.5 text-white/80">{log.actor}</td>
+                  <td className="py-2.5 text-white font-medium">{log.action}</td>
+                  <td className="py-2.5 text-white/60 font-sans">{log.details}</td>
                 </tr>
               ))}
             </tbody>
@@ -336,37 +336,45 @@ export const AdministrationView: React.FC = () => {
 
       {/* Invite Modal */}
       {showInviteModal && (
-        <div className="fixed inset-0 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-6 max-w-md w-full space-y-4 shadow-2xl animate-in fade-in zoom-in-95">
-            <h3 className="text-base font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-              <UserPlus className="w-5 h-5 text-primary-600 dark:text-primary-400" /> Invitar Colaborador al Proyecto
-            </h3>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="glass-panel border border-white/15 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-glass animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                <UserPlus className="w-5 h-5 text-white/80" /> Invitar Colaborador al Proyecto
+              </h3>
+              <button onClick={() => setShowInviteModal(false)} className="text-white/40 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
             <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Nombre Completo</label>
+              <label className="block text-xs font-medium text-white/60 mb-1.5">Nombre Completo</label>
               <input
                 type="text"
                 placeholder="ej. Dra. Ana Beltrán"
                 value={inviteName}
                 onChange={(e) => setInviteName(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-primary-500"
+                className="w-full glass-input rounded-xl px-3 py-2 text-xs text-white"
               />
             </div>
+
             <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Correo Corporativo</label>
+              <label className="block text-xs font-medium text-white/60 mb-1.5">Correo Corporativo</label>
               <input
                 type="email"
                 placeholder="ana.beltran@neurolab.enterprise"
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-primary-500"
+                className="w-full glass-input rounded-xl px-3 py-2 text-xs text-white"
               />
             </div>
+
             <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Rol RBAC Asignado</label>
+              <label className="block text-xs font-medium text-white/60 mb-1.5">Rol RBAC Asignado</label>
               <select
                 value={inviteRole}
                 onChange={(e) => setInviteRole(e.target.value as UserRole)}
-                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-primary-500"
+                className="w-full glass-input rounded-xl px-3 py-2 text-xs text-white"
               >
                 <option value="AI_ENGINEER">AI_ENGINEER (Diseña, entrena y evalúa)</option>
                 <option value="PROJECT_LEAD">PROJECT_LEAD (Gestiona equipo y aprueba modelos)</option>
@@ -374,16 +382,17 @@ export const AdministrationView: React.FC = () => {
                 <option value="VIEWER">VIEWER (Visualización de dashboards)</option>
               </select>
             </div>
+
             <div className="flex justify-end gap-2 pt-2">
               <button
                 onClick={() => setShowInviteModal(false)}
-                className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                className="px-3.5 py-2 text-xs text-white/50 hover:text-white"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleInviteSubmit}
-                className="px-4 py-1.5 bg-primary-600 hover:bg-primary-700 text-white font-medium text-xs rounded-lg transition-colors"
+                className="px-4 py-2 glass-btn-primary text-xs font-semibold rounded-xl"
               >
                 Enviar Invitación
               </button>
