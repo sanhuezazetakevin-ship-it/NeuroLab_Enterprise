@@ -1,130 +1,456 @@
-# NeuroLab Enterprise 🧠🚀
-> **Plataforma Enterprise de Experimentación y Gestión de Redes Neuronales Artificiales**  
-> *Aplicación práctica de las operaciones de la Semana 11 (Machine Learning & Deep Learning)*  
-> *React + TypeScript + FastAPI + TensorFlow/Keras + PostgreSQL + Redis + Workers Asíncronos*
+# NeuroLab Enterprise
+
+Plataforma web para **diseñar, validar, entrenar, evaluar y versionar redes neuronales artificiales** con TensorFlow/Keras, trazabilidad de extremo a extremo y ejecución aislada del proceso de entrenamiento.
+
+> Aplicación práctica de la Semana 11: *Define la estructura y crea una red neuronal artificial*.
 
 ---
 
-## 🌟 Visión del Proyecto
-**NeuroLab Enterprise** es una plataforma web corporativa modular y extensible diseñada para que ingenieros de IA, científicos de datos y líderes técnicos puedan **comprender, diseñar, validar, entrenar, evaluar y versionar modelos de Redes Neuronales Artificiales (ANNs)** con los más altos estándares de trazabilidad, seguridad y escalabilidad empresarial.
+## 1. Estado real del proyecto
 
-La plataforma implementa rigurosamente el contenido académico de la Semana 11:
-1. **Definir la red neuronal y su importancia:** Módulo de fundamentos interactivo con conceptos, neuronas biológicas vs artificiales, pesos, sesgos y funciones de activación.
-2. **Describir la estructura:** Constructor visual interactivo de topologías neuronales con validación dimensional de tensores en servidor.
-3. **Identificar tipos de redes:** Catálogo y soporte para 4 familias principales: **Feedforward (FNN)**, **Recurrentes (RNN/LSTM/GRU)**, **Convolucionales (CNN)** y **Generativas Adversarias (GAN)**.
-4. **Crear redes con TensorFlow y Keras:** Motor de compilación, ejecución asíncrona en workers aislados, seguimiento de métricas en tiempo real vía Server-Sent Events / WebSockets y registro inmutable de modelos.
+Este repositorio es una implementación funcional, no una maqueta. La interfaz React consume la API real, la API persiste en base de datos, y el worker ejecuta entrenamiento Keras real.
 
----
+| Capacidad | Estado |
+|---|---|
+| Autenticación JWT, RBAC y ownership por proyecto | ✅ Implementado |
+| Proyectos, miembros y auditoría persistida | ✅ Implementado |
+| Diseñador visual y validación dimensional en servidor | ✅ Implementado |
+| Carga y validación de CSV (esquema, tamaño, target) | ✅ Implementado |
+| Entrenamiento real con TensorFlow/Keras en worker aislado | ✅ Implementado para **FEEDFORWARD** tabular |
+| Telemetría por época en vivo (SSE/WebSocket) con recuperación | ✅ Implementado |
+| Cancelación cooperativa al final de época | ✅ Implementado |
+| Artefactos `.keras` + scaler + preprocesador + manifiesto | ✅ Implementado |
+| Registro inmutable de modelos con SHA-256 y ciclo de vida | ✅ Implementado |
+| Reportes y exportaciones con datos persistidos | ✅ Implementado |
+| Administración de usuarios y estado del sistema | ✅ Implementado |
+| RNN / CNN / GAN | ⚠️ Se diseñan, validan y guardan; el entrenamiento devuelve `422` con la razón. Habilitación progresiva según el documento del MVP. |
+| Object storage S3/MinIO | ❌ No usado. Los artefactos se guardan en un volumen local compartido (`DATA_DIR` / `MODEL_DIR`). |
+| Redis | ✅ Backend de cola por defecto. Para desarrollo local también existe `QUEUE_BACKEND=filesystem`. |
 
-## 🏗️ Arquitectura de la Solución
-
-```
-                                  [ Usuario / Navegador ]
-                                             │
-                                   (React + TypeScript)
-                                             │  HTTP REST / WebSocket
-                                             ▼
-                                  [ API Gateway / FastAPI ]
-                                             │
-                      ┌──────────────────────┼──────────────────────┐
-                      ▼                      ▼                      ▼
-               [ PostgreSQL 16 ]       [ Redis Queue ]      [ Object Storage / MinIO ]
-               (Metadatos & Runs)     (Cola de Trabajos)     (Model Weights & Datasets)
-                                             │
-                                             ▼
-                                   [ Worker TensorFlow ]
-                                  (Keras Model Builder &
-                                    Epoch Telemetry Stream)
-```
+No hay rutas `MOCK_*`, datasets de demostración ni métricas inventadas en el frontend.
 
 ---
 
-## 📁 Estructura del Monorepo
+## 2. Arquitectura
+
+```mermaid
+flowchart LR
+    UI[React + TypeScript + Vite] -->|REST /api/v1| API[FastAPI]
+    UI -->|SSE / WebSocket| API
+    API -->|SQLAlchemy async| DB[(PostgreSQL 16)]
+    API -->|Encola job| Q[(Redis Queue)]
+    API -->|Pub/Sub| Q
+    W[Worker TensorFlow/Keras] -->|BLPOP job| Q
+    W -->|Métricas por época| DB
+    W -->|Eventos| Q
+    Q -->|Stream| API
+    W -->|.keras, scaler.pkl, manifiesto| FS[(Volumen MODEL_DIR)]
+    API -->|Descarga autenticada| FS
+    API -->|CSV| DS[(Volumen DATA_DIR)]
+```
+
+Principios aplicados:
+
+- **TensorFlow nunca se importa dentro de FastAPI.** La API sólo valida, persiste y encola; el worker es un proceso independiente.
+- **PostgreSQL es la fuente de verdad.** Redis transporta trabajos y eventos, pero el estado y las métricas se recuperan de la base de datos tras una reconexión.
+- **Máquina de estados estricta:** `QUEUED → PREPARING → RUNNING → COMPLETED | FAILED | CANCELLED`.
+- **Artefactos inmutables:** cada modelo exitoso genera una versión nueva con checksum SHA-256; nunca se sobreescribe.
+- **Sin datos simulados:** los reportes, KPIs y métricas provienen de la base de datos y de artefactos reales.
+
+---
+
+## 3. Stack
+
+| Capa | Tecnología |
+|---|---|
+| Frontend | React 19, TypeScript, Vite, Tailwind CSS, lucide-react |
+| API | FastAPI, Pydantic v2, SQLAlchemy 2 async, Alembic |
+| Base de datos | PostgreSQL 16 (SQLite async para desarrollo y pruebas) |
+| Cola / eventos | Redis 7 (`QUEUE_BACKEND=redis`) o filesystem (`QUEUE_BACKEND=filesystem`) |
+| ML | TensorFlow 2.x, Keras 3, scikit-learn, pandas, numpy |
+| Seguridad | bcrypt, JWT HS256, RBAC por rol global y por proyecto |
+| Almacenamiento | Volumen local o bucket S3 (Supabase Storage) |
+| Infraestructura | Docker Compose/Nginx local; Vercel + Railway + Supabase en cloud |
+
+---
+
+## 4. Estructura del repositorio
 
 ```
-neurolab-enterprise/
-├── apps/
-│   └── web/                   # Aplicación Frontend React + Vite + TypeScript + Tailwind
-│       └── src/
-│           ├── app/           # Enrutamiento, Providers y Configuración Global
-│           ├── components/    # Componentes de UI corporativa (Layout, Shell, Badges, Modales)
-│           ├── features/      # Módulos funcionales de negocio (M01 a M10)
-│           │   ├── dashboard/        # M01: Dashboard corporativo y KPIs
-│           │   ├── projects/         # M02: Gestión de proyectos y miembros
-│           │   ├── fundamentals/     # M03: Fundamentos neuronales y glosario interactivo
-│           │   ├── architectures/    # M04: Diseñador visual de redes (FNN, CNN, RNN, GAN)
-│           │   ├── datasets/         # M05: Catálogo y preparación de datos
-│           │   ├── training/         # M06: Orquestador y monitor en vivo de entrenamientos
-│           │   ├── evaluation/       # M07: Curvas de pérdida/exactitud y comparador
-│           │   ├── model-registry/   # M08: Registro inmutable y ciclo de vida de modelos
-│           │   ├── reports/          # M09: Generador de fichas y exportación
-│           │   └── administration/   # M10: RBAC, cuotas de cómputo y auditoría
-│           ├── lib/           # Clientes HTTP, adaptadores WebSocket/SSE y utilidades
-│           ├── hooks/         # Custom React Hooks
-│           ├── types/         # Definiciones TypeScript de entidades y contratos API
-│           └── styles/        # Estilos globales y tokens de diseño
-├── services/
-│   └── api/                   # Backend FastAPI RESTful v1
-│       ├── app/
-│       │   ├── api/v1/        # Routers por dominio (/projects, /architectures, /jobs, etc.)
-│       │   ├── core/          # Configuración, seguridad JWT, base de datos y logging
-│       │   ├── modules/       # Lógica de dominio y validación estricta de tensores
-│       │   ├── schemas/       # Modelos Pydantic v2 (contratos de entrada y salida)
-│       │   ├── repositories/  # Capa de acceso a datos con SQLAlchemy Async
-│       │   └── main.py        # Punto de entrada de la aplicación FastAPI
-│       └── tests/             # Pruebas unitarias y de integración
-├── workers/
-│   └── training/              # Worker asíncrono de TensorFlow/Keras
-│       ├── worker.py          # Consumidor de colas y ejecutor de máquina de estados
-│       ├── builder.py         # Compilador dinámico de arquitecturas Keras
-│       ├── trainer.py         # Callback de telemetría de época en tiempo real
-│       ├── evaluator.py       # Evaluación de métricas y matrices de validación
-│       └── storage.py         # Serialización de pesos y cálculo de hash SHA-256
+Neurolab_Enterprise/
+├── apps/web/                    # Frontend React + TypeScript
+│   └── src/
+│       ├── app/                 # Shell, routing y providers
+│       ├── features/            # M01–M10
+│       ├── lib/                 # Cliente API, AuthContext, AppContext
+│       └── types/               # Contratos TypeScript
+├── services/api/                # FastAPI
+│   ├── app/
+│   │   ├── api/v1/              # Routers por dominio
+│   │   ├── core/                # Config, DB, seguridad, deps, bootstrap
+│   │   ├── modules/             # Validación, datasets, cola, eventos, auditoría
+│   │   ├── repositories/        # Modelos ORM (fuente del esquema)
+│   │   └── schemas/             # Contratos Pydantic
+│   ├── alembic/                 # Migraciones
+│   └── tests/                   # Suite de integración
+├── workers/training/            # Worker aislado de TensorFlow/Keras
+│   ├── worker.py                # Consumidor y máquina de estados
+│   ├── preprocessing.py         # Imputación, encoding, split y escalado
+│   ├── builder.py               # Construcción del modelo Keras
+│   ├── trainer.py               # Callback de telemetría y cancelación
+│   ├── evaluator.py             # Evaluación final sobre test
+│   └── storage.py               # Artefactos, manifiesto y SHA-256
 ├── infra/
-│   ├── docker/                # Dockerfiles optimizados para Web, API y Worker
-│   ├── migrations/            # DDL SQL de PostgreSQL con particiones e índices
-│   └── monitoring/            # Configuración de métricas y health checks
-├── docs/
-│   ├── architecture/          # Diagramas C4, modelo de datos y decisiones técnicas
-│   ├── api/                   # Especificación OpenAPI y contratos de eventos
-│   └── operations/            # Guías de despliegue, seguridad y respaldo
-├── docker-compose.yml         # Orquestación completa de servicios locales
-└── README.md
+│   ├── docker/                  # Dockerfiles y Nginx
+│   └── migrations/              # DDL PostgreSQL generado (referencia)
+├── docs/                        # API, arquitectura, modelo de datos y operación
+├── docker-compose.yml
+└── .env.example
 ```
 
 ---
 
-## 🚀 Despliegue Rápido Local con Docker
+## 5. Inicio rápido con Docker
 
-Para levantar la suite completa (PostgreSQL, Redis, MinIO, API FastAPI, Worker TensorFlow y Frontend React):
+Requisitos: Docker Engine 24+ y Docker Compose v2.
 
 ```bash
-# 1. Clonar el repositorio y copiar variables de entorno
 cp .env.example .env
-
-# 2. Iniciar los contenedores
-docker-compose up --build
+docker compose up --build
 ```
 
-- **Frontend Web:** http://localhost:5173
-- **API FastAPI (Docs Swagger):** http://localhost:8000/docs
-- **Métricas / Healthcheck:** http://localhost:8000/health
-- **MinIO Object Storage Console:** http://localhost:9001 (minioadmin / minioadmin)
+Servicios:
+
+| Servicio | URL |
+|---|---|
+| Frontend | http://localhost:5173 |
+| API | http://localhost:8000 |
+| Swagger UI | http://localhost:8000/api/v1/docs |
+| Healthcheck | http://localhost:8000/health |
+| PostgreSQL | `localhost:5432` |
+| Redis | `localhost:6379` |
+
+El frontend se sirve con Nginx y consume la API a través del proxy `/api/` del mismo origen (sin CORS y con SSE sin buffering). Los volúmenes `uploads` y `models` están compartidos entre `api` y `worker`; sin ese requisito el worker no puede leer los CSV ni la API descargar los modelos.
+
+### Credenciales iniciales
+
+Se crea un único administrador **sólo si la tabla `users` está vacía**:
+
+- **Email:** `admin@neurolab.enterprise`
+- **Contraseña:** `Admin123!`
+
+Cambie la contraseña en el primer acceso. Las variables `SEED_ADMIN_*` no restablecen contraseñas existentes.
+
+### Modo producción
+
+Con `ENVIRONMENT=production` la API **no** ejecuta `create_all`. El contenedor
+`infra/docker/entrypoint.api.sh` aplica `alembic upgrade head` y ejecuta
+`python -m app.cli seed-admin` antes de arrancar Uvicorn. El seed solo crea el
+administrador si la tabla `users` está vacía.
+
+También puede ejecutar los pasos manualmente:
+
+```bash
+docker compose run --rm api alembic upgrade head
+docker compose run --rm api python -m app.cli seed-admin
+docker compose up -d
+```
+
+Configure una `SECRET_KEY` robusta: la aplicación rechaza la clave insegura por
+defecto en producción.
+
+### Despliegue cloud: Supabase + Vercel + Railway
+
+El frontend puede publicarse en Vercel, la API y el worker en Railway, y la
+base de datos/artefactos en Supabase. La guía completa, variables y límites del
+plan temporal están en
+[`docs/operations/DEPLOY_SUPABASE_VERCEL_RAILWAY.md`](docs/operations/DEPLOY_SUPABASE_VERCEL_RAILWAY.md).
+
+Resumen:
+
+| Componente | Plataforma |
+|---|---|
+| Base de datos | Supabase Postgres (Session pooler, `sslmode=require`) |
+| CSV y modelos `.keras` | Supabase Storage (bucket privado `neurolab`) |
+| Frontend | Vercel, root `apps/web`, `VITE_API_URL=https://<api>/api/v1` |
+| API + worker | Railway, Dockerfiles `infra/docker/Dockerfile.api` y `Dockerfile.worker` |
+| Cola | Railway Redis (`REDIS_URL=${{Redis.REDIS_URL}}`) |
+
+El plan Free Trial de Railway dura 30 días, incluye $5 de crédito y limita cada
+servicio a 1 GB de RAM. Render no se usa porque su plan gratuito no permite
+background workers y solo ofrece 512 MB.
 
 ---
 
-## 👥 Matriz de Roles (RBAC)
+## 6. Desarrollo local sin Docker
 
-1. **Administrador:** Gestión de usuarios, asignación de cuotas de cómputo y auditoría global.
-2. **Responsable de Proyecto:** Crea proyectos, gestiona colaboradores y aprueba versiones de modelos para producción.
-3. **Ingeniero/Analista de IA:** Diseña arquitecturas neuronales, configura datasets y despacha entrenamientos.
-4. **Revisor:** Valida métricas, compara curvas de entrenamiento y emite aprobaciones.
-5. **Lector:** Consulta de dashboards, estadísticas y reportes en modo solo lectura.
+### 6.1 API
+
+```bash
+cd services/api
+python -m venv .venv
+
+# Windows
+.venv\Scripts\activate
+# Linux/macOS
+source .venv/bin/activate
+
+pip install -r requirements.txt
+
+# Opción A: PostgreSQL y Redis locales
+$env:DATABASE_URL="postgresql+asyncpg://neurolab:neurolab_secure_pass@localhost:5432/neurolab_db"
+$env:REDIS_URL="redis://localhost:6379/0"
+$env:QUEUE_BACKEND="redis"
+
+# Opción B: sin infraestructura (SQLite + cola en disco)
+$env:DATABASE_URL="sqlite+aiosqlite:///./neurolab_dev.db"
+$env:QUEUE_BACKEND="filesystem"
+
+uvicorn app.main:app --reload --port 8000
+```
+
+En desarrollo (`ENVIRONMENT=development`) la API crea el esquema automáticamente y siembra el administrador si no hay usuarios.
+
+### 6.2 Worker de entrenamiento
+
+Debe apuntar a la **misma base de datos** y a los **mismos directorios** que la API. El worker convierte automáticamente `postgresql+asyncpg` → `postgresql+psycopg2` y `sqlite+aiosqlite` → `sqlite`.
+
+```bash
+cd workers/training
+python -m venv .venv
+
+# Windows
+.venv\Scripts\activate
+# Linux/macOS
+source .venv/bin/activate
+
+pip install -r requirements.txt
+
+$env:DATABASE_URL="sqlite+aiosqlite:///../../services/api/neurolab_dev.db"
+$env:QUEUE_BACKEND="filesystem"
+$env:DATA_DIR="../../services/api/data/uploads"
+$env:MODEL_DIR="../../services/api/data/models"
+
+python worker.py                 # daemon continuo
+python worker.py --once          # procesa un trabajo y sale
+python worker.py --job-id <uuid> # re-ejecuta un trabajo concreto desde la BD
+```
+
+### 6.3 Frontend
+
+```bash
+cd apps/web
+npm install
+npm run dev
+```
+
+El cliente usa `VITE_API_URL` o, por defecto, `http://localhost:8000/api/v1`. Para apuntar a otro backend cree `apps/web/.env.local`:
+
+```env
+VITE_API_URL=http://localhost:8000/api/v1
+```
 
 ---
 
-## 🔒 Reglas Críticas de Negocio y Seguridad
-- **Sin ejecuciones en el cliente:** TensorFlow nunca se ejecuta en el navegador para tareas de entrenamiento real.
-- **Validación matemática en Backend:** Toda configuración de capas es validada dimensionalmente en FastAPI antes de encolar.
-- **Máquina de estados estricta:** `QUEUED` ➔ `PREPARING` ➔ `RUNNING` ➔ `COMPLETED` / `FAILED` / `CANCELLED`.
-- **Inmutabilidad de Modelos:** Los modelos entrenados se guardan con su hash SHA-256 y nunca se sobreescriben.
+## 7. Flujo de entrenamiento (MVP)
+
+1. El usuario inicia sesión y crea o abre un proyecto con rol de escritura.
+2. Sube un CSV. La API valida encabezados, tamaño, filas, columnas, target y detecta la tarea (`classification` o `regression`).
+3. Diseña una red **FEEDFORWARD** y la guarda. La validación dimensional se ejecuta en el servidor y se repite al encolar.
+4. Inicia el entrenamiento con hiperparámetros (`epochs`, `batch_size`, `optimizer`, `learning_rate`, `random_seed`, `validation_split`).
+5. La API persiste el job en `QUEUED` y escribe el descriptor en Redis (o en la cola de archivos).
+6. El worker lo reclama: `QUEUED → PREPARING → RUNNING`.
+7. En cada época el worker:
+   - persiste las métricas en `training_metrics`;
+   - actualiza `progress` y publica un evento en Redis Pub/Sub;
+   - comprueba cancelación y timeout de forma cooperativa.
+8. Al finalizar:
+   - evalúa sobre el conjunto de prueba reservado;
+   - guarda `model.keras`, `scaler.pkl`, `preprocessor.pkl` y `training_manifest.json`;
+   - crea una versión de modelo `DRAFT` con checksum SHA-256;
+   - marca el job como `COMPLETED`, `FAILED` o `CANCELLED`.
+9. La UI actualiza métricas y estado sin recargar. Al reconectar recibe un `snapshot` desde la base de datos y continúa con los eventos en vivo.
+
+### Preprocesamiento real
+
+- Lectura robusta de CSV (`utf-8`, `utf-8-sig`, `latin-1`, separador autodetectado).
+- Eliminación de filas sin target y validación de al menos 10 filas.
+- Detección de tarea y de tipos de columna.
+- Imputación: mediana para numéricas, moda para categóricas.
+- `StandardScaler` para numéricas; one-hot hasta 30 categorías; ordinal para el resto.
+- Split estratificado 70/15/15 cuando la tarea es clasificación.
+- Ajuste automático de la capa de salida: sigmoide/binaria, softmax/multiclase o lineal/regresión.
+- Límite de 5.000 características tras codificar.
+
+### Validación de CSV
+
+| Regla | Límite |
+|---|---|
+| Extensión | `.csv` |
+| Tamaño máximo | 50 MB (`MAX_UPLOAD_MB`) |
+| Filas | 10 a 500.000 (`MAX_CSV_ROWS`) |
+| Columnas | 2 a 500 (`MAX_CSV_COLUMNS`) |
+| Encabezados | explícitos, no vacíos, sin duplicados |
+| Target | debe existir y tener al menos 2 valores distintos |
+
+Los errores de validación devuelven `422` con un mensaje legible; un archivo demasiado grande devuelve `413`.
+
+---
+
+## 8. Tiempo real y recuperación
+
+- **SSE:** `GET /api/v1/training-jobs/{job_id}/events?token=<JWT>`
+- **WebSocket:** `WS /api/v1/training-jobs/{job_id}/events/ws?token=<JWT>`
+- **Eventos:** `snapshot`, `epoch_end`, `metrics`, `state`, `error`.
+- **Canal Redis:** `neurolab:job:{job_id}:events`.
+- **Cancelación:** clave `neurolab:job:{job_id}:cancel` y publicación de control; en filesystem, `DATA_DIR/cancellations/{job_id}.flag`.
+
+El stream siempre empieza con un `snapshot` leído de PostgreSQL. Después combina Pub/Sub con sondeo periódico a la base de datos. Si el cliente se desconecta o Redis se reinicia, el estado y las épocas faltantes se recuperan sin pérdida.
+
+La cancelación se atiende al inicio o al final de una época; no se destruye el proceso ni se corrompe el artefacto.
+
+---
+
+## 9. Roles y permisos
+
+Roles globales: `ADMIN`, `PROJECT_LEAD`, `AI_ENGINEER`, `REVIEWER`, `VIEWER`.
+
+| Acción | Roles |
+|---|---|
+| Crear proyecto | `ADMIN`, `PROJECT_LEAD`, `AI_ENGINEER` |
+| Editar proyecto / gestionar miembros | `ADMIN`, `PROJECT_LEAD` (rol efectivo en el proyecto) |
+| Subir datasets, crear arquitecturas, entrenar, cancelar | `ADMIN`, `PROJECT_LEAD`, `AI_ENGINEER` |
+| Aprobar o retirar modelos | `ADMIN`, `PROJECT_LEAD` |
+| Administración de usuarios y sistema | `ADMIN` |
+| Consulta de proyectos, datasets, jobs, modelos y auditoría | Cualquier miembro del proyecto |
+
+Reglas adicionales:
+
+- El propietario del proyecto tiene rol efectivo `PROJECT_LEAD`.
+- Un usuario sin membresía recibe `404` (no se filtra la existencia de proyectos ajenos).
+- Un `ADMIN` global tiene acceso a todos los proyectos.
+- El frontend oculta acciones no permitidas, pero la autorización real siempre se valida en el backend.
+
+---
+
+## 10. Módulos de la aplicación
+
+| Módulo | Implementación |
+|---|---|
+| **M01 Dashboard** | KPIs reales de proyectos, jobs recientes, modelos y auditoría; estado del sistema sólo para `ADMIN`. |
+| **M02 Proyectos** | CRUD, miembros por email, rol efectivo y conteos reales. |
+| **M03 Fundamentos** | Conceptos, activaciones y familias servidos por `/fundamentals`. |
+| **M04 Diseñador** | Topologías FNN/RNN/CNN/GAN, validación en servidor y guardado versionado. |
+| **M05 Datasets** | Carga CSV, validación, metadatos, preview y eliminación con control de trazabilidad. |
+| **M06 Entrenamiento** | Lanzamiento, monitor en vivo, historial de épocas y cancelación. |
+| **M07 Evaluación** | Curvas reales por época y comparación de jobs; métricas finales persistidas. |
+| **M08 Registro de modelos** | Versiones inmutables, checksum, descarga `.keras` y transiciones `DRAFT → REVIEWED → APPROVED → RETIRED`. |
+| **M09 Reportes** | Fichas y exportaciones CSV/JSON construidas sólo con datos persistidos. |
+| **M10 Administración** | Usuarios, roles, estados, estado de BD/Redis/cola y auditoría. |
+
+### Ciclo de vida del modelo
+
+```
+DRAFT ──▶ REVIEWED ──▶ APPROVED ──▶ RETIRED
+  │           │
+  └───────────┴──────────────────────▶ RETIRED
+```
+
+`APPROVED` y `RETIRED` requieren `ADMIN` o `PROJECT_LEAD`. Cada transición queda auditada con actor, versión, estado anterior y motivo.
+
+---
+
+## 11. API
+
+Prefijo: `/api/v1`. Autenticación: `Authorization: Bearer <JWT>`.
+
+| Grupo | Endpoints principales |
+|---|---|
+| Auth | `POST /auth/login`, `GET /auth/me`, `POST /auth/change-password` |
+| Proyectos | `GET/POST /projects`, `GET/PATCH /projects/{id}`, miembros |
+| Arquitecturas | `POST /projects/{id}/architectures/validate`, `GET/POST /projects/{id}/architectures` |
+| Datasets | `GET /projects/{id}/datasets`, `POST .../upload`, `GET .../{id}`, `GET .../{id}/preview`, `DELETE .../{id}` |
+| Entrenamiento | `GET/POST /projects/{id}/training-jobs`, `GET /training-jobs/{id}`, `GET .../metrics`, `POST .../cancel`, SSE/WS |
+| Modelos | `GET /projects/{id}/models`, `GET/PATCH /models/{id}`, `PATCH /models/{id}/status`, `GET /models/{id}/download` |
+| Auditoría | `GET /projects/{id}/audit-events?action=&limit=` |
+| Administración | `GET/POST /admin/users`, `PATCH /admin/users/{id}`, `GET /admin/system` |
+| Fundamentos | `GET /fundamentals` |
+| Salud | `GET /health` |
+
+La especificación detallada, incluidos códigos de error y eventos, está en [`docs/api/API_SPECIFICATION.md`](docs/api/API_SPECIFICATION.md).
+
+---
+
+## 12. Pruebas
+
+```bash
+cd services/api
+python -m pytest -q
+```
+
+La suite usa SQLite async temporal, cola filesystem y directorios aislados. Cubre autenticación, RBAC, proyectos, validación de datasets, flujo de entrenamiento (incluida cancelación y contrato SSE) y ciclo de vida/auditoría de modelos.
+
+Frontend:
+
+```bash
+cd apps/web
+npm run build
+```
+
+El build ejecuta `tsc` y falla ante errores de tipos.
+
+### Prueba E2E manual
+
+Con la API y el worker apuntando a la misma base de datos y a los mismos directorios:
+
+1. Inicie sesión y cree un proyecto.
+2. Suba un CSV válido con target.
+3. Cree una arquitectura `FEEDFORWARD` cuyo `input_shape` coincida con las características del dataset.
+4. Lance un job con pocas épocas (por ejemplo, 5).
+5. Ejecute el worker (`python worker.py --once` o daemon) y observe el estado en la UI.
+6. Al completar, descargue el `.keras` desde el registro de modelos.
+
+---
+
+## 13. Migraciones
+
+Alembic es la fuente de verdad del esquema. Los modelos ORM están en `services/api/app/repositories/models.py`.
+
+```bash
+cd services/api
+
+# Aplicar
+alembic upgrade head
+
+# Ver la revisión actual
+alembic current
+
+# Verificar que no hay cambios sin migrar
+alembic check
+
+# Crear una nueva migración tras cambiar los modelos
+alembic revision --autogenerate -m "descripcion"
+```
+
+`infra/migrations/001_initial_schema.sql` es una referencia PostgreSQL generada desde Alembic. **No** se monta como script de inicialización.
+
+---
+
+## 14. Limitaciones conocidas (MVP)
+
+- Entrenamiento real habilitado sólo para **FEEDFORWARD** sobre CSV tabular. RNN/CNN/GAN se validan y persisten, pero el worker rechaza su entrenamiento con un mensaje explícito.
+- La descarga de modelos expone únicamente `model.keras`; scaler, preprocesador y manifiesto quedan junto al artefacto en el volumen para trazabilidad y reutilización.
+- El rate limit de login es en memoria por proceso. En un despliegue con varias réplicas debe moverse a Redis.
+- El almacenamiento local (`STORAGE_BACKEND=local`) exige que API y worker compartan volumen. Para hosts separados use `STORAGE_BACKEND=s3` (Supabase Storage, MinIO, S3 o R2); el despliegue cloud documentado usa Supabase Storage.
+- No se implementa despliegue de modelos ni inferencia en línea; el alcance termina en registro, aprobación y descarga del artefacto.
+- Las notificaciones en tiempo real requieren Redis; en modo filesystem el frontend usa el sondeo de respaldo de la API.
+
+---
+
+## 15. Documentación
+
+- [Especificación de API y eventos](docs/api/API_SPECIFICATION.md)
+- [Arquitectura y decisiones](docs/architecture/ARCHITECTURE.md)
+- [Modelo de datos](docs/architecture/DATA_MODEL.md)
+- [Guía de despliegue y operación](docs/operations/DEPLOYMENT_GUIDE.md)
+- [Despliegue Supabase + Vercel + Railway](docs/operations/DEPLOY_SUPABASE_VERCEL_RAILWAY.md)

@@ -16,3 +16,10 @@ dependencies = [
     "asyncpg>=0.29.0",
     "redis>=5.0.2"
 ]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]

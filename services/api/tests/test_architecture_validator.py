@@ -21,7 +21,7 @@ def test_feedforward_invalid_layer_units():
     topology = NetworkTopology(
         input_shape=[10],
         layers=[
-            LayerConfig(type="Dense", units=-5, activation="relu")
+            LayerConfig(type="Dense", activation="relu")
         ]
     )
     result = ArchitectureValidator.validate_topology(topology, "FEEDFORWARD")

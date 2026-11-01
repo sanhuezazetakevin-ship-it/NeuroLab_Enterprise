@@ -1,100 +1,357 @@
-import asyncio
-import json
-from uuid import UUID, uuid4
 from datetime import datetime, timezone
-from typing import List
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, status
+from typing import List, Optional
+from uuid import UUID
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+    status,
+)
 from fastapi.responses import StreamingResponse
-from app.schemas.training import TrainingJobCreate, TrainingJobResponse, TrainingMetricResponse
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import AsyncSessionLocal, get_db
+from app.core.deps import WRITE_ROLES, ensure_project_role, get_current_user, get_user_from_token, project_access
+from app.core.security import decode_access_token
+from app.modules.architectures.validator import ArchitectureValidator
+from app.modules.audit.service import record_audit
+from app.modules.training.events import (
+    format_sse,
+    job_snapshot,
+    metric_rows_to_history,
+    stream_job_events,
+)
+from app.modules.training.queue import QueueUnavailableError
 from app.modules.training.service import training_orchestrator
-from app.core.events import event_manager
+from app.repositories.models import (
+    ArchitectureModel,
+    DatasetModel,
+    TrainingJobModel,
+    TrainingMetricModel,
+    UserModel,
+)
+from app.schemas.architecture import NetworkTopology
+from app.schemas.training import TrainingJobCreate, TrainingJobResponse, TrainingMetricResponse
 
 router = APIRouter(tags=["Entrenamientos"])
 
-MOCK_JOBS: List[dict] = [
-    {
-        "id": UUID("cccccccc-cccc-cccc-cccc-cccccccccccc"),
-        "project_id": UUID("11111111-1111-1111-1111-111111111111"),
-        "architecture_id": UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
-        "dataset_id": UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
-        "status": "COMPLETED",
-        "progress": 100.0,
-        "hyperparameters": {
-            "epochs": 20,
-            "batch_size": 32,
-            "optimizer": "adam",
-            "learning_rate": 0.001,
-            "loss": "binary_crossentropy",
-            "metrics": ["accuracy"]
+ACTIVE_STATES = {"QUEUED", "PREPARING", "RUNNING"}
+TERMINAL_STATES = {"COMPLETED", "FAILED", "CANCELLED"}
+
+
+async def _serialize_job(db: AsyncSession, job: TrainingJobModel) -> TrainingJobResponse:
+    rows = (
+        await db.scalars(
+            select(TrainingMetricModel)
+            .where(TrainingMetricModel.job_id == job.id)
+            .order_by(TrainingMetricModel.epoch, TrainingMetricModel.metric_name)
+        )
+    ).all()
+    return TrainingJobResponse(
+        id=job.id,
+        project_id=job.project_id,
+        architecture_id=job.architecture_id,
+        dataset_id=job.dataset_id,
+        status=job.status,
+        progress=job.progress,
+        hyperparameters=job.hyperparameters or {},
+        cancel_requested=job.cancel_requested,
+        started_at=job.started_at,
+        ended_at=job.ended_at,
+        error_message=job.error_message,
+        created_at=job.created_at,
+        metrics=metric_rows_to_history(list(rows)),
+    )
+
+
+async def _job_with_access(
+    db: AsyncSession, job_id: UUID, user: UserModel, write: bool = False
+) -> tuple[TrainingJobModel, str]:
+    job = await db.get(TrainingJobModel, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Trabajo de entrenamiento no encontrado")
+    _, role = await project_access(db, job.project_id, user)
+    if write:
+        ensure_project_role(role, WRITE_ROLES, "modificar entrenamientos")
+    return job, role
+
+
+@router.get("/projects/{project_id}/training-jobs", response_model=List[TrainingJobResponse])
+async def list_training_jobs(
+    project_id: UUID,
+    user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await project_access(db, project_id, user)
+    jobs = (
+        await db.scalars(
+            select(TrainingJobModel)
+            .where(TrainingJobModel.project_id == project_id)
+            .order_by(TrainingJobModel.created_at.desc())
+        )
+    ).all()
+    return [await _serialize_job(db, job) for job in jobs]
+
+
+@router.post(
+    "/projects/{project_id}/training-jobs",
+    response_model=TrainingJobResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def start_training_job(
+    project_id: UUID,
+    payload: TrainingJobCreate,
+    user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    _, role = await project_access(db, project_id, user)
+    ensure_project_role(role, WRITE_ROLES, "iniciar entrenamientos")
+
+    architecture = await db.get(ArchitectureModel, payload.architecture_id)
+    if not architecture or architecture.project_id != project_id:
+        raise HTTPException(status_code=422, detail="La arquitectura no pertenece al proyecto")
+
+    dataset = await db.get(DatasetModel, payload.dataset_id)
+    if not dataset or dataset.project_id != project_id:
+        raise HTTPException(status_code=422, detail="El dataset no pertenece al proyecto")
+    if not dataset.verified:
+        raise HTTPException(status_code=422, detail="El dataset no está verificado")
+
+    topology = NetworkTopology.model_validate(architecture.config_json)
+    validation = ArchitectureValidator.validate_topology(topology, architecture.family)
+    if not validation.valid:
+        raise HTTPException(
+            status_code=422,
+            detail={"message": "Arquitectura inválida", "errors": validation.errors},
+        )
+    if not validation.trainable:
+        raise HTTPException(
+            status_code=422,
+            detail=validation.trainable_reason or "Familia no habilitada para entrenamiento",
+        )
+
+    metadata = dataset.metadata_json or {}
+    target = (payload.target_column or dataset.target_column or "").strip()
+    if not target:
+        raise HTTPException(
+            status_code=422,
+            detail="Debe indicar la columna objetivo (target) del dataset",
+        )
+    column_names = {column.get("name") for column in metadata.get("columns", [])}
+    if column_names and target not in column_names:
+        raise HTTPException(
+            status_code=422, detail=f"La columna objetivo '{target}' no existe en el dataset"
+        )
+    task = payload.task or metadata.get("task")
+    if not task:
+        raise HTTPException(status_code=422, detail="No fue posible determinar el tipo de tarea")
+
+    hyperparameters = payload.hyperparameters.model_dump()
+    hyperparameters.update(
+        {
+            "target_column": target,
+            "task": task,
+            "dataset_checksum": dataset.checksum,
+            "dataset_version": dataset.version,
+            "code_version": "1.0.0",
+        }
+    )
+
+    job = TrainingJobModel(
+        project_id=project_id,
+        architecture_id=architecture.id,
+        dataset_id=dataset.id,
+        status="QUEUED",
+        progress=0.0,
+        hyperparameters=hyperparameters,
+        cancel_requested=False,
+        requested_by=user.id,
+    )
+    db.add(job)
+    await db.flush()
+    await record_audit(
+        db,
+        actor_id=user.id,
+        action="TRAINING_JOB_QUEUED",
+        project_id=project_id,
+        metadata={
+            "job_id": str(job.id),
+            "architecture_id": str(architecture.id),
+            "dataset_id": str(dataset.id),
+            "epochs": hyperparameters.get("epochs"),
+            "target_column": target,
+            "task": task,
         },
-        "started_at": datetime.now(timezone.utc),
-        "ended_at": datetime.now(timezone.utc),
-        "error_message": None,
-        "created_at": datetime.now(timezone.utc)
-    }
-]
+    )
+    await db.commit()
 
-@router.post("/projects/{project_id}/training-jobs", response_model=TrainingJobResponse, status_code=status.HTTP_202_ACCEPTED)
-async def start_training_job(project_id: UUID, req: TrainingJobCreate):
-    job_id = uuid4()
-    job = {
-        "id": job_id,
-        "project_id": project_id,
-        "architecture_id": req.architecture_id,
-        "dataset_id": req.dataset_id,
-        "status": "QUEUED",
-        "progress": 0.0,
-        "hyperparameters": req.hyperparameters.dict(),
-        "started_at": None,
-        "ended_at": None,
-        "error_message": None,
-        "created_at": datetime.now(timezone.utc)
-    }
-    MOCK_JOBS.insert(0, job)
-
-    # Disparar orquestador hacia cola de Redis (con fallback si Redis no está activo)
     try:
         await training_orchestrator.enqueue_training_job(
-            job_id=job_id,
+            job_id=job.id,
             project_id=project_id,
-            architecture_id=req.architecture_id,
-            dataset_id=req.dataset_id,
-            hyperparameters=req.hyperparameters.dict()
+            architecture_id=architecture.id,
+            dataset_id=dataset.id,
+            hyperparameters=hyperparameters,
+            architecture={
+                "id": str(architecture.id),
+                "name": architecture.name,
+                "family": architecture.family,
+                "config_json": architecture.config_json,
+                "version": architecture.version,
+            },
+            dataset={
+                "id": str(dataset.id),
+                "storage_key": dataset.storage_key,
+                "checksum": dataset.checksum,
+                "metadata_json": metadata,
+            },
+            target_column=target,
+            task=task,
         )
-    except Exception:
-        # Modo simulación local directa si redis no está levantado
-        pass
+    except QueueUnavailableError as exc:
+        job.status = "FAILED"
+        job.error_message = str(exc)
+        job.ended_at = datetime.now(timezone.utc)
+        await record_audit(
+            db,
+            actor_id=user.id,
+            action="TRAINING_JOB_ENQUEUE_FAILED",
+            project_id=project_id,
+            metadata={"job_id": str(job.id), "error": str(exc)},
+        )
+        await db.commit()
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc))
 
-    return job
+    await db.refresh(job)
+    return await _serialize_job(db, job)
 
-@router.get("/training-jobs/{id}", response_model=TrainingJobResponse)
-async def get_training_job(id: UUID):
-    for job in MOCK_JOBS:
-        if job["id"] == id:
-            return job
-    raise HTTPException(status_code=404, detail="Trabajo de entrenamiento no encontrado")
 
-@router.post("/training-jobs/{id}/cancel", status_code=status.HTTP_200_OK)
-async def cancel_training_job(id: UUID):
-    for job in MOCK_JOBS:
-        if job["id"] == id:
-            if job["status"] in ["COMPLETED", "FAILED", "CANCELLED"]:
-                raise HTTPException(status_code=400, detail="El trabajo ya finalizó o fue cancelado")
-            job["status"] = "CANCELLED"
-            job["ended_at"] = datetime.now(timezone.utc)
-            try:
-                await training_orchestrator.request_job_cancellation(id)
-            except Exception:
-                pass
-            return {"message": "Solicitud de cancelación enviada al worker"}
-    raise HTTPException(status_code=404, detail="Trabajo no encontrado")
+@router.get("/training-jobs/{job_id}", response_model=TrainingJobResponse)
+async def get_training_job(
+    job_id: UUID,
+    user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    job, _ = await _job_with_access(db, job_id, user)
+    return await _serialize_job(db, job)
 
-@router.websocket("/training-jobs/{id}/events")
-async def websocket_job_events(websocket: WebSocket, id: UUID):
-    await event_manager.connect(str(id), websocket)
+
+@router.get("/training-jobs/{job_id}/metrics", response_model=List[TrainingMetricResponse])
+async def get_training_metrics(
+    job_id: UUID,
+    user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _job_with_access(db, job_id, user)
+    return (
+        await db.scalars(
+            select(TrainingMetricModel)
+            .where(TrainingMetricModel.job_id == job_id)
+            .order_by(TrainingMetricModel.epoch, TrainingMetricModel.metric_name)
+        )
+    ).all()
+
+
+@router.post("/training-jobs/{job_id}/cancel", status_code=status.HTTP_202_ACCEPTED)
+async def cancel_training_job(
+    job_id: UUID,
+    user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    job, _ = await _job_with_access(db, job_id, user, write=True)
+    if job.status in TERMINAL_STATES:
+        raise HTTPException(status_code=409, detail="El trabajo ya finalizó")
+    if job.cancel_requested:
+        return {"message": "La cancelación ya fue solicitada", "status": job.status}
+
+    job.cancel_requested = True
+    await record_audit(
+        db,
+        actor_id=user.id,
+        action="TRAINING_JOB_CANCEL_REQUESTED",
+        project_id=job.project_id,
+        metadata={"job_id": str(job.id), "status": job.status},
+    )
+    await db.commit()
+
     try:
-        while True:
-            # Mantener conexión abierta y escuchar pings del cliente
-            data = await websocket.receive_text()
+        await training_orchestrator.request_job_cancellation(job.id)
+    except QueueUnavailableError as exc:
+        # La solicitud quedó persistida; el worker la aplicará al reconectar.
+        job.error_message = f"Cancelación persistida; notificación pendiente: {exc}"
+        await db.commit()
+
+    return {
+        "message": "Solicitud de cancelación registrada. El worker confirmará el estado final.",
+        "status": job.status,
+        "cancel_requested": True,
+    }
+
+
+async def _event_user(request: Request, token: Optional[str], db: AsyncSession) -> UserModel:
+    header = request.headers.get("authorization", "")
+    bearer = header[7:] if header.lower().startswith("bearer ") else None
+    resolved = bearer or token
+    if not resolved:
+        raise HTTPException(status_code=401, detail="Token requerido para el canal de eventos")
+    payload = decode_access_token(resolved)
+    user = await db.get(UserModel, UUID(payload["sub"]))
+    if not user or user.status != "ACTIVE":
+        raise HTTPException(status_code=401, detail="Usuario inválido")
+    return user
+
+
+@router.get("/training-jobs/{job_id}/events")
+async def stream_training_events(
+    job_id: UUID,
+    request: Request,
+    token: Optional[str] = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    user = await _event_user(request, token, db)
+    await _job_with_access(db, job_id, user)
+    return StreamingResponse(
+        (format_sse(event) async for event in stream_job_events(job_id)),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.websocket("/training-jobs/{job_id}/events/ws")
+async def websocket_job_events(websocket: WebSocket, job_id: UUID, token: Optional[str] = Query(default=None)):
+    await websocket.accept()
+    try:
+        async with AsyncSessionLocal() as db:
+            user = await get_user_from_token(token or "", db)
+            job = await db.get(TrainingJobModel, job_id)
+            if not job:
+                await websocket.close(code=4404)
+                return
+            await project_access(db, job.project_id, user)
+    except HTTPException:
+        await websocket.close(code=4401)
+        return
+    except Exception:
+        await websocket.close(code=4400)
+        return
+
+    try:
+        async for event in stream_job_events(job_id):
+            await websocket.send_json(event)
     except WebSocketDisconnect:
-        event_manager.disconnect(str(id), websocket)
+        pass
+    except Exception:
+        try:
+            await websocket.close()
+        except Exception:
+            pass

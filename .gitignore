@@ -45,3 +45,9 @@ tensorboard_logs/
 pgdata/
 miniodata/
 redisdata/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite3
+services/api/data/
+workers/training/data/

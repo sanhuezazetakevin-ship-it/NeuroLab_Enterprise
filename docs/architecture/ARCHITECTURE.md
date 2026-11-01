@@ -1,51 +1,318 @@
-# Arquitectura de Software - NeuroLab Enterprise
+# Arquitectura de NeuroLab Enterprise
 
-## 1. Visión y Metas Técnicas
-NeuroLab Enterprise resuelve la brecha entre la experimentación académica de redes neuronales (Semana 11) y el estándar industrial de software. Los requerimientos no funcionales clave son:
-- **Resiliencia:** Un fallo o cancelación en un entrenamiento no compromete la API ni el frontend.
-- **Trazabilidad:** Cada peso de modelo guardado tiene un hash SHA-256 asociado a su arquitectura y dataset exactos.
-- **Seguridad:** Aislamiento de procesos (sandboxing) y RBAC (Role-Based Access Control).
+## 1. Visión y metas técnicas
 
-## 2. Diagrama de Capas (C4 Modelo - Nivel 2: Contenedores)
+NeuroLab Enterprise conecta la experimentación académica con redes neuronales (Semana 11) con un estándar de operación empresarial:
+
+- **Aislamiento de cómputo:** TensorFlow/Keras se ejecuta exclusivamente en un proceso worker, nunca dentro del proceso FastAPI.
+- **Trazabilidad:** cada job conserva hiperparámetros, checksum del dataset, versión de código, métricas por época y auditoría.
+- **Reproducibilidad:** semilla aleatoria, split congelado, artefactos de preprocesamiento y checksum SHA-256 del modelo.
+- **Recuperación:** PostgreSQL es la fuente de verdad; un reinicio de Redis o una desconexión del cliente no pierde estado ni métricas.
+- **Seguridad:** JWT, RBAC global y por proyecto, ownership, rate limit de login y validación de rutas de almacenamiento.
+
+---
+
+## 2. Diagrama de contenedores (C4, nivel 2)
 
 ```mermaid
-flowchart TD
+flowchart TB
     subgraph Cliente
-        UI[Web App: React + TypeScript + Vite]
+        UI["Web App<br/>React + TypeScript + Vite"]
     end
 
-    subgraph Backend Services
-        API[FastAPI REST & WebSocket Gateway]
-        Queue[Redis Task Queue & Pub/Sub]
-        Worker[TensorFlow / Keras Execution Worker]
+    subgraph Backend
+        API["API FastAPI<br/>REST + SSE + WebSocket"]
+        Worker["Worker ML<br/>TensorFlow / Keras"]
+        Queue["Redis<br/>cola + Pub/Sub"]
     end
 
-    subgraph Almacenamiento
-        DB[(PostgreSQL 16: Metadatos, Runs y Auditoría)]
-        S3[(MinIO / S3: Pesos de Modelos y Datasets)]
+    subgraph Datos
+        DB[("PostgreSQL 16<br/>metadatos, métricas, auditoría")]
+        Vol["Almacenamiento<br/>volumen local o S3"]
     end
 
-    UI -->|HTTPS / REST API| API
-    UI -->|WSS / SSE Telemetría| API
-    API -->|Async ORM / SQL| DB
-    API -->|Encolar Jobs| Queue
-    Worker -->|Consumir Jobs| Queue
-    Worker -->|Publicar Métricas en Vivo| Queue
-    Queue -->|Broadcast Eventos| API
-    Worker -->|Persistir Checkpoints y Modelos| S3
-    Worker -->|Registrar Estado y Métricas Finales| DB
+    UI -->|"HTTPS REST /api/v1"| API
+    UI -->|"SSE / WSS"| API
+    API -->|"SQLAlchemy async"| DB
+    API -->|"RPUSH job"| Queue
+    API -->|"PUBLISH / snapshot"| Queue
+    Worker -->|"BLPOP job"| Queue
+    Worker -->|"INSERT métricas / UPDATE estado"| DB
+    Worker -->|"PUBLISH epoch_end / state"| Queue
+    Queue -->|"SUSCRIBE"| API
+    API -->|"CSV"| Vol
+    Worker -->|"Lee CSV / escribe artefactos"| Vol
+    API -->|"Descarga .keras"| Vol
 ```
 
-## 3. Decisiones Arquitectónicas (ADRs)
+### Componentes
 
-### ADR-01: Desacoplamiento de TensorFlow del API Gateway
-- **Contexto:** Entrenar una red neuronal consume ciclos de CPU/GPU intensivos y bloquea el event loop asíncrono si se ejecuta en el proceso web.
-- **Decisión:** Toda invocación a `tensorflow` o `keras.fit()` se delega a un proceso `Worker` independiente a través de Redis. La API sólo actúa como despachador y validador de configuración.
+| Componente | Responsabilidad | No hace |
+|---|---|---|
+| **Web** | UI, navegación, formularios, gráficas, descarga autenticada, reconexión de eventos | No entrena ni calcula métricas del modelo |
+| **API** | Autenticación, RBAC, validación, persistencia, encolado, streaming, auditoría | No importa TensorFlow ni ejecuta `fit()` |
+| **Worker** | Preprocesamiento, construcción Keras, entrenamiento, evaluación, artefactos, telemetría | No atiende HTTP ni aplica reglas de autorización |
+| **PostgreSQL** | Estado de jobs, métricas, versiones, usuarios, auditoría | No almacena binarios de modelos |
+| **Redis** | Cola de trabajos, Pub/Sub de eventos, flags de cancelación | No es fuente de verdad |
+| **Volumen** | CSV originales y artefactos del modelo | No se sirve públicamente |
 
-### ADR-02: Telemetría Híbrida (Eventos en Tiempo Real + Persistencia SQL)
-- **Contexto:** Si un usuario recarga la página o se desconecta temporalmente durante la época 40 de 100, la UI no debe perder el historial.
-- **Decisión:** El worker publica cada época en Redis Pub/Sub para difusión inmediata vía WebSocket/SSE a la UI activa, y simultáneamente registra la métrica en la tabla `training_metrics` de PostgreSQL. Al reconectar, el cliente lee de la BD y continúa escuchando el socket.
+---
 
-### ADR-03: Inmutabilidad de Artefactos de Modelos
-- **Contexto:** En IA empresarial, sobreescribir un modelo desplegado genera riesgos regulatorios y de reproducibilidad.
-- **Decisión:** Toda versión registrada en `model_versions` genera un ID único, almacena su checksum SHA-256 y sus pesos son de solo lectura en Object Storage.
+## 3. Flujo de un entrenamiento
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as Usuario
+    participant W as Web
+    participant A as API
+    participant DB as PostgreSQL
+    participant Q as Redis
+    participant K as Worker
+
+    U->>W: Configura y lanza entrenamiento
+    W->>A: POST /projects/{id}/training-jobs
+    A->>DB: Valida proyecto, arquitectura, dataset
+    A->>DB: INSERT job QUEUED + auditoría
+    A->>Q: RPUSH payload
+    A-->>W: 202 TrainingJobResponse
+    W->>A: GET /training-jobs/{id}/events (SSE)
+    A-->>W: snapshot desde PostgreSQL
+    K->>Q: BLPOP
+    K->>DB: PREPARING
+    K->>Q: PUBLISH state
+    K->>DB: RUNNING
+    loop Cada época
+        K->>DB: INSERT training_metrics + progress
+        K->>Q: PUBLISH epoch_end
+        Q-->>A: mensaje
+        A-->>W: event epoch_end
+        K->>K: Comprueba cancelación/timeout
+    end
+    K->>K: Evalúa en test y guarda artefactos
+    K->>DB: INSERT model_version DRAFT + COMPLETED + auditoría
+    K->>Q: PUBLISH state COMPLETED
+    A-->>W: event state terminal
+```
+
+### Máquina de estados
+
+```
+QUEUED ──▶ PREPARING ──▶ RUNNING ──▶ COMPLETED
+   │            │            │
+   │            │            ├──────▶ FAILED
+   │            │            └──────▶ CANCELLED
+   └────────────┴───────────────────▶ FAILED / CANCELLED
+```
+
+- `QUEUED`: job persistido y descriptor encolado.
+- `PREPARING`: el worker reclama el job, limpia métricas previas y prepara el CSV.
+- `RUNNING`: modelo compilado; se emiten métricas por época.
+- `COMPLETED`: evaluación final, artefactos guardados y versión de modelo creada.
+- `FAILED`: error de datos, construcción, entrenamiento o timeout. `error_message` contiene la causa.
+- `CANCELLED`: solicitado por el usuario y atendido cooperativamente.
+
+La transición y el timestamp se escriben en PostgreSQL; el evento correspondiente se publica en Redis para reducir latencia. Si Redis falla, el cliente sigue recibiendo el estado por sondeo.
+
+---
+
+## 4. Cola y recuperación
+
+### Backends
+
+| Backend | Uso | Implementación |
+|---|---|---|
+| `QUEUE_BACKEND=redis` | Producción y Docker Compose | `RPUSH`/`BLPOP` sobre `TRAINING_QUEUE`; Pub/Sub por job |
+| `QUEUE_BACKEND=filesystem` | Desarrollo local y pruebas | Descriptor JSON en `DATA_DIR/queue`; reclamación atómica con `os.replace` a `queue/processing` |
+
+En ambos casos el worker es un **proceso separado**. El backend de archivos no ejecuta ML en la API; sólo sustituye el transporte.
+
+### Recuperación
+
+- **Worker reiniciado (filesystem):** al arrancar, los descriptores en `queue/processing` se devuelven a `queue`. Un job interrumpido se re-ejecuta; las métricas previas se limpian al entrar en `PREPARING`.
+- **Redis reiniciado:** la API no depende de Pub/Sub para el estado. El stream consulta PostgreSQL cada 1,5 s y emite las épocas y transiciones faltantes.
+- **Cliente desconectado:** al reconectar recibe primero un `snapshot` con el historial completo y luego sólo lo nuevo.
+- **Cancelación no entregada:** se persiste `cancel_requested=true`; el worker la consulta en la base de datos además del flag/Redis.
+- **Timeout:** el callback de Keras detiene el entrenamiento al superar `TRAINING_TIMEOUT_SECONDS` (2 h por defecto) y el job pasa a `FAILED`.
+
+### Idempotencia
+
+- Un job en estado terminal (`COMPLETED`/`CANCELLED`) se omite si el worker lo recibe de nuevo.
+- El worker limpia métricas antes de reentrenar.
+- Las versiones de modelo se crean sólo al completar; no se reutiliza ni sobreescribe un artefacto existente.
+
+---
+
+## 5. Telemetría en tiempo real
+
+### Canales
+
+- **Pub/Sub:** `neurolab:job:{job_id}:events`.
+- **Control:** `neurolab:job:{job_id}:control` (`{"action":"CANCEL"}`).
+- **Cancelación:** `neurolab:job:{job_id}:cancel` (TTL 1 h).
+- **Filesystem:** `DATA_DIR/cancellations/{job_id}.flag` y `DATA_DIR/queue`.
+
+### Estrategia híbrida
+
+1. El worker escribe cada época en `training_metrics` y actualiza `training_jobs.progress`.
+2. Publica `epoch_end` en Redis para entrega inmediata.
+3. La API mantiene el stream SSE/WS: snapshot inicial + Pub/Sub + sondeo a PostgreSQL.
+4. Al detectar un estado terminal, hace una última lectura y cierra.
+
+Esto evita duplicados: el stream lleva la última época emitida y sólo envía métricas con `epoch > last_epoch`.
+
+---
+
+## 6. Almacenamiento de artefactos
+
+```
+MODEL_DIR/
+└── models/{project_id}/{job_id}/
+    ├── model.keras
+    ├── scaler.pkl
+    ├── preprocessor.pkl
+    └── training_manifest.json
+
+DATA_DIR/
+├── datasets/{project_id}/{dataset_id}.csv
+├── queue/
+│   └── processing/
+├── cancellations/
+└── events/
+```
+
+- `storage_key` persistido es relativo a la raíz de almacenamiento (`models/...` o `datasets/...`) y se valida contra path traversal antes de leer o descargar.
+- `training_manifest.json` incluye versión de esquema, versión de código, tarea, target, dimensiones, pérdida, etiquetas de clase, columnas, conteos de split, hiperparámetros, checksum del dataset y checksums de cada artefacto.
+- El checksum del modelo (`model_versions.checksum`) es SHA-256 del archivo `.keras`.
+- `STORAGE_BACKEND=local` usa `DATA_DIR`/`MODEL_DIR` compartidos. `STORAGE_BACKEND=s3` usa un bucket compatible con S3 (Supabase Storage, MinIO, AWS S3 o R2) y es el modo requerido cuando API y worker corren en hosts distintos. Ambas implementaciones comparten las mismas claves lógicas, por lo que la base de datos no cambia al migrar de local a S3.
+
+---
+
+## 7. Seguridad
+
+### Autenticación
+
+- Contraseñas con bcrypt.
+- JWT HS256 firmado con `SECRET_KEY`; contiene `sub` (UUID), `email` y `role`.
+- El usuario se recarga desde la base de datos en cada request; un usuario inactivo pierde acceso aunque su token siga vigente.
+- `SECRET_KEY` insegura por defecto se rechaza con `ENVIRONMENT=production`.
+
+### Autorización
+
+- **Rol global:** `ADMIN`, `PROJECT_LEAD`, `AI_ENGINEER`, `REVIEWER`, `VIEWER`.
+- **Rol efectivo por proyecto:** `ADMIN` global → `ADMIN`; propietario → `PROJECT_LEAD`; miembro → su rol; sin membresía → `404`.
+- Escritura: `ADMIN`, `PROJECT_LEAD`, `AI_ENGINEER`.
+- Aprobación/retiro de modelos: `ADMIN`, `PROJECT_LEAD`.
+- Administración: `ADMIN`.
+
+### Superficie
+
+- Validación de entrada con Pydantic (rangos, enums, longitudes).
+- Validación dimensional de arquitecturas en el servidor, repetida al encolar.
+- CSV: extensión, tamaño, encabezados, filas, columnas y target.
+- Rutas de dataset y modelo resueltas y confinadas a sus directorios base.
+- CORS restringido a orígenes configurados.
+- Cabeceras `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`.
+- Rate limit de login por IP (en memoria, por proceso).
+- Auditoría de acciones sensibles.
+
+### Limitaciones de seguridad del MVP
+
+- El rate limit no es distribuido.
+- Los tokens se guardan en `localStorage` en el frontend; no hay rotación ni refresh tokens.
+- La descarga usa JWT en cabecera; los enlaces directos del navegador requieren el flujo autenticado del cliente.
+
+---
+
+## 8. Decisiones arquitectónicas (ADR)
+
+### ADR-01 — Desacoplar TensorFlow de la API
+
+- **Contexto:** `fit()` bloquea el event loop y consume CPU/GPU.
+- **Decisión:** worker independiente; la API sólo valida y encola.
+- **Consecuencia:** escalado separado, aislamiento de fallos y despliegue de imagen más pesada para el worker.
+
+### ADR-02 — PostgreSQL como fuente de verdad y Redis como transporte
+
+- **Contexto:** Pub/Sub no persiste mensajes.
+- **Decisión:** métricas y estado siempre en PostgreSQL; Redis acelera la entrega.
+- **Consecuencia:** recuperación tras reconexión y consistencia; mayor carga de escritura por época.
+
+### ADR-03 — Artefactos inmutables con checksum
+
+- **Contexto:** sobreescribir un modelo rompe la reproducibilidad y la auditoría.
+- **Decisión:** directorio por job, archivo nuevo por versión y SHA-256 registrado.
+- **Consecuencia:** trazabilidad completa; requiere política de retención de almacenamiento.
+
+### ADR-04 — Backend de cola conmutable
+
+- **Contexto:** el entorno local no siempre tiene Redis.
+- **Decisión:** `QUEUE_BACKEND=redis|filesystem`, mismo contrato de payload y mismo worker.
+- **Consecuencia:** desarrollo sin infraestructura; Redis sigue siendo el valor por defecto.
+
+### ADR-05 — Entrenamiento real limitado a FEEDFORWARD en el MVP
+
+- **Contexto:** RNN/CNN/GAN requieren formas de entrada y datasets distintos (secuencias, imágenes, pares generador/discriminador).
+- **Decisión:** se validan, guardan y documentan; el worker rechaza su entrenamiento con `422` y una razón explícita.
+- **Consecuencia:** alcance honesto y extensible; no se simulan resultados.
+
+### ADR-06 — Almacenamiento abstraído: volumen local o bucket S3
+
+- **Contexto:** en Docker Compose, API y worker pueden compartir volúmenes; en Railway/Vercel/Supabase corren en hosts distintos y un disco local no es compartido ni persistente.
+- **Decisión:** una interfaz de almacenamiento con dos implementaciones (`local` y `s3`) sobre las mismas claves `datasets/...` y `models/...`. La API escribe/lee el bucket y el worker descarga el CSV y publica los artefactos.
+- **Consecuencia:** el despliegue local sigue siendo simple; el cloud usa Supabase Storage sin cambiar el esquema de base de datos ni los contratos de la API.
+
+---
+
+## 9. Despliegue
+
+### 9.1 Docker Compose local
+
+```mermaid
+flowchart LR
+    N[Nginx :80] -->|/| S[React build]
+    N -->|/api/| A[API :8000]
+    A --> P[(PostgreSQL)]
+    A --> R[(Redis)]
+    W[Worker] --> R
+    W --> P
+    A --> V[(uploads)]
+    W --> V
+    W --> M[(models)]
+```
+
+- `web` sirve el build estático y hace proxy de `/api/` y SSE.
+- `api` y `worker` comparten los volúmenes `uploads` y `models`.
+- `worker` espera a que `api` esté healthy para arrancar.
+- El entrypoint aplica `alembic upgrade head` y el seed del administrador.
+
+### 9.2 Cloud gestionado
+
+```mermaid
+flowchart LR
+    V[Vercel<br/>React build] -->|HTTPS /api/v1| A[Railway API]
+    A -->|SSL| P[(Supabase Postgres)]
+    A -->|cola + Pub/Sub| R[(Railway Redis)]
+    W[Railway Worker] --> R
+    W --> P
+    A -->|CSV / artefactos| S[(Supabase Storage S3)]
+    W --> S
+```
+
+- Vercel solo sirve el frontend; las llamadas REST/SSE van directas a Railway.
+- El bucket es privado y se accede con claves S3 del proyecto Supabase.
+- Railway Free Trial: 30 días, $5 de crédito y 1 GB por servicio.
+- La guía operativa está en
+  [`docs/operations/DEPLOY_SUPABASE_VERCEL_RAILWAY.md`](../operations/DEPLOY_SUPABASE_VERCEL_RAILWAY.md).
+
+---
+
+## 10. Observabilidad y operación
+
+- `GET /health`: estado de la base de datos, versión y entorno.
+- `GET /api/v1/admin/system`: base de datos, Redis, backend de cola, límites y uptime.
+- Logs estructurados por proceso (`neurolab.api`, `neurolab.worker`, `neurolab.trainer`).
+- Auditoría consultable por proyecto y acción.
+- Estados terminales con `error_message` legible y evento `state`.
+
+Métricas Prometheus no están expuestas en el MVP; `prometheus-client` figura como dependencia preparada, pero no hay endpoint `/metrics` cableado.

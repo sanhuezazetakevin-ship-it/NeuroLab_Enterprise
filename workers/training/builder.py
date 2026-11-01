@@ -1,85 +1,136 @@
+"""Construcción de modelos Keras a partir de la topología validada por la API."""
+
+from __future__ import annotations
+
 import logging
-from typing import Dict, Any
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("neurolab.builder")
 
+
+class ModelBuildError(ValueError):
+    """Error de construcción con un mensaje apto para el usuario."""
+
+
 class KerasModelBuilder:
-    """
-    Construye dinámicamente modelos de TensorFlow/Keras a partir de especificaciones JSON validadas.
-    Soporta familias Feedforward, RNN y CNN.
+    """Construye un modelo Feedforward real para el MVP tabular.
+
+    La capa de salida se adapta automáticamente al tipo de tarea detectado en
+    el dataset (binaria, multiclase o regresión). Esto evita incongruencias
+    entre la topología guardada y las etiquetas reales.
     """
 
     @staticmethod
-    def build_model(config: Dict[str, Any], hyperparameters: Dict[str, Any]):
+    def build_model(
+        *,
+        config: Dict[str, Any],
+        family: str,
+        input_dim: int,
+        output_units: int,
+        output_activation: str,
+        loss: str,
+        metrics: List[str],
+        hyperparameters: Dict[str, Any],
+    ):
         try:
             import tensorflow as tf
-            from tensorflow.keras import layers, models, optimizers, losses
-        except ImportError:
-            logger.warning("TensorFlow/Keras no está disponible en este entorno. Se utilizará simulación.")
-            return None
+            from tensorflow.keras import layers, models, optimizers
+        except ImportError as exc:  # pragma: no cover - entorno sin TF
+            raise ModelBuildError(
+                "TensorFlow/Keras no está disponible en el worker. Instale las dependencias de entrenamiento."
+            ) from exc
 
-        input_shape = tuple(config.get("input_shape", []))
+        family_upper = (family or "").upper()
+        if family_upper != "FEEDFORWARD":
+            raise ModelBuildError(
+                f"La familia {family_upper or 'desconocida'} no está habilitada para entrenamiento "
+                "con datasets CSV tabulares en este MVP. Use FEEDFORWARD."
+            )
+
+        input_shape = [int(dim) for dim in config.get("input_shape", [])]
+        if len(input_shape) != 1:
+            raise ModelBuildError(
+                f"FEEDFORWARD requiere input_shape 1D, por ejemplo [n_features]. Recibido: {input_shape}"
+            )
+        if input_shape[0] != int(input_dim):
+            raise ModelBuildError(
+                "La forma de entrada de la arquitectura no coincide con las características del dataset: "
+                f"arquitectura={input_shape[0]}, dataset={input_dim}. Ajuste input_shape en el diseñador."
+            )
+
         raw_layers = config.get("layers", [])
+        if not raw_layers:
+            raise ModelBuildError("La arquitectura no contiene capas")
 
-        model = models.Sequential()
-        model.add(layers.Input(shape=input_shape))
+        seed = int(hyperparameters.get("random_seed", 42) or 42)
+        tf.keras.utils.set_random_seed(seed)
 
-        for idx, l in enumerate(raw_layers):
-            l_type = l.get("type")
-            activation = l.get("activation", "relu")
+        model = models.Sequential(name="neurolab_feedforward")
+        model.add(layers.Input(shape=(input_dim,), name="features"))
 
-            if l_type == "Dense":
-                units = l.get("units", 32)
-                model.add(layers.Dense(units=units, activation=activation))
+        last_index = len(raw_layers) - 1
+        output_defined = False
+        for index, layer_config in enumerate(raw_layers):
+            layer_type = str(layer_config.get("type", "")).strip()
+            activation = str(layer_config.get("activation") or "relu").lower()
+            is_last = index == last_index
 
-            elif l_type == "Dropout":
-                rate = l.get("rate", 0.2)
-                model.add(layers.Dropout(rate=rate))
+            if layer_type == "Dense":
+                units = int(output_units) if is_last else int(layer_config.get("units") or 32)
+                if units <= 0:
+                    raise ModelBuildError(f"Capa {index}: las unidades de Dense deben ser mayores que cero")
+                use_activation: Optional[str] = output_activation if is_last else activation
+                if use_activation == "leaky_relu":
+                    model.add(layers.Dense(units=units, activation=None, name=f"dense_{index}"))
+                    model.add(layers.LeakyReLU(negative_slope=0.01))
+                else:
+                    model.add(layers.Dense(units=units, activation=use_activation, name=f"dense_{index}"))
+                if is_last:
+                    output_defined = True
 
-            elif l_type == "Conv2D":
-                filters = l.get("filters", 32)
-                k_size = tuple(l.get("kernel_size", [3, 3]))
-                model.add(layers.Conv2D(filters=filters, kernel_size=k_size, activation=activation))
+            elif layer_type == "Dropout":
+                rate = float(layer_config.get("rate", 0.2) or 0.2)
+                if not 0.0 <= rate < 1.0:
+                    raise ModelBuildError(f"Capa {index}: la tasa de Dropout debe estar en [0, 1)")
+                model.add(layers.Dropout(rate=rate, name=f"dropout_{index}"))
 
-            elif l_type == "MaxPooling2D":
-                p_size = tuple(l.get("pool_size", [2, 2]))
-                model.add(layers.MaxPooling2D(pool_size=p_size))
-
-            elif l_type == "Flatten":
-                model.add(layers.Flatten())
-
-            elif l_type == "LSTM":
-                units = l.get("units", 64)
-                ret_seq = l.get("return_sequences", False)
-                model.add(layers.LSTM(units=units, return_sequences=ret_seq))
-
-            elif l_type == "GRU":
-                units = l.get("units", 64)
-                ret_seq = l.get("return_sequences", False)
-                model.add(layers.GRU(units=units, return_sequences=ret_seq))
-
-            elif l_type == "BatchNormalization":
-                model.add(layers.BatchNormalization())
+            elif layer_type == "BatchNormalization":
+                model.add(layers.BatchNormalization(name=f"batchnorm_{index}"))
 
             else:
-                raise ValueError(f"Tipo de capa no soportado: {l_type}")
+                raise ModelBuildError(
+                    f"Capa {index}: '{layer_type}' no es compatible con FEEDFORWARD tabular"
+                )
 
-        # Selección de optimizador
-        opt_name = hyperparameters.get("optimizer", "adam").lower()
-        lr = hyperparameters.get("learning_rate", 0.001)
+        if not output_defined:
+            if output_activation == "leaky_relu":
+                model.add(layers.Dense(units=int(output_units), activation=None, name="output"))
+                model.add(layers.LeakyReLU(negative_slope=0.01))
+            else:
+                model.add(
+                    layers.Dense(
+                        units=int(output_units),
+                        activation=output_activation,
+                        name="output",
+                    )
+                )
 
-        if opt_name == "adam":
-            optimizer = optimizers.Adam(learning_rate=lr)
-        elif opt_name == "sgd":
-            optimizer = optimizers.SGD(learning_rate=lr)
-        elif opt_name == "rmsprop":
-            optimizer = optimizers.RMSprop(learning_rate=lr)
-        else:
-            optimizer = optimizers.Adam(learning_rate=lr)
+        optimizer_name = str(hyperparameters.get("optimizer", "adam")).lower()
+        learning_rate = float(hyperparameters.get("learning_rate", 0.001))
+        optimizer_map = {
+            "adam": optimizers.Adam,
+            "sgd": optimizers.SGD,
+            "rmsprop": optimizers.RMSprop,
+        }
+        optimizer_cls = optimizer_map.get(optimizer_name, optimizers.Adam)
+        optimizer = optimizer_cls(learning_rate=learning_rate)
 
-        loss_name = hyperparameters.get("loss", "binary_crossentropy")
-        metrics = hyperparameters.get("metrics", ["accuracy"])
-
-        model.compile(optimizer=optimizer, loss=loss_name, metrics=metrics)
-        logger.info(f"Modelo Keras compilado exitosamente: {model.count_params()} parámetros.")
+        model.compile(optimizer=optimizer, loss=loss, metrics=list(metrics))
+        logger.info(
+            "Modelo Keras compilado: %s parámetros, salida=%s/%s, pérdida=%s",
+            model.count_params(),
+            output_units,
+            output_activation,
+            loss,
+        )
         return model

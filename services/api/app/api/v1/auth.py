@@ -1,47 +1,83 @@
-from datetime import timedelta
-from uuid import uuid4
-from fastapi import APIRouter, Depends, HTTPException, status
-from app.core.security import create_access_token, verify_password, get_password_hash
-from app.schemas.user import UserLogin, TokenResponse, UserResponse
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import settings
+from app.core.database import get_db
+from app.core.deps import get_current_user
+from app.core.security import (
+    create_access_token,
+    get_password_hash,
+    verify_password,
+)
+from app.modules.audit.service import record_audit
+from app.modules.security.rate_limit import login_rate_limiter
+from app.repositories.models import UserModel
+from app.schemas.user import (
+    PasswordChange,
+    TokenResponse,
+    UserLogin,
+    UserResponse,
+)
 
 router = APIRouter(prefix="/auth", tags=["Autenticación"])
 
-# Demo user mock for initial scaffold
-DEMO_USER = {
-    "id": uuid4(),
-    "email": "engineer@neurolab.enterprise",
-    "password_hash": get_password_hash("Admin123!"),
-    "display_name": "Ingeniero IA Senior",
-    "role": "AI_ENGINEER",
-    "status": "ACTIVE"
-}
 
 @router.post("/login", response_model=TokenResponse)
-async def login(credentials: UserLogin):
-    if credentials.email != DEMO_USER["email"] or not verify_password(credentials.password, DEMO_USER["password_hash"]):
-        # For ease of first demo access, accept default credentials or return 401
-        if credentials.password != "Admin123!":
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Correo o contraseña incorrectos"
-            )
+async def login(credentials: UserLogin, request: Request, db: AsyncSession = Depends(get_db)):
+    await login_rate_limiter.check(request)
+
+    user = await db.scalar(select(UserModel).where(UserModel.email == credentials.email.lower()))
+    if not user or not verify_password(credentials.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Correo o contraseña incorrectos",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if user.status != "ACTIVE":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="La cuenta no está activa. Contacte al administrador.",
+        )
 
     token = create_access_token(
-        data={"sub": str(DEMO_USER["id"]), "email": credentials.email, "role": DEMO_USER["role"]}
+        data={"sub": str(user.id), "email": user.email, "role": user.role}
     )
+    await record_audit(
+        db,
+        actor_id=user.id,
+        action="USER_LOGIN",
+        metadata={"email": user.email},
+    )
+    await db.commit()
 
     return TokenResponse(
         access_token=token,
         token_type="bearer",
-        expires_in=28800,
-        user=UserResponse(
-            id=DEMO_USER["id"],
-            email=credentials.email,
-            display_name=DEMO_USER["display_name"],
-            role=DEMO_USER["role"],
-            status="ACTIVE",
-            created_at=datetime.now()
-        )
+        expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        user=UserResponse.model_validate(user),
     )
 
-from datetime import datetime
+
+@router.get("/me", response_model=UserResponse)
+async def me(user: UserModel = Depends(get_current_user)):
+    return user
+
+
+@router.post("/change-password", status_code=status.HTTP_200_OK)
+async def change_password(
+    payload: PasswordChange,
+    user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if not verify_password(payload.current_password, user.password_hash):
+        raise HTTPException(status_code=400, detail="La contraseña actual no es correcta")
+    if payload.current_password == payload.new_password:
+        raise HTTPException(status_code=400, detail="La nueva contraseña debe ser diferente")
+    user.password_hash = get_password_hash(payload.new_password)
+    user.updated_at = datetime.now(timezone.utc)
+    await record_audit(db, actor_id=user.id, action="USER_PASSWORD_CHANGED")
+    await db.commit()
+    return {"message": "Contraseña actualizada correctamente"}

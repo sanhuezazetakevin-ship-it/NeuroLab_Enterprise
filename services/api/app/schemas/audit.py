@@ -1,17 +1,17 @@
-from uuid import UUID
 from datetime import datetime
-from typing import Optional, Dict, Any
-from pydantic import BaseModel
+from typing import Any, Dict, Optional
+from uuid import UUID
 
-class AuditEventCreate(BaseModel):
+from pydantic import BaseModel, ConfigDict
+
+
+class AuditEventResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
     actor_id: Optional[UUID] = None
+    actor_name: Optional[str] = None
     project_id: Optional[UUID] = None
     action: str
-    metadata_json: Dict[str, Any] = {}
-
-class AuditEventResponse(AuditEventCreate):
-    id: UUID
+    metadata_json: Dict[str, Any]
     created_at: datetime
-
-    class Config:
-        from_attributes = True

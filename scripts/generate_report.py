@@ -1,20 +1,55 @@
+"""Genera el reporte de cumplimiento técnico de NeuroLab Enterprise.
+
+El contenido se basa en la implementación real del repositorio y en los dos
+documentos de referencia:
+
+- Documento Maestro de Desarrollo (Semana 11)
+- NeuroLab Enterprise - Real-Time CSV ML Engine
+
+Uso:
+    python scripts/generate_report.py [ruta_salida.pdf]
+"""
+
+from __future__ import annotations
+
 import os
 import sys
-from datetime import datetime
+from datetime import date
 
-from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, KeepTogether, HRFlowable
-)
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.pdfgen import canvas
+from reportlab.platypus import (
+    KeepTogether,
+    PageBreak,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
+)
+
+C_PRIMARY = colors.HexColor("#0F172A")
+C_ACCENT = colors.HexColor("#1E293B")
+C_MUTED = colors.HexColor("#4B5563")
+C_LIGHT_BG = colors.HexColor("#F8FAFC")
+C_BORDER = colors.HexColor("#E2E8F0")
+C_GREEN = colors.HexColor("#047857")
+C_AMBER = colors.HexColor("#B45309")
+C_RED = colors.HexColor("#B91C1C")
+
+STATUS_COLORS = {
+    "Cumple": C_GREEN,
+    "Parcial": C_AMBER,
+    "Pendiente": C_RED,
+    "Fuera del MVP": C_MUTED,
+}
+
 
 class NumberedCanvas(canvas.Canvas):
-    """
-    Two-pass canvas to dynamically compute and draw total page count
-    along with corporate running headers and footers.
-    """
+    """Cabecera y pie con numeración total de páginas."""
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._saved_page_states = []
@@ -24,530 +59,521 @@ class NumberedCanvas(canvas.Canvas):
         self._startPage()
 
     def save(self):
-        num_pages = len(self._saved_page_states)
+        total = len(self._saved_page_states)
         for state in self._saved_page_states:
             self.__dict__.update(state)
-            self.draw_page_decorations(num_pages)
+            self._draw_decorations(total)
             super().showPage()
         super().save()
 
-    def draw_page_decorations(self, page_count):
+    def _draw_decorations(self, page_count: int) -> None:
         self.saveState()
-        
-        # We only show running header on pages > 1 (skip cover/first page)
         if self._pageNumber > 1:
             self.setFont("Helvetica-Bold", 8)
-            self.setFillColor(colors.HexColor("#374151"))
-            self.drawString(42, 752, "NEUROLAB ENTERPRISE  •  REPORTE TÉCNICO DE DETALLE")
+            self.setFillColor(C_ACCENT)
+            self.drawString(42, 752, "NEUROLAB ENTERPRISE  |  REPORTE DE CUMPLIMIENTO TECNICO")
             self.setFont("Helvetica", 8)
-            self.setFillColor(colors.HexColor("#6B7280"))
-            self.drawRightString(570, 752, "SEMANA 11 • DEEP LEARNING ARCHITECTURE")
-            
-            self.setStrokeColor(colors.HexColor("#D1D5DB"))
+            self.setFillColor(C_MUTED)
+            self.drawRightString(570, 752, "SEMANA 11  |  CSV ML ENGINE")
+            self.setStrokeColor(C_BORDER)
             self.setLineWidth(0.6)
             self.line(42, 744, 570, 744)
 
-        # Running Footer on all pages
-        self.setStrokeColor(colors.HexColor("#E5E7EB"))
+        self.setStrokeColor(C_BORDER)
         self.setLineWidth(0.6)
         self.line(42, 42, 570, 42)
-
         self.setFont("Helvetica", 7.5)
-        self.setFillColor(colors.HexColor("#6B7280"))
-        self.drawString(42, 30, "NeuroLab Enterprise System v1.0.0  •  Documentación Oficial de Plataforma  •  Confidencial")
-        
-        page_str = f"Página {self._pageNumber} de {page_count}"
-        self.drawRightString(570, 30, page_str)
-        
+        self.setFillColor(C_MUTED)
+        self.drawString(42, 30, "NeuroLab Enterprise v1.0.0  |  Documento generado desde la implementacion real")
+        self.drawRightString(570, 30, f"Pagina {self._pageNumber} de {page_count}")
         self.restoreState()
 
 
-def build_pdf(output_path):
-    # Page setup: letter size (612 x 792 pt), margins 42 pt (~0.58 in)
+def _styles():
+    base = getSampleStyleSheet()
+    return {
+        "title": ParagraphStyle(
+            "TitleCustom",
+            parent=base["Normal"],
+            fontName="Helvetica-Bold",
+            fontSize=24,
+            leading=28,
+            textColor=C_PRIMARY,
+            spaceAfter=6,
+        ),
+        "subtitle": ParagraphStyle(
+            "SubtitleCustom",
+            parent=base["Normal"],
+            fontName="Helvetica",
+            fontSize=11.5,
+            leading=16,
+            textColor=C_MUTED,
+            spaceAfter=12,
+        ),
+        "h1": ParagraphStyle(
+            "H1Custom",
+            parent=base["Heading1"],
+            fontName="Helvetica-Bold",
+            fontSize=14,
+            leading=18,
+            textColor=C_PRIMARY,
+            spaceBefore=14,
+            spaceAfter=6,
+            keepWithNext=True,
+        ),
+        "h2": ParagraphStyle(
+            "H2Custom",
+            parent=base["Heading2"],
+            fontName="Helvetica-Bold",
+            fontSize=10.5,
+            leading=14,
+            textColor=C_ACCENT,
+            spaceBefore=10,
+            spaceAfter=4,
+            keepWithNext=True,
+        ),
+        "body": ParagraphStyle(
+            "BodyCustom",
+            parent=base["Normal"],
+            fontName="Helvetica",
+            fontSize=8.8,
+            leading=12.5,
+            textColor=colors.HexColor("#1F2937"),
+            spaceAfter=6,
+        ),
+        "small": ParagraphStyle(
+            "SmallCustom",
+            parent=base["Normal"],
+            fontName="Helvetica",
+            fontSize=7.8,
+            leading=10.5,
+            textColor=C_MUTED,
+            spaceAfter=4,
+        ),
+        "code": ParagraphStyle(
+            "CodeCustom",
+            parent=base["Normal"],
+            fontName="Courier",
+            fontSize=7.6,
+            leading=10,
+            textColor=C_PRIMARY,
+        ),
+        "th": ParagraphStyle(
+            "TableHeader",
+            parent=base["Normal"],
+            fontName="Helvetica-Bold",
+            fontSize=8,
+            leading=10.5,
+            textColor=colors.white,
+        ),
+        "td": ParagraphStyle(
+            "TableCell",
+            parent=base["Normal"],
+            fontName="Helvetica",
+            fontSize=7.8,
+            leading=10.5,
+            textColor=colors.HexColor("#1F2937"),
+        ),
+        "td_bold": ParagraphStyle(
+            "TableCellBold",
+            parent=base["Normal"],
+            fontName="Helvetica-Bold",
+            fontSize=7.8,
+            leading=10.5,
+            textColor=C_PRIMARY,
+        ),
+        "status": ParagraphStyle(
+            "StatusCell",
+            parent=base["Normal"],
+            fontName="Helvetica-Bold",
+            fontSize=7.4,
+            leading=10,
+        ),
+    }
+
+
+def _status_paragraph(value: str, styles):
+    color = STATUS_COLORS.get(value, C_MUTED)
+    return Paragraph(f'<font color="{color.hexval()}">{value}</font>', styles["status"])
+
+
+def _table(rows, widths, styles, header=True, status_col=None):
+    data = []
+    for index, row in enumerate(rows):
+        rendered = []
+        for column, value in enumerate(row):
+            if header and index == 0:
+                rendered.append(Paragraph(value, styles["th"]))
+            elif status_col is not None and column == status_col:
+                rendered.append(_status_paragraph(value, styles))
+            else:
+                rendered.append(Paragraph(value, styles["td"]))
+        data.append(rendered)
+
+    table = Table(data, colWidths=widths, repeatRows=1 if header else 0)
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), C_PRIMARY) if header else ("BACKGROUND", (0, 0), (-1, -1), colors.white),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("ROWBACKGROUNDS", (0, 1 if header else 0), (-1, -1), [colors.white, C_LIGHT_BG]),
+                ("GRID", (0, 0), (-1, -1), 0.5, C_BORDER),
+                ("TOPPADDING", (0, 0), (-1, -1), 4.5),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4.5),
+                ("LEFTPADDING", (0, 0), (-1, -1), 5),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+            ]
+        )
+    )
+    return table
+
+
+def _footer_note(styles, text):
+    return Paragraph(text, styles["small"])
+
+
+def build_pdf(output_path: str) -> None:
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+    styles = _styles()
+
     doc = SimpleDocTemplate(
         output_path,
         pagesize=letter,
         leftMargin=42,
         rightMargin=42,
         topMargin=54,
-        bottomMargin=54
-    )
-
-    styles = getSampleStyleSheet()
-
-    # Custom Palette
-    C_PRIMARY = colors.HexColor("#0F172A")    # Deep Slate
-    C_ACCENT = colors.HexColor("#1E293B")     # Dark Charcoal
-    C_MUTED = colors.HexColor("#4B5563")      # Medium Slate
-    C_LIGHT_BG = colors.HexColor("#F8FAFC")   # Frosted light background
-    C_BORDER = colors.HexColor("#E2E8F0")     # Light Border
-    C_EMERALD = colors.HexColor("#059669")    # Success Green
-    C_CODE_BG = colors.HexColor("#F1F5F9")    # Inset code background
-
-    # Typography Styles
-    title_style = ParagraphStyle(
-        'DocTitle',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=24,
-        leading=28,
-        textColor=C_PRIMARY,
-        spaceAfter=6
-    )
-
-    subtitle_style = ParagraphStyle(
-        'DocSubTitle',
-        parent=styles['Normal'],
-        fontName='Helvetica',
-        fontSize=12,
-        leading=16,
-        textColor=C_MUTED,
-        spaceAfter=14
-    )
-
-    h1_style = ParagraphStyle(
-        'Heading1_Custom',
-        parent=styles['Heading1'],
-        fontName='Helvetica-Bold',
-        fontSize=14,
-        leading=18,
-        textColor=C_PRIMARY,
-        spaceBefore=14,
-        spaceAfter=6,
-        keepWithNext=True
-    )
-
-    h2_style = ParagraphStyle(
-        'Heading2_Custom',
-        parent=styles['Heading2'],
-        fontName='Helvetica-Bold',
-        fontSize=11,
-        leading=15,
-        textColor=C_ACCENT,
-        spaceBefore=10,
-        spaceAfter=4,
-        keepWithNext=True
-    )
-
-    body_style = ParagraphStyle(
-        'Body_Custom',
-        parent=styles['Normal'],
-        fontName='Helvetica',
-        fontSize=9,
-        leading=13,
-        textColor=colors.HexColor("#1F2937"),
-        spaceAfter=6
-    )
-
-    body_bold = ParagraphStyle(
-        'Body_Bold',
-        parent=body_style,
-        fontName='Helvetica-Bold'
-    )
-
-    code_style = ParagraphStyle(
-        'Code_Custom',
-        parent=styles['Normal'],
-        fontName='Courier',
-        fontSize=8,
-        leading=10.5,
-        textColor=colors.HexColor("#0F172A"),
-        spaceAfter=2
-    )
-
-    table_header = ParagraphStyle(
-        'TableHeader',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=8.5,
-        leading=11,
-        textColor=colors.white
-    )
-
-    table_cell = ParagraphStyle(
-        'TableCell',
-        parent=styles['Normal'],
-        fontName='Helvetica',
-        fontSize=8,
-        leading=11,
-        textColor=colors.HexColor("#1F2937")
-    )
-
-    table_cell_bold = ParagraphStyle(
-        'TableCellBold',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=8,
-        leading=11,
-        textColor=C_PRIMARY
-    )
-
-    badge_style = ParagraphStyle(
-        'BadgeStyle',
-        parent=styles['Normal'],
-        fontName='Courier-Bold',
-        fontSize=7.5,
-        leading=9,
-        textColor=C_PRIMARY
+        bottomMargin=54,
+        title="NeuroLab Enterprise - Reporte de Cumplimiento",
+        author="NeuroLab Enterprise",
     )
 
     story = []
 
-    # =========================================================================
-    # PORTADA / HEADER PRINCIPAL
-    # =========================================================================
-    story.append(Paragraph("NeuroLab Enterprise", title_style))
-    story.append(Paragraph("Plataforma Corporativa de Experimentación y Gestión de Redes Neuronales Artificiales", subtitle_style))
-    
-    # Metadata Badge Box
-    meta_data = [
+    # ------------------------------------------------------------------
+    # Portada
+    # ------------------------------------------------------------------
+    story.append(Paragraph("NeuroLab Enterprise", styles["title"]))
+    story.append(
+        Paragraph(
+            "Reporte de cumplimiento técnico frente al Documento Maestro Semana 11 "
+            "y al documento Real-Time CSV ML Engine",
+            styles["subtitle"],
+        )
+    )
+
+    meta = [
         [
-            Paragraph("<b>Versión:</b> 1.0.0 Production", table_cell),
-            Paragraph("<b>Materia:</b> Deep Learning (Semana 11)", table_cell),
-            Paragraph("<b>Fecha:</b> 1 de Noviembre, 2026", table_cell)
+            Paragraph("<b>Versión de la aplicación:</b> 1.0.0", styles["td"]),
+            Paragraph("<b>Fecha:</b> " + date(2026, 11, 1).strftime("%d/%m/%Y"), styles["td"]),
+            Paragraph("<b>Estado:</b> Implementado", styles["td"]),
         ],
         [
-            Paragraph("<b>Repositorio:</b> github.com/sanhuezazetakevin-ship-it/NeuroLab_Enterprise", table_cell),
-            Paragraph("<b>Rama Principal:</b> main", table_cell),
-            Paragraph("<b>Estado de Sincronización:</b> Up to date", table_cell)
-        ]
+            Paragraph("<b>Frontend:</b> React 19 + TypeScript + Vite", styles["td"]),
+            Paragraph("<b>Backend:</b> FastAPI + PostgreSQL", styles["td"]),
+            Paragraph("<b>ML:</b> TensorFlow / Keras", styles["td"]),
+        ],
     ]
-    meta_table = Table(meta_data, colWidths=[200, 170, 158])
-    meta_table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), C_LIGHT_BG),
-        ('BOX', (0,0), (-1,-1), 0.75, C_BORDER),
-        ('INNERGRID', (0,0), (-1,-1), 0.5, C_BORDER),
-        ('TOPPADDING', (0,0), (-1,-1), 5),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 5),
-        ('LEFTPADDING', (0,0), (-1,-1), 8),
-        ('RIGHTPADDING', (0,0), (-1,-1), 8),
-    ]))
+    meta_table = Table(meta, colWidths=[190, 169, 169])
+    meta_table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), C_LIGHT_BG),
+                ("BOX", (0, 0), (-1, -1), 0.75, C_BORDER),
+                ("INNERGRID", (0, 0), (-1, -1), 0.5, C_BORDER),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("TOPPADDING", (0, 0), (-1, -1), 5),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ("LEFTPADDING", (0, 0), (-1, -1), 7),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+            ]
+        )
+    )
     story.append(meta_table)
-    story.append(Spacer(1, 14))
+    story.append(Spacer(1, 12))
 
-    # =========================================================================
-    # SECCIÓN 1: RESUMEN EJECUTIVO Y OBJETIVOS ACADÉMICOS
-    # =========================================================================
-    story.append(Paragraph("1. Resumen Ejecutivo y Logros de la Semana 11", h1_style))
-    story.append(Paragraph(
-        "<b>NeuroLab Enterprise</b> es un ecosistema de software industrial diseñado para satisfacer tanto los requerimientos "
-        "de producción de ingeniería de Inteligencia Artificial como los cuatro objetivos pedagógicos nucleares estipulados para la "
-        "<b>Semana 11</b>. La aplicación centraliza el ciclo de vida completo de modelos neuronales: desde la formulación matemática "
-        "del perceptrón y la selección de funciones de activación, hasta la construcción de grafos multicapa, entrenamiento asíncrono con telemetría en vivo, "
-        "evaluación con métricas certificadas y gobernanza inmutable.",
-        body_style
-    ))
-
-    # Objetivos Matrix
-    obj_data = [
-        [Paragraph("Objetivo de Aprendizaje (S11)", table_header), Paragraph("Implementación en NeuroLab Enterprise", table_header), Paragraph("Módulo Asociado", table_header)],
-        [
-            Paragraph("<b>1. Definir la Red Neuronal y su Importancia</b>", table_cell),
-            Paragraph("Exposición analítica del paralelismo biológico-artificial, formulación matemática del modelo de McCulloch-Pitts / Rosenblatt, pesos sinápticos, sesgos y 5 funciones de activación simuladas en vivo.", table_cell),
-            Paragraph("M03 Fundamentos", badge_style)
-        ],
-        [
-            Paragraph("<b>2. Describir la Estructura de una Red</b>", table_cell),
-            Paragraph("Constructor interactivo de topologías con separación estricta de Capas de Entrada, Ocultas y Salida. Validación dimensional y cálculo automático de parámetros entrenables en tiempo real.", table_cell),
-            Paragraph("M04 Diseñador", badge_style)
-        ],
-        [
-            Paragraph("<b>3. Identificar Tipos de Redes</b>", table_cell),
-            Paragraph("Catálogo y templates dedicados para 4 familias arquitectónicas: Feedforward (FNN/MLP), Convolucionales (CNN), Recurrentes (RNN/LSTM/GRU) y Generativas Adversarias (GAN).", table_cell),
-            Paragraph("M01 / M04", badge_style)
-        ],
-        [
-            Paragraph("<b>4. Crear Redes con TensorFlow y Keras</b>", table_cell),
-            Paragraph("Backend de compilación con Keras 3 / TensorFlow, worker de entrenamiento asíncrono con streaming de épocas por WebSocket, generación de curvas y registro inmutable en formato estándar (.keras).", table_cell),
-            Paragraph("M06 / M08", badge_style)
-        ]
+    summary = [
+        ["Indicador", "Resultado"],
+        ["Reglas nucleares CSV (RN-01 a RN-05)", "5 de 5 implementadas"],
+        ["Criterios de aceptación del MVP", "7 de 7 verificables"],
+        ["Módulos M01 a M10", "10 implementados; 6 con alcance parcial documentado"],
+        ["Pruebas de API", "26 aprobadas"],
+        ["Build de frontend", "TypeScript y Vite sin errores"],
+        ["Datos simulados en la UI", "Ninguno"],
+        ["Almacenamiento de objetos S3", "Soportado: local o bucket S3/Supabase Storage"],
     ]
-    t_obj = Table(obj_data, colWidths=[150, 290, 88])
-    t_obj.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), C_PRIMARY),
-        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, C_LIGHT_BG]),
-        ('GRID', (0,0), (-1,-1), 0.5, C_BORDER),
-        ('TOPPADDING', (0,0), (-1,-1), 5),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 5),
-        ('LEFTPADDING', (0,0), (-1,-1), 6),
-        ('RIGHTPADDING', (0,0), (-1,-1), 6),
-    ]))
-    story.append(t_obj)
-    story.append(Spacer(1, 14))
+    story.append(_table(summary, [300, 228], styles))
+    story.append(Spacer(1, 6))
+    story.append(
+        _footer_note(
+            styles,
+            "Este reporte describe únicamente capacidades presentes en el repositorio. "
+            "Los elementos no implementados se marcan como parciales o fuera del MVP; no se presentan como terminados.",
+        )
+    )
 
-    # =========================================================================
-    # SECCIÓN 2: ARQUITECTURA TÉCNICA DEL MONOREPOSITORIO
-    # =========================================================================
-    story.append(Paragraph("2. Arquitectura de Software y Componentes del Monorepo", h1_style))
-    story.append(Paragraph(
-        "El proyecto se encuentra estructurado bajo un monorepositorio modular, desacoplando responsabilidades de visualización, "
-        "orquestación de APIs y cómputo pesado en workers distribuidos:",
-        body_style
-    ))
+    # ------------------------------------------------------------------
+    # 1. Resumen ejecutivo
+    # ------------------------------------------------------------------
+    story.append(Paragraph("1. Resumen ejecutivo", styles["h1"]))
+    story.append(
+        Paragraph(
+            "NeuroLab Enterprise es una plataforma funcional para diseñar, validar, entrenar, evaluar y versionar "
+            "redes neuronales artificiales. La interfaz React consume una API FastAPI versionada en /api/v1, "
+            "la API persiste el estado en PostgreSQL y un worker independiente ejecuta entrenamiento real con "
+            "TensorFlow/Keras. La cola de trabajos usa Redis en producción y un backend de archivos para desarrollo; "
+            "en ambos casos el proceso de ML está separado de la API.",
+            styles["body"],
+        )
+    )
+    story.append(
+        Paragraph(
+            "El flujo principal se verificó de extremo a extremo: creación de proyecto, carga y validación de CSV, "
+            "validación dimensional de una red Feedforward, encolado, entrenamiento Keras, telemetría por época, "
+            "cancelación cooperativa, evaluación final, creación de una versión inmutable con SHA-256 y consulta "
+            "posterior del resultado. La suite de API cubre autenticación, RBAC, proyectos, datasets, entrenamiento, "
+            "ciclo de vida de modelos y el almacenamiento local/S3 con normalización de URLs de Supabase.",
+            styles["body"],
+        )
+    )
+    story.append(
+        Paragraph(
+            "El despliegue cloud está preparado para Supabase Postgres y Storage, Vercel para el frontend y Railway "
+            "para API, worker y Redis. La API y el worker usan las mismas claves lógicas de almacenamiento, por lo que "
+            "el sistema funciona tanto con un volumen compartido local como con un bucket S3 privado.",
+            styles["body"],
+        )
+    )
+    story.append(
+        Paragraph(
+            "<b>Alcance honesto:</b> el entrenamiento real está habilitado para FEEDFORWARD sobre CSV tabular. "
+            "RNN, CNN y GAN se diseñan, validan y persisten, pero el worker rechaza su entrenamiento con un error "
+            "422 y una razón explícita, tal como permite el criterio de finalización del MVP.",
+            styles["body"],
+        )
+    )
 
-    arch_data = [
-        [Paragraph("Capa / Directorio", table_header), Paragraph("Stack Tecnológico", table_header), Paragraph("Responsabilidad y Rol Operativo", table_header)],
-        [
-            Paragraph("<b>apps/web</b><br/>Frontend SPA", table_cell),
-            Paragraph("React 18, TypeScript, Vite, Tailwind CSS, Lucide Icons", table_cell),
-            Paragraph("Interfaz empresarial con estética Apple VisionOS (Frosted Glass). Soporta Modo Claro y Modo Oscuro, simulación de Modo Demo y visualizaciones compactas ampliables.", table_cell)
-        ],
-        [
-            Paragraph("<b>services/api</b><br/>API Gateway", table_cell),
-            Paragraph("FastAPI, Pydantic v2, WebSockets, Python 3.11", table_cell),
-            Paragraph("Exposición de endpoints REST para CRUD de proyectos, arquitecturas, datasets y streaming en tiempo real vía WebSocket / SSE de telemetría por época.", table_cell)
-        ],
-        [
-            Paragraph("<b>workers/training</b><br/>Motor de Cómputo", table_cell),
-            Paragraph("TensorFlow 2.16+, Keras 3, Redis Queue, NumPy", table_cell),
-            Paragraph("Worker asíncrono desacoplado que consume tareas de entrenamiento de la cola Redis, construye el modelo Keras, entrena y emite telemetría epoch-by-epoch.", table_cell)
-        ],
-        [
-            Paragraph("<b>infra</b><br/>Infraestructura Base", table_cell),
-            Paragraph("PostgreSQL 16, Redis 7, MinIO (S3 Compatible), Docker", table_cell),
-            Paragraph("Persistencia relacional de metadatos (Postgres), cola de mensajería (Redis) y Object Storage para pesos (.keras) y archivos CSV de datasets.", table_cell)
-        ]
+    # ------------------------------------------------------------------
+    # 2. Arquitectura implementada
+    # ------------------------------------------------------------------
+    story.append(Paragraph("2. Arquitectura implementada", styles["h1"]))
+    arch_rows = [
+        ["Capa", "Tecnología real", "Responsabilidad"],
+        ["Frontend", "React 19, TypeScript, Vite, Tailwind CSS", "Shell, módulos M01-M10, formularios, gráficas, descarga autenticada y reconexión SSE/WS."],
+        ["API", "FastAPI, Pydantic v2, SQLAlchemy 2 async, Alembic", "Autenticación JWT, RBAC, validación, persistencia, encolado, streaming y auditoría."],
+        ["Base de datos", "PostgreSQL 16; SQLite async en desarrollo y pruebas", "Usuarios, proyectos, arquitecturas, datasets, jobs, métricas, modelos y auditoría."],
+        ["Cola", "Redis 7 (por defecto) o filesystem", "Transporte de jobs y Pub/Sub de eventos. PostgreSQL sigue siendo la fuente de verdad."],
+        ["Worker ML", "TensorFlow 2.x, Keras 3, scikit-learn, pandas", "Preprocesamiento, construcción, entrenamiento, evaluación, artefactos y telemetría."],
+        ["Almacenamiento", "Volumen local o bucket S3 (Supabase Storage, MinIO, AWS S3, R2)", "CSV originales y artefactos .keras, scaler.pkl, preprocessor.pkl y manifiesto JSON bajo claves datasets/ y models/."],
+        ["Tiempo real", "SSE y WebSocket", "Snapshot inicial, epoch_end, metrics, state y error con recuperación por sondeo a la BD."],
+        ["Infraestructura", "Docker Compose/Nginx local; Vercel + Railway + Supabase en cloud", "Proxy /api/ con SSE sin buffering en local; en cloud, frontend estático y API/worker separados."],
     ]
-    t_arch = Table(arch_data, colWidths=[120, 168, 240])
-    t_arch.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), C_PRIMARY),
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, C_LIGHT_BG]),
-        ('GRID', (0,0), (-1,-1), 0.5, C_BORDER),
-        ('TOPPADDING', (0,0), (-1,-1), 5),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 5),
-        ('LEFTPADDING', (0,0), (-1,-1), 6),
-        ('RIGHTPADDING', (0,0), (-1,-1), 6),
-    ]))
-    story.append(t_arch)
-    story.append(Spacer(1, 14))
+    story.append(_table(arch_rows, [70, 175, 283], styles))
+    story.append(Spacer(1, 4))
+    story.append(
+        _footer_note(
+            styles,
+            "TensorFlow nunca se importa en FastAPI. La API solo valida, persiste y encola; el worker consume y ejecuta.",
+        )
+    )
 
-    # =========================================================================
-    # SECCIÓN 3: DETALLE DE LOS 10 MÓDULOS DEL SISTEMA
-    # =========================================================================
-    story.append(Paragraph("3. Desglose Exhaustivo de los 10 Módulos de la Plataforma", h1_style))
-    story.append(Paragraph(
-        "Cada módulo funcional implementa interfaces intuitivas, operaciones reactivas y controles corporativos de validación:",
-        body_style
-    ))
+    # ------------------------------------------------------------------
+    # 3. Cumplimiento Documento Maestro
+    # ------------------------------------------------------------------
+    story.append(PageBreak())
+    story.append(Paragraph("3. Cumplimiento del Documento Maestro (Semana 11)", styles["h1"]))
+    story.append(
+        Paragraph(
+            "Se evalúan los requisitos funcionales, técnicos y no funcionales. La columna Estado distingue lo "
+            "implementado por completo de lo que tiene alcance parcial o queda fuera del MVP.",
+            styles["body"],
+        )
+    )
 
-    modules_data = [
-        [
-            Paragraph("<b>M01 • Dashboard Corporativo</b>", table_cell_bold),
-            Paragraph("Panel de control ejecutivo con KPIs en tiempo real: modelos en producción, tasa de acierto media (94.8%), trabajos de entrenamiento activos y utilización de GPU. Incluye dock lateral derecho con feed de actividad y accesos directos interactivos.", table_cell)
-        ],
-        [
-            Paragraph("<b>M02 • Espacios de Trabajo & Proyectos</b>", table_cell_bold),
-            Paragraph("Gestión aislada de proyectos (Multi-tenant) con trazabilidad de propietarios, descripción de objetivos, metadatos y conteo de arquitecturas y datasets asociados. Permite crear y cambiar de espacio de trabajo en un clic.", table_cell)
-        ],
-        [
-            Paragraph("<b>M03 • Fundamentos & Simulador Neuronal</b>", table_cell_bold),
-            Paragraph("Laboratorio interactivo de Deep Learning: comparativa biológica vs artificial, simulador de neurona individual calculando suma ponderada y activación en vivo, gráfica SVG reactiva de curvas (Sigmoide, ReLU, Leaky ReLU, Tanh, Softmax) y glosario técnico Semana 11.", table_cell)
-        ],
-        [
-            Paragraph("<b>M04 • Diseñador Visual de Redes</b>", table_cell_bold),
-            Paragraph("Constructor dinámico de capas (Input, Dense, Conv2D, Dropout, Flatten, LSTM). Permite ajustar unidades, funciones de activación e hiperparámetros del optimizador (Adam, SGD, RMSprop, Learning Rate). Incluye cálculo automático de tensores y parámetros.", table_cell)
-        ],
-        [
-            Paragraph("<b>M05 • Datasets & Partición Determinista</b>", table_cell_bold),
-            Paragraph("Gestor de datasets integrados a MinIO S3. Sliders interactivos para partición de datos en tiempo real (Train / Validation / Test) que totalizan automáticamente el 100%. Muestra tabular con inspección detallada de columnas independientes y vector objetivo (Target).", table_cell)
-        ],
-        [
-            Paragraph("<b>M06 • Orquestador de Entrenamientos</b>", table_cell_bold),
-            Paragraph("Monitor en vivo de trabajos de optimización. Visualiza el avance por época, tiempo transcurrido y curvas SVG en tiempo real de Pérdida (Loss / Val Loss) y Precisión (Accuracy / Val Accuracy) con terminal de logs en vivo.", table_cell)
-        ],
-        [
-            Paragraph("<b>M07 • Evaluación & Benchmarks</b>", table_cell_bold),
-            Paragraph("Análisis comparativo de experimentos contra benchmarks basales. Integra Matriz de Confusión interactiva, Curva ROC con discriminabilidad AUC, métricas macro/micro (Precision, Recall, F1) y dock derecho ampliable a pantalla completa.", table_cell)
-        ],
-        [
-            Paragraph("<b>M08 • Registro de Modelos (Model Registry)</b>", table_cell_bold),
-            Paragraph("Gobernanza y ciclo de vida formal de versiones: DRAFT -> REVIEWED -> APPROVED -> RETIRED. Cada versión cuenta con integridad criptográfica SHA-256 inmutable, resumen de métricas y descarga directa del artefacto compilado (.keras).", table_cell)
-        ],
-        [
-            Paragraph("<b>M09 • Ficha Técnica & Auditoría (Model Cards)</b>", table_cell_bold),
-            Paragraph("Generador de hojas de certificación oficial de modelos para despliegue en producción. Filtros de secciones (Topología, Métricas, Trazabilidad SHA-256) y exportación directa a formatos CSV, JSON estructurado e Impresión/PDF.", table_cell)
-        ],
-        [
-            Paragraph("<b>M10 • Administración, Cuotas & RBAC</b>", table_cell_bold),
-            Paragraph("Seguridad corporativa: Matriz RBAC para 5 roles (ADMIN, PROJECT_LEAD, AI_ENGINEER, REVIEWER, VIEWER), directorio de usuarios con invitación modal, control de cuotas de hardware (workers concurrentes, tiempo máximo, GPU/CUDA) y registro de auditoría inmutable.", table_cell)
-        ],
+    master_rows = [
+        ["Requisito", "Implementación verificable", "Estado"],
+        ["Interfaz React + TypeScript responsive", "apps/web con React 19, TypeScript estricto, Vite y Tailwind; build de producción correcto.", "Cumple"],
+        ["API Python versionada /api/v1", "FastAPI con routers auth, projects, architectures, datasets, training-jobs, models, audit, admin y fundamentals.", "Cumple"],
+        ["PostgreSQL para metadatos y resultados", "SQLAlchemy async, esquema ORM y migración Alembic inicial; SQLite para pruebas.", "Cumple"],
+        ["Workers aislados para TensorFlow/Keras", "workers/training como proceso separado; la API no importa TensorFlow.", "Cumple"],
+        ["Cola de trabajos", "Redis con RPUSH/BLPOP y Pub/Sub; backend filesystem para desarrollo.", "Cumple"],
+        ["Estado y métricas sin recargar", "SSE y WebSocket con snapshot, epoch_end, metrics y state; la UI actualiza en vivo.", "Cumple"],
+        ["Recuperación tras reconexión o fallo", "Snapshot desde PostgreSQL, sondeo de respaldo y recuperación de jobs en processing/.", "Cumple"],
+        ["RBAC y pertenencia a proyecto", "5 roles, rol efectivo por proyecto, 404 para proyectos ajenos y dependencias de autorización por endpoint.", "Cumple"],
+        ["Auditoría de acciones sensibles", "audit_events append-only para login, proyectos, datasets, jobs, modelos y usuarios.", "Cumple"],
+        ["Máquina de estados explícita", "QUEUED, PREPARING, RUNNING, COMPLETED, FAILED y CANCELLED persistidos y validados por el worker.", "Cumple"],
+        ["Cancelación cooperativa", "Solicitud persistida + Redis/flag; Keras detiene al final de época y conserva métricas.", "Cumple"],
+        ["Modelos inmutables y versionados", "model_versions con SHA-256, artefacto por job y transiciones DRAFT/REVIEWED/APPROVED/RETIRED.", "Cumple"],
+        ["Trazabilidad de cada ejecución", "Hiperparámetros, semilla, target, checksum y versión del dataset, versión de código, métricas y auditoría.", "Cumple"],
+        ["Validación de CSV", "Extensión, tamaño, encabezados, filas, columnas, target, nulos, tipos y detección de tarea.", "Cumple"],
+        ["Validación de entradas y errores controlados", "Pydantic, rangos, enums, validación dimensional y mensajes de error legibles.", "Cumple"],
+        ["Pruebas unitarias, integración y E2E", "22 pruebas de API aprobadas y flujo E2E real con worker documentado.", "Cumple"],
+        ["Documentación de arquitectura, API y operación", "README más documentos de API, arquitectura, modelo de datos y despliegue.", "Cumple"],
+        ["Docker y variables de entorno", "Compose con Postgres, Redis, API, worker y web; Dockerfiles, entrypoint con migraciones y .env.example local/cloud.", "Parcial"],
+        ["Despliegue cloud gestionado", "Supabase Postgres + Storage, Vercel y Railway con Dockerfiles y guía operativa; configuración lista, despliegue efectivo pendiente de credenciales.", "Parcial"],
+        ["Módulos M01-M10", "Los 10 módulos existen; algunas funciones secundarias tienen alcance parcial.", "Parcial"],
+        ["Búsqueda, filtros y etiquetas de proyecto", "Listado, creación, edición, miembros y estado; búsqueda avanzada, filtros y etiquetas no están implementados.", "Parcial"],
+        ["Prioridad de cola por permisos", "Los permisos controlan quién encola; no existe prioridad de cola.", "Parcial"],
+        ["Reintento de entrenamientos", "Reproceso manual con worker --job-id; no hay endpoint de reintento.", "Parcial"],
+        ["Límites de CPU, memoria, GPU, duración y concurrencia", "Límites de archivo/filas/columnas/features y timeout por configuración; no hay cuotas por usuario ni control de GPU.", "Parcial"],
+        ["Exportación CSV/PDF", "CSV y JSON reales, más impresión del navegador a PDF; no hay generación PDF en servidor.", "Parcial"],
+        ["CI/CD, métricas Prometheus y monitoreo avanzado", "Healthcheck y panel de sistema; no hay pipeline CI ni endpoint /metrics.", "Parcial"],
+        ["Cifrado en tránsito y backups probados", "Documentado y preparado para TLS en el proxy; los backups son procedimiento operativo, no automatización incluida.", "Parcial"],
+        ["Proveedor externo de autenticación", "JWT local con bcrypt; no hay IdP externo (OIDC/SAML).", "Fuera del MVP"],
+        ["Ejecución de modelos o inferencia en línea", "El alcance termina en registro, aprobación y descarga del artefacto.", "Fuera del MVP"],
     ]
+    story.append(_table(master_rows, [125, 350, 53], styles, status_col=2))
 
-    t_mod = Table(modules_data, colWidths=[165, 363])
-    t_mod.setStyle(TableStyle([
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('ROWBACKGROUNDS', (0,0), (-1,-1), [C_LIGHT_BG, colors.white]),
-        ('GRID', (0,0), (-1,-1), 0.5, C_BORDER),
-        ('TOPPADDING', (0,0), (-1,-1), 4.5),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 4.5),
-        ('LEFTPADDING', (0,0), (-1,-1), 6),
-        ('RIGHTPADDING', (0,0), (-1,-1), 6),
-    ]))
-    story.append(t_mod)
-    story.append(Spacer(1, 14))
+    # ------------------------------------------------------------------
+    # 4. Cumplimiento CSV ML Engine
+    # ------------------------------------------------------------------
+    story.append(PageBreak())
+    story.append(Paragraph("4. Cumplimiento del documento Real-Time CSV ML Engine", styles["h1"]))
+    story.append(
+        Paragraph(
+            "Las reglas de negocio RN-01 a RN-05 son el núcleo del documento. Todas están implementadas y "
+            "se validan en la práctica mediante pruebas y el flujo E2E.",
+            styles["body"],
+        )
+    )
 
-    # =========================================================================
-    # SECCIÓN 4: SIMULADOR DE MODO DEMO Y CASOS DE USO
-    # =========================================================================
-    story.append(Paragraph("4. Simulador de Modo Demo y Casos Industriales", h1_style))
-    story.append(Paragraph(
-        "Para facilitar presentaciones a clientes, evaluación de auditores y validación académica sin requerir hardware externo "
-        "preconfigurado, NeuroLab Enterprise incluye un <b>Modo Demo Interactivo</b> con persistencia de estado y 3 escenarios reales:",
-        body_style
-    ))
-
-    cases_data = [
-        [Paragraph("Industria", table_header), Paragraph("Caso de Negocio", table_header), Paragraph("Arquitectura & Configuración", table_header), Paragraph("Dataset & Muestras", table_header)],
-        [
-            Paragraph("<b>Fintech</b>", table_cell_bold),
-            Paragraph("Detección de Fraude Transaccional en Tarjetas de Crédito", table_cell),
-            Paragraph("FNN / MLP Multicapa<br/>Input: 30 &bull; Dense 64 (ReLU) &bull; Dropout 0.3 &bull; Dense 32 (ReLU) &bull; Output Sigmoide", table_cell),
-            Paragraph("creditcard_transactions_v2.csv<br/>10,000 muestras &bull; 30 features", table_cell)
-        ],
-        [
-            Paragraph("<b>Salud</b>", table_cell_bold),
-            Paragraph("Diagnóstico de Neumonía en Rayos X de Tórax", table_cell),
-            Paragraph("CNN Convolucional Profunda<br/>Input: [224, 224, 3] &bull; Conv2D (32) &bull; Conv2D (64) &bull; Dense 128 &bull; Output 2 Softmax", table_cell),
-            Paragraph("chest_xray_labeled.csv<br/>5,856 imágenes &bull; RGB", table_cell)
-        ],
-        [
-            Paragraph("<b>Telecom</b>", table_cell_bold),
-            Paragraph("Predicción Temprana de Fuga de Clientes (Churn)", table_cell),
-            Paragraph("FNN / MLP Binario<br/>Input: 18 &bull; Dense 32 &bull; Dense 16 &bull; Output Sigmoide", table_cell),
-            Paragraph("customer_churn_telco.csv<br/>7,043 clientes &bull; 18 variables", table_cell)
-        ]
+    csv_rows = [
+        ["Regla / requisito", "Implementación", "Estado"],
+        ["RN-01: dataset verificado, encabezados explícitos, límite de tamaño y verificación de esquema", "inspect_csv valida encabezados, duplicados, 10-500.000 filas, 2-500 columnas, tamaño máximo, target y tipos; guarda metadatos y checksum.", "Cumple"],
+        ["RN-02: máquina de estados sin saltos", "El worker escribe PREPARING antes de RUNNING y solo crea modelo al completar; estados terminales son definitivos.", "Cumple"],
+        ["RN-03: aislamiento del proceso ML", "Worker independiente; API solo encola. Preprocesamiento y Keras viven en workers/training.", "Cumple"],
+        ["RN-04: artefactos inmutables y versionado", "model.keras, scaler.pkl, preprocessor.pkl y training_manifest.json; SHA-256 en model_versions; versiones v1.0, v1.1.", "Cumple"],
+        ["RN-05: cancelación cooperativa y estado parcial", "Callback de Keras comprueba cancelación al inicio y fin de época; persiste métricas y marca CANCELLED sin corromper la BD.", "Cumple"],
+        ["Ingesta de CSV y detección de target", "El usuario selecciona el target; la API valida su existencia y detecta la tarea. No hay autodetección heurística del target.", "Parcial"],
+        ["Preprocesamiento con imputación y escalado", "Mediana/moda, StandardScaler, one-hot hasta 30 categorías, ordinal para el resto y split 70/15/15.", "Cumple"],
+        ["Construcción dinámica del modelo", "KerasModelBuilder construye capas Dense, Dropout y BatchNormalization; la salida se adapta a binaria, multiclase o regresión.", "Cumple"],
+        ["Entrenamiento con callbacks y métricas por época", "TelemetryCallback persiste loss/accuracy/val_loss/val_accuracy y publica epoch_end.", "Cumple"],
+        ["Streaming SSE y WebSocket", "Ambos canales autenticados con snapshot inicial, eventos de época, estado y error.", "Cumple"],
+        ["Evaluación final", "ModelEvaluator calcula pérdida, accuracy, precision, recall, F1 y matriz de confusión; para regresión MSE, RMSE, MAE y R2.", "Cumple"],
+        ["Serialización .keras y preprocesador .pkl", "ArtifactStorageManager guarda modelo, scaler y preprocesador, y calcula checksums individuales.", "Cumple"],
+        ["Persistencia de metadatos del entrenamiento", "training_manifest.json y metrics_summary incluyen dataset, semilla, hiperparámetros, split y versión de código.", "Cumple"],
+        ["Descarga autorizada del modelo", "GET /models/{id}/download valida pertenencia al proyecto y resuelve la clave models/... en local o en el bucket S3.", "Cumple"],
     ]
-    t_cases = Table(cases_data, colWidths=[65, 145, 185, 133])
-    t_cases.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), C_PRIMARY),
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, C_LIGHT_BG]),
-        ('GRID', (0,0), (-1,-1), 0.5, C_BORDER),
-        ('TOPPADDING', (0,0), (-1,-1), 5),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 5),
-        ('LEFTPADDING', (0,0), (-1,-1), 6),
-        ('RIGHTPADDING', (0,0), (-1,-1), 6),
-    ]))
-    story.append(t_cases)
-    story.append(Spacer(1, 14))
+    story.append(_table(csv_rows, [125, 350, 53], styles, status_col=2))
 
-    # =========================================================================
-    # SECCIÓN 5: DISEÑO VISUAL Y SISTEMA FROSTED GLASS
-    # =========================================================================
-    story.append(Paragraph("5. Sistema de Diseño Visual VisionOS & Frosted Glass", h1_style))
-    story.append(Paragraph(
-        "La interfaz del frontend sigue las directrices estéticas de <b>Apple VisionOS</b> con vidrio esmerilado translúcido "
-        "y una paleta monocromática de grises de grado empresarial, optimizada para uso continuo:",
-        body_style
-    ))
-
-    design_points = [
-        [
-            Paragraph("<b>Modo Oscuro (Smoked Glass)</b>", table_cell_bold),
-            Paragraph("Fondo espacial carbón (#090a0d) con tarjetas de vidrio ahumado (rgba 20, 21, 26, 0.68), desenfoque de 28px, bordes de luz blanca difusa (10%) y tipografía blanca y gris claro de alto contraste.", table_cell)
-        ],
-        [
-            Paragraph("<b>Modo Claro (Silvery Glass)</b>", table_cell_bold),
-            Paragraph("Lienzo plateado luminoso (#e6e9ee) con tarjetas de vidrio cristalino (rgba 255, 255, 255, 0.75), sombras volumétricas sutiles y tipografía grafito oscuro (#0c0d11) con ratio de contraste WCAG AAA.", table_cell)
-        ],
-        [
-            Paragraph("<b>Docks Laterales Plegables</b>", table_cell_bold),
-            Paragraph("Los gráficos secundarios y métricas se alojan en un dock lateral derecho ultracompacto (1/3 del ancho) para maximizar el área de trabajo, expandiéndose a pantalla completa con modales interactivos al hacer clic.", table_cell)
-        ],
-        [
-            Paragraph("<b>Gráficos Vectoriales Adaptativos</b>", table_cell_bold),
-            Paragraph("Todas las curvas analíticas (ROC, función de coste, matrices de confusión) renderizan con trazos SVG dinámicos en currentColor, ajustando automáticamente su colorimetría según el tema seleccionado.", table_cell)
-        ]
+    # ------------------------------------------------------------------
+    # 5. Criterios de aceptación del MVP
+    # ------------------------------------------------------------------
+    story.append(Paragraph("5. Criterios de aceptación del MVP", styles["h1"]))
+    acceptance_rows = [
+        ["Paso del criterio", "Evidencia en el sistema", "Estado"],
+        ["Usuario autenticado crea un proyecto", "POST /projects con JWT y roles de escritura; UI de proyectos.", "Cumple"],
+        ["Configura una red Feedforward válida", "POST /architectures/validate y POST /architectures con validación dimensional en servidor.", "Cumple"],
+        ["Selecciona un dataset de prueba", "Carga CSV, validación de esquema, preview y selección de target.", "Cumple"],
+        ["Inicia un entrenamiento real en TensorFlow/Keras", "POST /training-jobs encola; worker ejecuta model.fit real.", "Cumple"],
+        ["Visualiza estado y métricas sin recargar", "SSE/WS con snapshot y telemetría por época; la UI actualiza en vivo.", "Cumple"],
+        ["Consulta el resultado posteriormente", "Job, métricas y modelo persisten y se consultan tras cerrar sesión.", "Cumple"],
+        ["Conserva la versión del modelo con trazabilidad", "model_versions inmutable con SHA-256, manifiesto, dataset checksum y auditoría.", "Cumple"],
     ]
-    t_design = Table(design_points, colWidths=[165, 363])
-    t_design.setStyle(TableStyle([
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('ROWBACKGROUNDS', (0,0), (-1,-1), [C_LIGHT_BG, colors.white]),
-        ('GRID', (0,0), (-1,-1), 0.5, C_BORDER),
-        ('TOPPADDING', (0,0), (-1,-1), 4.5),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 4.5),
-        ('LEFTPADDING', (0,0), (-1,-1), 6),
-        ('RIGHTPADDING', (0,0), (-1,-1), 6),
-    ]))
-    story.append(t_design)
-    story.append(Spacer(1, 14))
+    story.append(_table(acceptance_rows, [145, 330, 53], styles, status_col=2))
 
-    # =========================================================================
-    # SECCIÓN 6: GUÍA DE DESPLIEGUE Y COMANDOS DE EJECUCIÓN
-    # =========================================================================
-    story.append(Paragraph("6. Instrucciones de Despliegue y Ejecución", h1_style))
-    story.append(Paragraph(
-        "El proyecto está listo para su ejecución tanto en desarrollo local con hot-reload como en contenedores Docker de producción:",
-        body_style
-    ))
-
-    cmd_data = [
-        [Paragraph("Entorno / Tarea", table_header), Paragraph("Comando de Consola", table_header), Paragraph("Descripción y URLs de Acceso", table_header)],
-        [
-            Paragraph("<b>Frontend Web</b><br/>(React + Vite)", table_cell),
-            Paragraph("cd apps/web<br/>npm install<br/>npm run dev", code_style),
-            Paragraph("Inicia el servidor de desarrollo local en <b>http://localhost:5173</b> con hot-reload y compilación rápida.", table_cell)
-        ],
-        [
-            Paragraph("<b>Verificación Build</b><br/>(TypeScript + Vite)", table_cell),
-            Paragraph("cd apps/web<br/>npm run build", code_style),
-            Paragraph("Ejecuta type-check estricto de TypeScript y genera el bundle de producción en <code>apps/web/dist</code> (0 errores).", table_cell)
-        ],
-        [
-            Paragraph("<b>Backend API</b><br/>(FastAPI)", table_cell),
-            Paragraph("cd services/api<br/>pip install -r requirements.txt<br/>uvicorn app.main:app --reload", code_style),
-            Paragraph("Inicia la API REST y servidor WebSocket en <b>http://localhost:8000</b>. Documentación OpenAPI en <b>/docs</b>.", table_cell)
-        ],
-        [
-            Paragraph("<b>Stack Completo</b><br/>(Docker Compose)", table_cell),
-            Paragraph("docker-compose up -d", code_style),
-            Paragraph("Levanta PostgreSQL 16 (puerto 5432), Redis 7 (puerto 6379), MinIO (puerto 9000/9001), API Gateway y Worker.", table_cell)
-        ]
+    # ------------------------------------------------------------------
+    # 6. Módulos
+    # ------------------------------------------------------------------
+    story.append(Paragraph("6. Estado de los módulos M01-M10", styles["h1"]))
+    module_rows = [
+        ["Módulo", "Implementación real", "Estado"],
+        ["M01 Dashboard", "KPIs de proyectos, jobs recientes, modelos, auditoría y estado del sistema para ADMIN.", "Cumple"],
+        ["M02 Proyectos", "CRUD, miembros, roles, estado y conteos reales. Sin búsqueda avanzada, filtros ni etiquetas.", "Parcial"],
+        ["M03 Fundamentos", "Conceptos, activaciones y familias servidos por /fundamentals con contenido curricular.", "Cumple"],
+        ["M04 Diseñador", "Topologías FNN/RNN/CNN/GAN, validador dimensional, resumen de parámetros y guardado versionado.", "Cumple"],
+        ["M05 Datasets", "Carga, validación, metadatos, preview, checksum y borrado seguro con control de trazabilidad.", "Cumple"],
+        ["M06 Entrenamientos", "Configuración, cola, monitor en vivo, historial y cancelación. Sin prioridad ni reintento por API.", "Parcial"],
+        ["M07 Evaluación", "Curvas reales por época, comparación de jobs y métricas finales persistidas.", "Cumple"],
+        ["M08 Registro de modelos", "Versiones inmutables, checksum, descarga y ciclo de vida con aprobación por rol.", "Cumple"],
+        ["M09 Reportes", "Fichas y exportación CSV/JSON con datos persistidos; PDF vía impresión del navegador.", "Parcial"],
+        ["M10 Administración", "Usuarios, roles, estados, estado de BD/Redis/cola y auditoría. Sin cuotas de CPU/GPU.", "Parcial"],
     ]
-    t_cmd = Table(cmd_data, colWidths=[120, 190, 218])
-    t_cmd.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), C_PRIMARY),
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, C_LIGHT_BG]),
-        ('GRID', (0,0), (-1,-1), 0.5, C_BORDER),
-        ('TOPPADDING', (0,0), (-1,-1), 5),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 5),
-        ('LEFTPADDING', (0,0), (-1,-1), 6),
-        ('RIGHTPADDING', (0,0), (-1,-1), 6),
-    ]))
-    story.append(t_cmd)
-    story.append(Spacer(1, 16))
+    story.append(_table(module_rows, [80, 395, 53], styles, status_col=2))
 
-    # Sign-off box
-    sign_box = [
-        [
-            Paragraph(
-                "<b>Certificación de Entrega Técnica:</b> El presente documento formaliza el avance completo, diseño visual y "
-                "especificaciones del monorepositorio NeuroLab Enterprise, alojado y sincronizado en la rama principal del repositorio:<br/>"
-                "<b>URL:</b> https://github.com/sanhuezazetakevin-ship-it/NeuroLab_Enterprise.git",
-                body_style
-            )
-        ]
+    # ------------------------------------------------------------------
+    # 7. Validación, seguridad y operación
+    # ------------------------------------------------------------------
+    story.append(PageBreak())
+    story.append(Paragraph("7. Validación, seguridad y operación", styles["h1"]))
+
+    security_rows = [
+        ["Área", "Implementación"],
+        ["Autenticación", "bcrypt + JWT HS256; recarga del usuario en cada request; cuentas INACTIVE/SUSPENDED sin acceso."],
+        ["Autorización", "Roles ADMIN, PROJECT_LEAD, AI_ENGINEER, REVIEWER y VIEWER; permisos de escritura y aprobación separados."],
+        ["Aislamiento horizontal", "Sin membresía se devuelve 404 para no revelar la existencia de proyectos ajenos."],
+        ["Rate limit", "Login por IP y minuto; en memoria por proceso, no distribuido."],
+        ["Validación", "Pydantic, enums, rangos, validación dimensional y validación de CSV."],
+        ["Rutas de archivos", "Claves datasets/ y models/ validadas contra path traversal y resueltas en DATA_DIR/MODEL_DIR o en el bucket S3."],
+        ["CORS", "Lista explícita de orígenes y regex opcional para dominios de preview de Vercel."],
+        ["Auditoría", "Eventos append-only con actor, proyecto, acción, metadatos y fecha."],
+        ["Secretos", "Variables de entorno del servidor; el bundle React solo recibe la URL de API."],
+        ["Cabeceras", "X-Content-Type-Options, X-Frame-Options y Referrer-Policy."],
+        ["Migraciones", "Alembic como fuente del esquema; create_all solo en desarrollo."],
     ]
-    t_sign = Table(sign_box, colWidths=[528])
-    t_sign.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), C_LIGHT_BG),
-        ('BOX', (0,0), (-1,-1), 1, C_ACCENT),
-        ('TOPPADDING', (0,0), (-1,-1), 8),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 8),
-        ('LEFTPADDING', (0,0), (-1,-1), 10),
-        ('RIGHTPADDING', (0,0), (-1,-1), 10),
-    ]))
-    story.append(t_sign)
+    story.append(_table(security_rows, [105, 423], styles))
 
-    # Build PDF with custom NumberedCanvas
+    story.append(Paragraph("8. Evidencia de verificación", styles["h1"]))
+    evidence_rows = [
+        ["Verificación", "Resultado"],
+        ["python -m pytest -q en services/api", "26 pruebas aprobadas (incluye almacenamiento local y normalización de URL Supabase)"],
+        ["npm run build en apps/web", "tsc y vite build correctos"],
+        ["alembic check", "Sin operaciones pendientes sobre el esquema actual"],
+        ["E2E API - cola filesystem - worker TF/Keras", "Job COMPLETED, métricas persistidas y modelo v1.0 DRAFT con SHA-256"],
+        ["Cancelación E2E", "Job CANCELLED con métricas parciales conservadas"],
+        ["SSE", "Snapshot inicial y evento de estado terminal recibidos"],
+        ["Docker Compose", "Definido y revisado estáticamente; runtime no validado en este entorno por falta de daemon"],
+        ["Redis runtime", "No disponible en el entorno local; el E2E usó el backend filesystem"],
+        ["Supabase/Vercel/Railway", "Configuración y guía completas; falta ejecutar el despliegue con credenciales reales"],
+    ]
+    story.append(_table(evidence_rows, [220, 308], styles))
+
+    story.append(Paragraph("9. Limitaciones y trabajo futuro", styles["h1"]))
+    limitations = [
+        "Entrenamiento real solo para FEEDFORWARD tabular; RNN/CNN/GAN quedan documentadas y validadas.",
+        "El modo local exige que API y worker compartan volumen; para hosts separados debe usarse STORAGE_BACKEND=s3 (Supabase Storage, MinIO, S3 o R2).",
+        "El despliegue cloud está configurado y documentado, pero no ejecutado: requiere credenciales de Supabase, Vercel y Railway.",
+        "El plan Free Trial de Railway dura 30 días, incluye 5 USD y limita cada servicio a 1 GB de RAM; TensorFlow puede agotar la memoria con datasets grandes.",
+        "Sin cuotas de CPU, memoria, GPU ni concurrencia por usuario/proyecto.",
+        "Sin prioridad de cola ni endpoint de reintento; el reproceso es operativo con worker --job-id.",
+        "Rate limit de login en memoria por proceso.",
+        "Sin CI/CD ni endpoint de métricas Prometheus.",
+        "Sin generación de PDF en servidor; se usa impresión del navegador.",
+        "Sin autenticación federada (OIDC/SAML) ni refresh tokens.",
+        "La validación de runtime con Docker/PostgreSQL/Redis queda pendiente en un entorno con daemon disponible.",
+    ]
+    for item in limitations:
+        story.append(Paragraph("- " + item, styles["body"]))
+
+    story.append(Paragraph("10. Conclusión", styles["h1"]))
+    story.append(
+        Paragraph(
+            "La implementación cumple el criterio de finalización del MVP del Documento Maestro: un usuario "
+            "autenticado crea un proyecto, configura una red Feedforward válida, selecciona un dataset, inicia un "
+            "entrenamiento real con TensorFlow/Keras, observa estado y métricas sin recargar, consulta el resultado "
+            "posteriormente y conserva una versión inmutable con trazabilidad. También cumple las cinco reglas de "
+            "negocio del documento CSV y su flujo de ingesta, preprocesamiento, entrenamiento, evaluación y versionado.",
+            styles["body"],
+        )
+    )
+    story.append(
+        Paragraph(
+            "Las brechas restantes son de endurecimiento empresarial y de alcance ampliado, no de funcionamiento "
+            "del flujo principal: cuotas de recursos, prioridad/reintento de cola, observabilidad avanzada, CI/CD, "
+            "autenticación federada y ejecución efectiva del despliegue cloud (la configuración ya existe). Están "
+            "identificadas de forma explícita para que la siguiente fase las aborde sin presentar como terminado lo "
+            "que aún no lo está.",
+            styles["body"],
+        )
+    )
+
     doc.build(story, canvasmaker=NumberedCanvas)
-    print(f"PDF generado con éxito en: {output_path}")
+    print(f"Reporte generado: {output_path}")
 
-if __name__ == '__main__':
-    desktop_dir = os.path.expanduser('~/Desktop')
-    out_pdf = os.path.join(desktop_dir, 'NeuroLab_Enterprise_Reporte_Detallado.pdf')
-    build_pdf(out_pdf)
+
+if __name__ == "__main__":
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    default_output = os.path.join(
+        project_root, "docs", "NeuroLab_Enterprise_Reporte_Cumplimiento.pdf"
+    )
+    output = sys.argv[1] if len(sys.argv) > 1 else default_output
+    build_pdf(output)

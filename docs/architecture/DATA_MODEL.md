@@ -1,89 +1,292 @@
-# Modelo de Datos - NeuroLab Enterprise
+# Modelo de datos
 
-Este documento detalla el diccionario de datos y las relaciones entre entidades persistidas en PostgreSQL.
+Fuente de verdad del esquema: `services/api/app/repositories/models.py` (SQLAlchemy 2) y las migraciones de `services/api/alembic/`.
 
-## 1. Entidades y Diccionario de Datos
+- **PostgreSQL 16** en Docker/producción.
+- **SQLite async** para desarrollo local y pruebas.
+- Tipos portables: `Uuid` para identificadores y `JSON` con variante `JSONB` en PostgreSQL.
+- Fechas `TIMESTAMPTZ` en PostgreSQL, con `UTC` como convención de aplicación.
+- `infra/migrations/001_initial_schema.sql` es DDL PostgreSQL generado como referencia; no se ejecuta automáticamente.
 
-### 1.1 `users`
-Almacena las credenciales y perfiles de los usuarios de la plataforma.
-- `id` (UUID, PK): Identificador único de usuario.
-- `email` (VARCHAR 255, Unique): Correo corporativo del usuario.
-- `password_hash` (VARCHAR 255): Hash bcrypt de la contraseña.
-- `display_name` (VARCHAR 150): Nombre visible del usuario.
-- `role` (VARCHAR 50): Rol global en el sistema (`ADMIN`, `PROJECT_LEAD`, `AI_ENGINEER`, `REVIEWER`, `VIEWER`).
-- `status` (VARCHAR 50): Estado de la cuenta (`ACTIVE`, `INACTIVE`, `SUSPENDED`).
-- `created_at` (TIMESTAMPTZ): Fecha de creación.
+---
 
-### 1.2 `projects`
-Contenedor principal para experimentación y colaboración en IA.
-- `id` (UUID, PK): Identificador del proyecto.
-- `name` (VARCHAR 200): Título del proyecto.
-- `description` (TEXT): Alcance y descripción del problema a resolver.
-- `owner_id` (UUID, FK -> users.id): Creador y responsable del proyecto.
-- `status` (VARCHAR 50): Estado (`ACTIVE`, `ARCHIVED`).
-- `created_at` / `updated_at` (TIMESTAMPTZ).
+## 1. Diagrama de relaciones
 
-### 1.3 `project_members`
-Tabla de asociación para control de acceso RBAC por proyecto.
-- `project_id` (UUID, PK, FK -> projects.id).
-- `user_id` (UUID, PK, FK -> users.id).
-- `role` (VARCHAR 50): Rol específico dentro del proyecto.
+```mermaid
+erDiagram
+    users ||--o{ projects : owner
+    users ||--o{ project_members : member
+    projects ||--o{ project_members : has
+    projects ||--o{ architectures : contains
+    projects ||--o{ datasets : contains
+    projects ||--o{ training_jobs : contains
+    projects ||--o{ model_versions : contains
+    architectures ||--o{ training_jobs : used_by
+    datasets ||--o{ training_jobs : used_by
+    training_jobs ||--o{ training_metrics : emits
+    training_jobs ||--o{ model_versions : produces
+    users ||--o{ audit_events : actor
+    projects ||--o{ audit_events : scope
+```
 
-### 1.4 `architectures`
-Topologías de redes neuronales validadas y versionadas.
-- `id` (UUID, PK): Identificador de la arquitectura.
-- `project_id` (UUID, FK -> projects.id): Proyecto al que pertenece.
-- `name` (VARCHAR 200): Nombre descriptivo (ej. "MLP Clasificación Churn v1").
-- `family` (VARCHAR 50): Familia de red (`FEEDFORWARD`, `RNN`, `CNN`, `GAN`).
-- `config_json` (JSONB): Estructura detallada de capas, unidades, activaciones y tensores de entrada/salida.
-- `version` (INT): Número de versión secuencial.
+---
 
-### 1.5 `datasets`
-Metadatos de los conjuntos de datos aprobados para entrenamiento.
-- `id` (UUID, PK): Identificador del dataset.
-- `project_id` (UUID, FK -> projects.id): Proyecto asociado.
-- `name` (VARCHAR 200): Nombre del dataset.
-- `version` (VARCHAR 50): Etiqueta de versión (ej. `v1.0`).
-- `storage_key` (VARCHAR 500): Ruta en Object Storage / S3.
-- `metadata_json` (JSONB): Esquema de columnas, recuento de filas, tipos y split ratios.
+## 2. Diccionario de datos
 
-### 1.6 `training_jobs`
-Registro de ejecuciones de entrenamiento (ciclo de vida).
-- `id` (UUID, PK): Identificador del trabajo.
-- `project_id` (UUID, FK -> projects.id).
-- `architecture_id` (UUID, FK -> architectures.id).
-- `dataset_id` (UUID, FK -> datasets.id).
-- `status` (VARCHAR 50): `QUEUED`, `PREPARING`, `RUNNING`, `COMPLETED`, `FAILED`, `CANCELLED`.
-- `progress` (NUMERIC 5,2): Porcentaje de avance de 0.00% a 100.00%.
-- `hyperparameters` (JSONB): Batch size, epochs, learning rate, optimizador, loss function.
-- `started_at` / `ended_at` (TIMESTAMPTZ): Tiempos de ejecución.
-- `error_message` (TEXT): Registro técnico en caso de fallo.
+### 2.1 `users`
 
-### 1.7 `training_metrics`
-Registro de telemetría por época emitido por Keras.
-- `id` (BIGSERIAL, PK).
-- `job_id` (UUID, FK -> training_jobs.id).
-- `epoch` (INT): Número de época actual.
-- `metric_name` (VARCHAR 100): Nombre (`loss`, `accuracy`, `val_loss`, `val_accuracy`).
-- `metric_value` (DOUBLE PRECISION): Valor numérico.
-- `recorded_at` (TIMESTAMPTZ).
+| Columna | Tipo | Restricciones |
+|---|---|---|
+| `id` | UUID | PK, default `uuid4` |
+| `email` | VARCHAR(255) | NOT NULL, UNIQUE, indexado |
+| `password_hash` | VARCHAR(255) | NOT NULL (bcrypt) |
+| `display_name` | VARCHAR(150) | NOT NULL |
+| `role` | VARCHAR(50) | NOT NULL, default `AI_ENGINEER` |
+| `status` | VARCHAR(50) | NOT NULL, default `ACTIVE` |
+| `created_at` | TIMESTAMPTZ | NOT NULL |
+| `updated_at` | TIMESTAMPTZ | NOT NULL, `onupdate` |
 
-### 1.8 `model_versions`
-Artefactos de modelos entrenados y aprobados.
-- `id` (UUID, PK).
-- `project_id` (UUID, FK -> projects.id).
-- `job_id` (UUID, FK -> training_jobs.id).
-- `version` (VARCHAR 50): Versión semántica (ej. `1.0.0`).
-- `storage_key` (VARCHAR 500): Ubicación del archivo serializado (`.keras`).
-- `status` (VARCHAR 50): `DRAFT`, `REVIEWED`, `APPROVED`, `RETIRED`.
-- `checksum` (VARCHAR 128): Hash SHA-256 inmutable de los pesos.
-- `metrics_summary` (JSONB): Resumen de evaluación (F1, precisión, recall, test loss).
+Valores válidos de `role`: `ADMIN`, `PROJECT_LEAD`, `AI_ENGINEER`, `REVIEWER`, `VIEWER`.
+Valores válidos de `status`: `ACTIVE`, `INACTIVE`, `SUSPENDED`.
 
-### 1.9 `audit_events`
-Trazabilidad de auditoría de acciones sensibles.
-- `id` (UUID, PK).
-- `actor_id` (UUID, FK -> users.id).
-- `project_id` (UUID, FK -> projects.id).
-- `action` (VARCHAR 100): Código de acción ejecutada.
-- `metadata_json` (JSONB): Datos contextuales e IP/User-Agent.
-- `created_at` (TIMESTAMPTZ).
+### 2.2 `projects`
+
+| Columna | Tipo | Restricciones |
+|---|---|---|
+| `id` | UUID | PK |
+| `name` | VARCHAR(200) | NOT NULL |
+| `description` | TEXT | NULL |
+| `owner_id` | UUID | FK → `users.id` `ON DELETE CASCADE`, NOT NULL |
+| `status` | VARCHAR(50) | NOT NULL, default `ACTIVE` |
+| `created_at` | TIMESTAMPTZ | NOT NULL |
+| `updated_at` | TIMESTAMPTZ | NOT NULL, `onupdate` |
+
+Índice: `idx_projects_owner (owner_id)`.
+`status`: `ACTIVE` o `ARCHIVED`.
+
+### 2.3 `project_members`
+
+| Columna | Tipo | Restricciones |
+|---|---|---|
+| `project_id` | UUID | PK compuesta, FK → `projects.id` `ON DELETE CASCADE` |
+| `user_id` | UUID | PK compuesta, FK → `users.id` `ON DELETE CASCADE` |
+| `role` | VARCHAR(50) | NOT NULL, default `AI_ENGINEER` |
+| `added_at` | TIMESTAMPTZ | NOT NULL |
+
+PK compuesta `(project_id, user_id)`. El propietario no necesita fila aquí: su rol efectivo se deriva de `projects.owner_id`.
+
+### 2.4 `architectures`
+
+| Columna | Tipo | Restricciones |
+|---|---|---|
+| `id` | UUID | PK |
+| `project_id` | UUID | FK → `projects.id` `ON DELETE CASCADE`, NOT NULL |
+| `name` | VARCHAR(200) | NOT NULL |
+| `family` | VARCHAR(50) | NOT NULL |
+| `config_json` | JSONB / JSON | NOT NULL |
+| `version` | INTEGER | NOT NULL, default `1` |
+| `created_by` | UUID | FK → `users.id` `ON DELETE SET NULL`, NULL |
+| `created_at` | TIMESTAMPTZ | NOT NULL |
+
+Índice: `idx_architectures_project (project_id)`.
+
+`family`: `FEEDFORWARD`, `RNN`, `CNN`, `GAN`.
+`config_json` guarda `input_shape` y `layers` (tipo, unidades, activación, rate, filtros, kernel, pool, `return_sequences`). La versión se incrementa por nombre dentro del proyecto.
+
+### 2.5 `datasets`
+
+| Columna | Tipo | Restricciones |
+|---|---|---|
+| `id` | UUID | PK |
+| `project_id` | UUID | FK → `projects.id` `ON DELETE CASCADE`, NOT NULL |
+| `name` | VARCHAR(200) | NOT NULL |
+| `version` | VARCHAR(50) | NOT NULL, default `v1.0` |
+| `storage_key` | VARCHAR(500) | NOT NULL |
+| `original_filename` | VARCHAR(255) | NOT NULL |
+| `size_bytes` | INTEGER | NOT NULL, default `0` |
+| `checksum` | VARCHAR(128) | NOT NULL, SHA-256 del CSV |
+| `target_column` | VARCHAR(150) | NULL |
+| `verified` | BOOLEAN | NOT NULL, default `false` |
+| `metadata_json` | JSONB / JSON | NOT NULL |
+| `created_by` | UUID | FK → `users.id` `ON DELETE SET NULL`, NULL |
+| `created_at` | TIMESTAMPTZ | NOT NULL |
+
+Índice: `idx_datasets_project (project_id)`.
+`storage_key` es una clave lógica relativa a la raíz de datasets, por ejemplo `datasets/{project_id}/{dataset_id}.csv`. Se resuelve contra `DATA_DIR` en modo local o contra el bucket `S3_BUCKET` en modo S3.
+
+Contenido de `metadata_json`:
+
+```json
+{
+  "samples": 40,
+  "features_count": 3,
+  "target_column": "abandono",
+  "task": "classification",
+  "columns": [
+    { "name": "edad", "dtype": "int64", "null_count": 0, "unique": 40 }
+  ],
+  "null_counts": { "edad": 0 },
+  "dtypes": { "edad": "int64" },
+  "train_split": 0.7,
+  "val_split": 0.15,
+  "test_split": 0.15,
+  "verified": true
+}
+```
+
+### 2.6 `training_jobs`
+
+| Columna | Tipo | Restricciones |
+|---|---|---|
+| `id` | UUID | PK |
+| `project_id` | UUID | FK → `projects.id` `ON DELETE CASCADE`, NOT NULL |
+| `architecture_id` | UUID | FK → `architectures.id` `ON DELETE RESTRICT`, NOT NULL |
+| `dataset_id` | UUID | FK → `datasets.id` `ON DELETE RESTRICT`, NOT NULL |
+| `status` | VARCHAR(50) | NOT NULL, default `QUEUED` |
+| `progress` | DOUBLE PRECISION | NOT NULL, default `0.0` |
+| `hyperparameters` | JSONB / JSON | NOT NULL |
+| `cancel_requested` | BOOLEAN | NOT NULL, default `false` |
+| `requested_by` | UUID | FK → `users.id` `ON DELETE SET NULL`, NULL |
+| `started_at` | TIMESTAMPTZ | NULL |
+| `ended_at` | TIMESTAMPTZ | NULL |
+| `error_message` | TEXT | NULL |
+| `created_at` | TIMESTAMPTZ | NOT NULL |
+
+Índices: `idx_training_jobs_project (project_id)`, `idx_training_jobs_status (status)`.
+
+`RESTRICT` en arquitectura y dataset impide borrar entidades con trazabilidad de entrenamiento.
+
+`hyperparameters` contiene lo enviado por el usuario más metadatos de reproducibilidad:
+
+```json
+{
+  "epochs": 50,
+  "batch_size": 32,
+  "optimizer": "adam",
+  "learning_rate": 0.001,
+  "loss": null,
+  "metrics": ["accuracy"],
+  "random_seed": 42,
+  "validation_split": 0.15,
+  "target_column": "abandono",
+  "task": "classification",
+  "dataset_checksum": "e3b0...",
+  "dataset_version": "v1.0",
+  "code_version": "1.0.0"
+}
+```
+
+`progress` va de `0.0` a `100.0`; durante la ejecución se limita a `99.0`.
+
+### 2.7 `training_metrics`
+
+| Columna | Tipo | Restricciones |
+|---|---|---|
+| `id` | INTEGER | PK, autoincremental |
+| `job_id` | UUID | FK → `training_jobs.id` `ON DELETE CASCADE`, NOT NULL |
+| `epoch` | INTEGER | NOT NULL |
+| `metric_name` | VARCHAR(100) | NOT NULL |
+| `metric_value` | DOUBLE PRECISION | NOT NULL |
+| `recorded_at` | TIMESTAMPTZ | NOT NULL |
+
+Índice: `idx_metrics_job_epoch (job_id, epoch)`.
+Restricción única: `uq_metric_job_epoch_name (job_id, epoch, metric_name)`.
+
+Formato largo: una fila por métrica y época (`loss`, `accuracy`, `val_loss`, `val_accuracy`). La API las agrega por época para la respuesta y para el stream.
+
+### 2.8 `model_versions`
+
+| Columna | Tipo | Restricciones |
+|---|---|---|
+| `id` | UUID | PK |
+| `project_id` | UUID | FK → `projects.id` `ON DELETE CASCADE`, NOT NULL |
+| `job_id` | UUID | FK → `training_jobs.id` `ON DELETE RESTRICT`, NOT NULL |
+| `version` | VARCHAR(50) | NOT NULL |
+| `storage_key` | VARCHAR(500) | NOT NULL, clave lógica `models/{project_id}/{job_id}/model.keras` (local o S3) |
+| `status` | VARCHAR(50) | NOT NULL, default `DRAFT` |
+| `checksum` | VARCHAR(128) | NOT NULL, SHA-256 del `.keras` |
+| `metrics_summary` | JSONB / JSON | NULL |
+| `created_at` | TIMESTAMPTZ | NOT NULL |
+
+Índice: `idx_model_versions_project (project_id)`.
+`status`: `DRAFT`, `REVIEWED`, `APPROVED`, `RETIRED`.
+La versión se calcula por proyecto (`v1.0`, `v1.1`, …). El artefacto es inmutable.
+
+`metrics_summary` incluye según la tarea:
+
+- **Clasificación:** `test_loss`, `test_accuracy`, `accuracy`, `precision`, `recall`, `f1_score`, `confusion_matrix`, `class_labels`, `samples_test`.
+- **Regresión:** `test_loss`, `test_mse`, `test_rmse`, `test_mae`, `r2_score`, `samples_test`.
+- **Comunes:** `task`, `epochs_completed`, `dataset_checksum`, `dataset_version`, `code_version`, `artifacts` (rutas y SHA-256 de modelo, scaler, preprocesador y manifiesto).
+
+### 2.9 `audit_events`
+
+| Columna | Tipo | Restricciones |
+|---|---|---|
+| `id` | UUID | PK |
+| `actor_id` | UUID | FK → `users.id` `ON DELETE SET NULL`, NULL |
+| `project_id` | UUID | FK → `projects.id` `ON DELETE SET NULL`, NULL |
+| `action` | VARCHAR(100) | NOT NULL |
+| `metadata_json` | JSONB / JSON | NOT NULL |
+| `created_at` | TIMESTAMPTZ | NOT NULL |
+
+Índices: `idx_audit_events_project (project_id)`, `idx_audit_events_actor (actor_id)`.
+
+Acciones registradas:
+
+| Ámbito | Acciones |
+|---|---|
+| Autenticación | `USER_LOGIN`, `USER_PASSWORD_CHANGED` |
+| Usuarios | `USER_CREATED`, `USER_UPDATED` |
+| Proyectos | `PROJECT_CREATED`, `PROJECT_UPDATED`, `PROJECT_MEMBER_UPSERTED`, `PROJECT_MEMBER_REMOVED` |
+| Datasets | `DATASET_UPLOADED`, `DATASET_DELETED` |
+| Arquitecturas | `ARCHITECTURE_CREATED` |
+| Entrenamiento | `TRAINING_JOB_QUEUED`, `TRAINING_JOB_ENQUEUE_FAILED`, `TRAINING_JOB_CANCEL_REQUESTED`, `TRAINING_JOB_CANCELLED`, `TRAINING_JOB_COMPLETED`, `TRAINING_JOB_FAILED` |
+| Modelos | `MODEL_REVIEWED`, `MODEL_APPROVED`, `MODEL_RETIRED` |
+
+---
+
+## 3. Invariantes de negocio
+
+1. Un proyecto pertenece a un usuario; el acceso se concede por ownership o membresía.
+2. Un job sólo referencia arquitectura y dataset del **mismo proyecto** (validado en API, no por FK compuesta).
+3. Un job sólo puede encolarse si el dataset está `verified` y la arquitectura es válida y entrenable.
+4. Una arquitectura y un dataset referenciados por jobs no pueden eliminarse (`RESTRICT`; el dataset además devuelve `409`).
+5. Las métricas son únicas por `(job_id, epoch, metric_name)`.
+6. Una versión de modelo sólo se crea tras un entrenamiento `COMPLETED`.
+7. El estado del modelo sólo avanza por las transiciones permitidas.
+8. Los artefactos y datasets se referencian por ruta relativa validada; nunca por ruta absoluta del cliente.
+9. La auditoría es append-only desde la aplicación: no se actualiza ni elimina.
+
+---
+
+## 4. Borrado y retención
+
+| Entidad | Efecto |
+|---|---|
+| Usuario | `projects` y `project_members` en cascada; jobs conservan `requested_by=NULL`; auditoría conserva `actor_id=NULL` |
+| Proyecto | Cascada sobre arquitecturas, datasets, jobs, métricas y modelos; auditoría conserva `project_id=NULL` |
+| Dataset | Bloqueado si hay jobs; si no, elimina fila y archivo CSV |
+| Job | `training_metrics` en cascada; `model_versions` bloquea el borrado (`RESTRICT`) |
+| Modelo | Sin borrado por API; se marca `RETIRED` |
+
+La retención de artefactos es operativa: al eliminar un proyecto en cascada, los archivos en `DATA_DIR`/`MODEL_DIR` o en el bucket S3 deben limpiarse con una tarea de mantenimiento (no hay borrado automático de binarios en el MVP).
+
+---
+
+## 5. Migraciones
+
+```bash
+cd services/api
+alembic upgrade head
+alembic current
+alembic check
+alembic revision --autogenerate -m "descripcion"
+```
+
+Revisión inicial: `services/api/alembic/versions/f25503c0985b_initial_schema.py`.
+
+Notas:
+
+- `alembic/env.py` usa `Base.metadata` como `target_metadata` y convierte URLs async a drivers sincrónicos (`asyncpg` → `psycopg2`, `aiosqlite` → `sqlite`).
+- `%` se escapa en la URL para evitar la interpolación de `ConfigParser`.
+- En desarrollo, la API también puede crear el esquema con `create_all`; en producción sólo se aceptan migraciones.

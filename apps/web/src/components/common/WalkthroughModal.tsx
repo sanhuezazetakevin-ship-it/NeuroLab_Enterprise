@@ -1,23 +1,25 @@
 import React, { useState } from 'react';
 import {
   X,
-  ChevronRight,
   ChevronLeft,
   BookOpen,
   Cpu,
   PlayCircle,
   Box,
   Layers,
-  ArrowRight
+  ArrowRight,
+  Database,
+  FolderGit2,
 } from 'lucide-react';
-import { useDemo } from '../../lib/DemoContext';
+import { useApp } from '../../lib/AppContext';
+import type { NavTab } from '../layout/Shell';
 
 interface WalkthroughModalProps {
-  onNavigateTab: (tab: any) => void;
+  onNavigateTab: (tab: NavTab) => void;
 }
 
 export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTab }) => {
-  const { walkthroughOpen, setWalkthroughOpen } = useDemo();
+  const { walkthroughOpen, setWalkthroughOpen } = useApp();
   const [currentStep, setCurrentStep] = useState(0);
 
   if (!walkthroughOpen) return null;
@@ -25,99 +27,153 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
   const steps = [
     {
       title: 'NeuroLab Enterprise',
-      subtitle: 'Plataforma para el diseño, validación y entrenamiento de Redes Neuronales',
+      subtitle: 'Plataforma real para diseñar, entrenar y gobernar redes neuronales',
       icon: Layers,
       badge: 'Semana 11',
       content: (
         <div className="space-y-3 text-xs text-zinc-700 dark:text-white/70">
           <p>
-            Plataforma enterprise para las operaciones de la <strong>Semana 11 (Machine Learning & Deep Learning)</strong>.
+            Esta instancia opera contra la API <strong>/api/v1</strong>, PostgreSQL y workers
+            TensorFlow/Keras aislados. No hay datos simulados: todo lo que ve proviene de su
+            proyecto y de la cola de entrenamientos.
           </p>
           <div className="p-3.5 rounded-2xl glass-inset space-y-1.5 border border-black/10 dark:border-white/10">
-            <span className="text-[11px] font-semibold text-zinc-900 dark:text-white/90 uppercase tracking-wider">Principios Arquitectónicos</span>
+            <span className="text-[11px] font-semibold text-zinc-900 dark:text-white/90 uppercase tracking-wider">
+              Flujo verificado
+            </span>
             <ul className="space-y-1 list-disc list-inside text-zinc-600 dark:text-white/60">
-              <li><strong>Desacoplamiento:</strong> Entrenamientos en workers asíncronos independientes.</li>
-              <li><strong>Trazabilidad:</strong> Modelos inmutables con hashes SHA-256 certificados.</li>
-              <li><strong>Validación en Servidor:</strong> La API FastAPI valida la coherencia dimensional de capas.</li>
+              <li>Autenticación JWT y permisos por rol efectivo del proyecto.</li>
+              <li>Entrenamiento asíncrono real con telemetría persistida por época.</li>
+              <li>Versiones de modelo inmutables con checksum SHA-256 descargable.</li>
             </ul>
           </div>
         </div>
       ),
-      actionLabel: 'Iniciar Recorrido',
-      actionTab: null
+      actionLabel: 'Iniciar recorrido',
+      actionTab: null as NavTab | null,
     },
     {
-      title: '1. Fundamentos Neuronales (S11)',
-      subtitle: 'Neuronas, sinapsis, pesos, sesgos y funciones de activación',
-      icon: BookOpen,
-      badge: 'Módulo 03',
+      title: '1. Proyectos y acceso',
+      subtitle: 'Espacios aislados con roles y trazabilidad',
+      icon: FolderGit2,
+      badge: 'Módulo 02',
       content: (
         <div className="space-y-3 text-xs text-zinc-700 dark:text-white/70">
           <p>
-            El módulo de <strong>Fundamentos</strong> cuenta con un simulador interactivo del Perceptrón en el lateral derecho con gráficos vectoriales que se pueden ampliar al hacer clic.
+            Cree un proyecto o seleccione uno existente. El rol efectivo determina qué puede
+            hacer: los roles <strong>VIEWER</strong> y <strong>REVIEWER</strong> solo consultan,
+            mientras que <strong>AI_ENGINEER</strong>, <strong>PROJECT_LEAD</strong> y{' '}
+            <strong>ADMIN</strong> pueden cargar datos y entrenar.
           </p>
           <div className="p-3 rounded-2xl glass-inset border border-black/10 dark:border-white/10 text-zinc-800 dark:text-white/80 text-[11px]">
-            Ajusta los pesos sinápticos (<code className="font-mono">w1, w2</code>) y el sesgo (<code className="font-mono">bias</code>) para ver en tiempo real el cálculo del potencial de disparo.
+            El selector de proyecto en la barra superior cambia el contexto de todos los módulos.
           </div>
         </div>
       ),
-      actionLabel: 'Ir a Fundamentos',
-      actionTab: 'fundamentals'
+      actionLabel: 'Ir a Proyectos',
+      actionTab: 'projects' as NavTab,
     },
     {
-      title: '2. Diseñador de Arquitecturas',
-      subtitle: 'Comprobación matemática de tensores y familias de redes',
+      title: '2. Fundamentos y arquitecturas',
+      subtitle: 'Perceptrón, funciones de activación y validación dimensional',
       icon: Cpu,
-      badge: 'Módulo 04',
+      badge: 'Módulos 03–04',
       content: (
         <div className="space-y-3 text-xs text-zinc-700 dark:text-white/70">
           <p>
-            Configura capas para familias <strong>Feedforward (FNN)</strong>, <strong>Convolucionales (CNN)</strong>, <strong>Recurrentes (RNN/LSTM)</strong> y <strong>Generativas (GAN)</strong>.
+            Revise los fundamentos neuronales y luego configure una topología. La API valida
+            dimensiones, parámetros y compatibilidad de capas antes de guardar.
           </p>
           <div className="p-3 rounded-2xl glass-inset border border-black/10 dark:border-white/10 text-zinc-800 dark:text-white/80 text-[11px]">
-            El botón "Guardar y Validar" verifica las dimensiones y parámetros entrenables en la API antes de permitir el entrenamiento.
+            En esta versión el entrenamiento está habilitado para redes{' '}
+            <strong>Feedforward</strong>. Las familias RNN, CNN y GAN se pueden diseñar y guardar,
+            pero la API devolverá un motivo explícito si intenta entrenarlas.
           </div>
         </div>
       ),
       actionLabel: 'Ir al Diseñador',
-      actionTab: 'architectures'
+      actionTab: 'architectures' as NavTab,
     },
     {
-      title: '3. Orquestador de Entrenamientos',
-      subtitle: 'Workers TensorFlow/Keras y telemetría por época',
+      title: '3. Datasets verificados',
+      subtitle: 'CSV con validación de esquema, target y checksum',
+      icon: Database,
+      badge: 'Módulo 05',
+      content: (
+        <div className="space-y-3 text-xs text-zinc-700 dark:text-white/70">
+          <p>
+            Cargue un archivo CSV indicando la columna objetivo. El servidor valida encabezados,
+            tamaño, filas mínimas y tipos, calcula el SHA-256 y persiste una vista previa y los
+            conteos de nulos.
+          </p>
+          <div className="p-3 rounded-2xl glass-inset border border-black/10 dark:border-white/10 text-zinc-800 dark:text-white/80 text-[11px]">
+            Un dataset sin columna objetivo no podrá usarse para entrenar.
+          </div>
+        </div>
+      ),
+      actionLabel: 'Ir a Datasets',
+      actionTab: 'datasets' as NavTab,
+    },
+    {
+      title: '4. Entrenamiento y telemetría',
+      subtitle: 'Cola Redis, worker Keras y SSE con recuperación',
       icon: PlayCircle,
       badge: 'Módulo 06',
       content: (
         <div className="space-y-3 text-xs text-zinc-700 dark:text-white/70">
           <p>
-            Lanza un entrenamiento asíncrono y observa en el panel lateral las curvas de <strong>Pérdida (Loss)</strong> y <strong>Exactitud (Accuracy)</strong>. Haz clic en cualquier gráfico para verlo a pantalla completa.
+            Inicie un trabajo con arquitectura y dataset verificados. El estado avanza{' '}
+            <strong>QUEUED → PREPARING → RUNNING → COMPLETED / FAILED / CANCELLED</strong>. Las
+            curvas llegan por SSE y se reconstruyen desde PostgreSQL al reconectar.
           </p>
           <div className="p-3 rounded-2xl glass-inset border border-black/10 dark:border-white/10 text-zinc-800 dark:text-white/80 text-[11px]">
-            Cuenta con simulación de velocidad y botón de cancelación cooperativa.
+            La cancelación es cooperativa: el worker la aplica al finalizar la época en curso.
           </div>
         </div>
       ),
       actionLabel: 'Ir a Entrenamientos',
-      actionTab: 'training'
+      actionTab: 'training' as NavTab,
     },
     {
-      title: '4. Registro de Modelos & Auditoría',
-      subtitle: 'Checksums SHA-256 inmutables y ciclo de aprobación',
+      title: '5. Evaluación y registro',
+      subtitle: 'Métricas de prueba, ciclo de vida y artefacto inmutable',
       icon: Box,
-      badge: 'Módulo 08',
+      badge: 'Módulos 07–09',
       content: (
         <div className="space-y-3 text-xs text-zinc-700 dark:text-white/70">
           <p>
-            Inspecciona versiones registradas, copia el hash SHA-256 y simula el cambio de estados en el ciclo de vida del modelo corporativo.
+            Al completar, el worker evalúa el conjunto de prueba y registra una versión{' '}
+            <strong>DRAFT</strong> con métricas y checksum. Revise la matriz de confusión, apruebe
+            o retire la versión según su rol y descargue el artefacto <code>.keras</code>.
           </p>
           <div className="p-3 rounded-2xl glass-inset border border-black/10 dark:border-white/10 text-zinc-800 dark:text-white/80 text-[11px]">
-            La aprobación final requiere el rol de <strong>PROJECT_LEAD</strong> o <strong>ADMIN</strong>.
+            La aprobación requiere <strong>PROJECT_LEAD</strong> o <strong>ADMIN</strong>. Cada
+            cambio de estado queda en el registro de auditoría.
           </div>
         </div>
       ),
       actionLabel: 'Ir al Registro',
-      actionTab: 'model-registry'
-    }
+      actionTab: 'model-registry' as NavTab,
+    },
+    {
+      title: 'Fundamentos interactivos',
+      subtitle: 'Simulador del perceptrón y familias de redes',
+      icon: BookOpen,
+      badge: 'Módulo 03',
+      content: (
+        <div className="space-y-3 text-xs text-zinc-700 dark:text-white/70">
+          <p>
+            El módulo de Fundamentos incluye un simulador del perceptrón con pesos, sesgo y
+            función de activación, además de la referencia de familias y capas estándar.
+          </p>
+          <div className="p-3 rounded-2xl glass-inset border border-black/10 dark:border-white/10 text-zinc-800 dark:text-white/80 text-[11px]">
+            Ajuste los controles y observe el potencial de disparo calculado en el navegador.
+          </div>
+        </div>
+      ),
+      actionLabel: 'Ir a Fundamentos',
+      actionTab: 'fundamentals' as NavTab,
+    },
   ];
 
   const step = steps[currentStep];
@@ -133,9 +189,7 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
   };
 
   const handleAction = () => {
-    if (step.actionTab) {
-      onNavigateTab(step.actionTab);
-    }
+    if (step.actionTab) onNavigateTab(step.actionTab);
     handleNext();
   };
 
@@ -149,21 +203,17 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
           <X className="w-4 h-4" />
         </button>
 
-        {/* Step Indicator */}
         <div className="flex items-center gap-1.5">
           {steps.map((_, i) => (
             <div
               key={i}
               className={`h-1.5 rounded-full transition-all duration-300 ${
-                i === currentStep
-                  ? 'w-6 bg-zinc-900 dark:bg-white'
-                  : 'w-1.5 bg-black/20 dark:bg-white/20'
+                i === currentStep ? 'w-6 bg-zinc-900 dark:bg-white' : 'w-1.5 bg-black/20 dark:bg-white/20'
               }`}
             />
           ))}
         </div>
 
-        {/* Header */}
         <div className="flex items-start gap-3 pt-1">
           <div className="p-2.5 rounded-2xl glass-inset border border-black/10 dark:border-white/15 text-zinc-900 dark:text-white/90">
             <Icon className="w-5 h-5" />
@@ -173,17 +223,17 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
               <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-black/5 dark:bg-white/10 text-zinc-700 dark:text-white/80 font-semibold border border-black/10 dark:border-white/10">
                 {step.badge}
               </span>
-              <span className="text-xs text-zinc-500 dark:text-white/40">Paso {currentStep + 1} de {steps.length}</span>
+              <span className="text-xs text-zinc-500 dark:text-white/40">
+                Paso {currentStep + 1} de {steps.length}
+              </span>
             </div>
             <h2 className="text-lg font-semibold text-zinc-900 dark:text-white mt-1">{step.title}</h2>
             <p className="text-xs text-zinc-600 dark:text-white/50">{step.subtitle}</p>
           </div>
         </div>
 
-        {/* Body */}
         <div>{step.content}</div>
 
-        {/* Footer controls */}
         <div className="flex items-center justify-between pt-3 border-t border-black/10 dark:border-white/10">
           <button
             onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}

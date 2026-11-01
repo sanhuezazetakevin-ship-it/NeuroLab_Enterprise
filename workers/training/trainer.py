@@ -1,90 +1,140 @@
-import time
-import json
+"""Entrenamiento real con callbacks de telemetría y cancelación cooperativa."""
+
+from __future__ import annotations
+
 import logging
-from typing import Dict, Any, Callable, Optional
+import time
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, List
+
+import numpy as np
+import tensorflow as tf
 
 logger = logging.getLogger("neurolab.trainer")
 
-class RealtimeTelemetryCallback:
+
+@dataclass
+class TrainingOutcome:
+    status: str
+    epochs_completed: int
+    history: Dict[str, List[float]]
+
+
+class TelemetryCallback(tf.keras.callbacks.Callback):
+    """Callback de Keras que persiste métricas y evalúa cancelación.
+
+    La cancelación se comprueba al inicio y al final de cada época
+    (cooperativa). Si se solicita, se detiene el entrenamiento sin destruir el
+    proceso: el worker marca el trabajo como CANCELLED y conserva las métricas
+    ya registradas.
     """
-    Callback de Keras que reporta el progreso de época a Redis Pub/Sub
-    y comprueba si el usuario solicitó la cancelación cooperativa.
-    """
+
     def __init__(
         self,
-        job_id: str,
+        *,
         total_epochs: int,
-        emit_fn: Callable[[Dict[str, Any]], None],
-        check_cancel_fn: Callable[[], bool]
+        on_epoch: Callable[[int, Dict[str, float]], None],
+        check_cancel: Callable[[], bool],
+        timeout_seconds: int = 7200,
     ):
-        self.job_id = job_id
-        self.total_epochs = total_epochs
-        self.emit_fn = emit_fn
-        self.check_cancel_fn = check_cancel_fn
-        self.stopped = False
+        super().__init__()
+        self.total_epochs = max(1, int(total_epochs))
+        self.on_epoch = on_epoch
+        self.check_cancel = check_cancel
+        self.timeout_seconds = int(timeout_seconds)
+        self.cancelled = False
+        self.timed_out = False
+        self.epochs_completed = 0
+        self._started = time.monotonic()
 
-    def on_epoch_end(self, epoch: int, logs: Dict[str, float] = None):
-        logs = logs or {}
-        progress = round(((epoch + 1) / self.total_epochs) * 100.0, 2)
-        
-        telemetry_event = {
-            "event": "epoch_end",
-            "job_id": self.job_id,
-            "epoch": epoch + 1,
-            "total_epochs": self.total_epochs,
-            "progress": progress,
-            "metrics": {
-                k: round(float(v), 5) for k, v in logs.items()
-            }
-        }
-        
-        # Emisión de telemetría a Redis / WebSocket
-        self.emit_fn(telemetry_event)
-
-        # Verificación de cancelación cooperativa
-        if self.check_cancel_fn():
-            logger.info(f"Cancelación cooperativa recibida para trabajo {self.job_id} en época {epoch + 1}.")
-            self.stopped = True
+    def _should_stop(self) -> bool:
+        if self.check_cancel():
+            self.cancelled = True
+            self.model.stop_training = True
+            return True
+        if self.timeout_seconds > 0 and (time.monotonic() - self._started) > self.timeout_seconds:
+            self.timed_out = True
+            self.model.stop_training = True
             return True
         return False
 
-def simulate_training_run(job_id: str, epochs: int, emit_fn: Callable, check_cancel_fn: Callable) -> str:
-    """
-    Ejecutor de respaldo para entornos de desarrollo livianos.
-    Simula convergencia real de pérdida y exactitud con tiempos reales.
-    """
-    import random
-    loss = 0.850
-    accuracy = 0.520
-    val_loss = 0.890
-    val_accuracy = 0.510
+    def on_epoch_begin(self, epoch, logs=None):
+        self._should_stop()
 
-    for epoch in range(1, epochs + 1):
-        if check_cancel_fn():
-            logger.info(f"Trabajo {job_id} cancelado en época {epoch}")
-            return "CANCELLED"
+    def on_epoch_end(self, epoch, logs=None):
+        logs = logs or {}
+        self.epochs_completed = int(epoch) + 1
+        clean_metrics: Dict[str, float] = {}
+        for key, value in logs.items():
+            try:
+                clean_metrics[str(key)] = float(value)
+            except (TypeError, ValueError):
+                continue
+        self.on_epoch(self.epochs_completed, clean_metrics)
+        self._should_stop()
 
-        time.sleep(0.5) # Simular cómputo por época
 
-        loss = max(0.05, loss * 0.93 - random.uniform(-0.01, 0.02))
-        accuracy = min(0.985, accuracy + (1.0 - accuracy) * 0.08 + random.uniform(-0.01, 0.015))
-        val_loss = max(0.08, val_loss * 0.94 - random.uniform(-0.015, 0.025))
-        val_accuracy = min(0.975, val_accuracy + (1.0 - val_accuracy) * 0.07 + random.uniform(-0.015, 0.015))
+def train_model(
+    model,
+    *,
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    X_val: np.ndarray,
+    y_val: np.ndarray,
+    hyperparameters: Dict[str, Any],
+    on_epoch: Callable[[int, Dict[str, float]], None],
+    check_cancel: Callable[[], bool],
+) -> TrainingOutcome:
+    epochs = int(hyperparameters.get("epochs", 30) or 30)
+    batch_size = int(hyperparameters.get("batch_size", 32) or 32)
 
-        progress = round((epoch / epochs) * 100.0, 2)
-        event = {
-            "event": "epoch_end",
-            "job_id": job_id,
-            "epoch": epoch,
-            "total_epochs": epochs,
-            "progress": progress,
-            "metrics": {
-                "loss": round(loss, 4),
-                "accuracy": round(accuracy, 4),
-                "val_loss": round(val_loss, 4),
-                "val_accuracy": round(val_accuracy, 4)
-            }
-        }
-        emit_fn(event)
+    callback = TelemetryCallback(
+        total_epochs=epochs,
+        on_epoch=on_epoch,
+        check_cancel=check_cancel,
+        timeout_seconds=int(hyperparameters.get("timeout_seconds", 7200) or 7200),
+    )
+    callbacks: List[Any] = [callback]
 
-    return "COMPLETED"
+    if hyperparameters.get("early_stopping", False):
+        callbacks.append(
+            tf.keras.callbacks.EarlyStopping(
+                monitor="val_loss",
+                patience=int(hyperparameters.get("early_stopping_patience", 10) or 10),
+                restore_best_weights=True,
+                min_delta=1e-4,
+            )
+        )
+    callbacks.append(tf.keras.callbacks.TerminateOnNaN())
+
+    if check_cancel():
+        return TrainingOutcome(status="CANCELLED", epochs_completed=0, history={})
+
+    history = model.fit(
+        X_train,
+        y_train,
+        validation_data=(X_val, y_val),
+        epochs=epochs,
+        batch_size=max(1, batch_size),
+        verbose=0,
+        shuffle=True,
+        callbacks=callbacks,
+    )
+
+    if callback.cancelled:
+        status = "CANCELLED"
+    elif callback.timed_out:
+        status = "TIMEOUT"
+    else:
+        status = "COMPLETED"
+
+    logger.info(
+        "Entrenamiento finalizado con estado=%s tras %s épocas",
+        status,
+        callback.epochs_completed,
+    )
+    return TrainingOutcome(
+        status=status,
+        epochs_completed=callback.epochs_completed,
+        history={key: [float(value) for value in values] for key, values in (history.history or {}).items()},
+    )

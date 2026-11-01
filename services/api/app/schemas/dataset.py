@@ -1,21 +1,31 @@
-from uuid import UUID
 from datetime import datetime
-from typing import Optional, Dict, Any, List
-from pydantic import BaseModel
+from typing import Any, Dict, List, Optional
+from uuid import UUID
 
-class DatasetBase(BaseModel):
-    name: str
-    version: str = "v1.0"
-    metadata_json: Dict[str, Any] = {}
+from pydantic import BaseModel, ConfigDict, Field
 
-class DatasetCreate(DatasetBase):
-    storage_key: str
 
-class DatasetResponse(DatasetBase):
+class DatasetResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     project_id: UUID
+    name: str
+    version: str
     storage_key: str
+    original_filename: Optional[str] = None
+    size_bytes: int = 0
+    checksum: Optional[str] = None
+    target_column: Optional[str] = None
+    verified: bool = False
+    metadata_json: Dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+
+class DatasetPreview(BaseModel):
+    id: UUID
+    columns: List[str]
+    dtypes: Dict[str, str]
+    rows: List[Dict[str, Any]]
+    total_rows: int
+    null_counts: Dict[str, int]

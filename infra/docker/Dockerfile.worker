@@ -1,19 +1,21 @@
 FROM python:3.12-slim
 
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    TF_CPP_MIN_LOG_LEVEL=2
+
 WORKDIR /app
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
-
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
     gcc \
+    libgomp1 \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+COPY workers/training/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY workers/training/ ./
 
 CMD ["python", "worker.py"]

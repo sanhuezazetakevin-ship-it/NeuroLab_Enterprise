@@ -11,11 +11,11 @@ import {
   TrendingUp,
   Activity
 } from 'lucide-react';
-import { useDemo } from '../../lib/DemoContext';
+import { useApp } from '../../lib/AppContext';
 import { EnlargedChartModal } from '../../components/common/EnlargedChartModal';
 
 export const FundamentalsView: React.FC = () => {
-  const { showToast } = useDemo();
+  const { showToast } = useApp();
 
   // Interactive artificial neuron state
   const [x1, setX1] = useState(0.8);

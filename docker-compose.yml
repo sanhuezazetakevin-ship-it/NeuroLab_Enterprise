@@ -1,10 +1,8 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
     container_name: neurolab_postgres
-    restart: always
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-neurolab}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-neurolab_secure_pass}
@@ -13,17 +11,17 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./infra/migrations:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-neurolab} -d ${POSTGRES_DB:-neurolab_db}"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
 
   redis:
     image: redis:7-alpine
     container_name: neurolab_redis
-    restart: always
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "6379:6379"
     volumes:
@@ -32,72 +30,84 @@ services:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
-      retries: 5
-
-  minio:
-    image: minio/minio:RELEASE.2024-03-03T17-50-39Z
-    container_name: neurolab_minio
-    restart: always
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - miniodata:/data
+      retries: 10
 
   api:
     build:
-      context: ./services/api
-      dockerfile: ../../infra/docker/Dockerfile.api
+      context: .
+      dockerfile: infra/docker/Dockerfile.api
     container_name: neurolab_api
-    restart: always
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+    restart: unless-stopped
     env_file:
       - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-neurolab}:${POSTGRES_PASSWORD:-neurolab_secure_pass}@postgres:5432/${POSTGRES_DB:-neurolab_db}
+      REDIS_URL: redis://redis:6379/0
+      QUEUE_BACKEND: redis
+      TRAINING_QUEUE: neurolab:training:queue
+      DATA_DIR: /data/uploads
+      MODEL_DIR: /data/models
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
     ports:
       - "8000:8000"
     volumes:
-      - ./services/api:/app
-
-  worker:
-    build:
-      context: ./workers/training
-      dockerfile: ../../infra/docker/Dockerfile.worker
-    container_name: neurolab_worker
-    restart: always
+      - uploads:/data/uploads
+      - models:/data/models
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-      minio:
-        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  worker:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.worker
+    container_name: neurolab_worker
+    restart: unless-stopped
     env_file:
       - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-neurolab}:${POSTGRES_PASSWORD:-neurolab_secure_pass}@postgres:5432/${POSTGRES_DB:-neurolab_db}
+      REDIS_URL: redis://redis:6379/0
+      QUEUE_BACKEND: redis
+      TRAINING_QUEUE: neurolab:training:queue
+      DATA_DIR: /data/uploads
+      MODEL_DIR: /data/models
+      TF_CPP_MIN_LOG_LEVEL: "2"
     volumes:
-      - ./workers/training:/app
-      - model_artifacts:/artifacts
+      - uploads:/data/uploads
+      - models:/data/models
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
 
   web:
     build:
-      context: ./apps/web
-      dockerfile: ../../infra/docker/Dockerfile.web
+      context: .
+      dockerfile: infra/docker/Dockerfile.web
+      args:
+        VITE_API_URL: /api/v1
     container_name: neurolab_web
-    restart: always
+    restart: unless-stopped
     ports:
       - "5173:80"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
 
 volumes:
   pgdata:
   redisdata:
-  miniodata:
-  model_artifacts:
+  uploads:
+  models:
