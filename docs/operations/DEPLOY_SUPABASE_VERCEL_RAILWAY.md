@@ -112,14 +112,16 @@ los metadatos en Supabase, no necesitas Storage todavía:
 
 ```powershell
 cd C:\Users\sanhu\Desktop\NeuroLab_Enterprise
-python scripts/setup_supabase_db.py
+Copy-Item .env.local.example .env
+python scripts/setup_supabase_db.py --write-env
 ```
 
 El script pide la cadena **Session pooler** sin mostrarla por pantalla, prueba
 la conexión, aplica `alembic upgrade head`, ejecuta el seed del administrador y
-muestra las variables para arrancar API y worker. Usa `STORAGE_BACKEND=local`
-con `DATA_DIR`/`MODEL_DIR` en tu PC; al desplegar en hosts distintos cambia a
-`STORAGE_BACKEND=s3`.
+guarda `DATABASE_URL` en el `.env` de la raíz (ignorado por Git). La API y el
+worker leen ese mismo archivo, así que no hay que repetir variables en cada
+terminal. Usa `STORAGE_BACKEND=local` con `DATA_DIR`/`MODEL_DIR` en tu PC; al
+desplegar en hosts distintos cambia a `STORAGE_BACKEND=s3`.
 
 Para comprobar solo la conexión:
 

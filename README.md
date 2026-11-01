@@ -184,7 +184,25 @@ background workers y solo ofrece 512 MB.
 
 ## 6. Desarrollo local sin Docker
 
-### 6.1 API
+### 6.1 Configuración compartida (`.env`)
+
+La API y el worker leen el **mismo `.env` de la raíz**. Copie la plantilla local:
+
+```powershell
+Copy-Item .env.local.example .env
+```
+
+Edite `.env` según la base de datos:
+
+- **Supabase:** pegue la cadena Session pooler en `DATABASE_URL` o ejecute
+  `python scripts/setup_supabase_db.py --write-env`.
+- **SQLite:** descomente la línea de SQLite de la plantilla.
+
+`DATA_DIR=data/uploads` y `MODEL_DIR=data/models` se resuelven dentro de
+`services/api`, de modo que API y worker usan los mismos archivos. Las variables
+definidas en la terminal tienen prioridad sobre el archivo `.env`.
+
+### 6.2 API
 
 ```bash
 cd services/api
@@ -196,22 +214,12 @@ python -m venv .venv
 source .venv/bin/activate
 
 pip install -r requirements.txt
-
-# Opción A: PostgreSQL y Redis locales
-$env:DATABASE_URL="postgresql+asyncpg://neurolab:neurolab_secure_pass@localhost:5432/neurolab_db"
-$env:REDIS_URL="redis://localhost:6379/0"
-$env:QUEUE_BACKEND="redis"
-
-# Opción B: sin infraestructura (SQLite + cola en disco)
-$env:DATABASE_URL="sqlite+aiosqlite:///./neurolab_dev.db"
-$env:QUEUE_BACKEND="filesystem"
-
-uvicorn app.main:app --reload --port 8000
+python -m uvicorn app.main:app --reload --port 8000
 ```
 
 En desarrollo (`ENVIRONMENT=development`) la API crea el esquema automáticamente y siembra el administrador si no hay usuarios.
 
-### 6.2 Worker de entrenamiento
+### 6.3 Worker de entrenamiento
 
 Debe apuntar a la **misma base de datos** y a los **mismos directorios** que la API. El worker convierte automáticamente `postgresql+asyncpg` → `postgresql+psycopg2` y `sqlite+aiosqlite` → `sqlite`.
 
@@ -226,17 +234,12 @@ source .venv/bin/activate
 
 pip install -r requirements.txt
 
-$env:DATABASE_URL="sqlite+aiosqlite:///../../services/api/neurolab_dev.db"
-$env:QUEUE_BACKEND="filesystem"
-$env:DATA_DIR="../../services/api/data/uploads"
-$env:MODEL_DIR="../../services/api/data/models"
-
 python worker.py                 # daemon continuo
 python worker.py --once          # procesa un trabajo y sale
 python worker.py --job-id <uuid> # re-ejecuta un trabajo concreto desde la BD
 ```
 
-### 6.3 Frontend
+### 6.4 Frontend
 
 ```bash
 cd apps/web

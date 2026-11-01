@@ -5,12 +5,15 @@ from typing import List
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-BASE_DIR = Path(__file__).resolve().parents[3]  # services/api
+BASE_DIR = Path(__file__).resolve().parents[2]  # services/api (o /app en Docker)
+ROOT_DIR = BASE_DIR.parents[1] if len(BASE_DIR.parents) > 1 else BASE_DIR
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        # Un único .env en la raíz sirve para API, worker y Docker Compose.
+        # services/api/.env puede sobreescribir valores para ejecuciones locales.
+        env_file=(ROOT_DIR / ".env", BASE_DIR / ".env"),
         case_sensitive=True,
         extra="ignore",
         validate_default=True,
