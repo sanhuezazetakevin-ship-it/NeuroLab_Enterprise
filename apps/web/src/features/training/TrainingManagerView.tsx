@@ -74,7 +74,7 @@ export const TrainingManagerView: React.FC = () => {
   const cancelTraining = () => {
     if (timerRef.current) clearInterval(timerRef.current);
     setStatus('CANCELLED');
-    setLogs((prev) => [...prev, '[WARN] Cancelación cooperativa solicitada por el usuario.', '[HALT] Worker detenido.']);
+    setLogs((prev: string[]) => [...prev, '[WARN] Cancelación cooperativa solicitada por el usuario.', '[HALT] Worker detenido.']);
     showToast('Entrenamiento cancelado cooperativamente', 'warning');
   };
 
@@ -150,7 +150,7 @@ export const TrainingManagerView: React.FC = () => {
   const renderSVGChart = (metricType: 'loss' | 'accuracy', isLarge = false) => {
     if (metricsHistory.length === 0) {
       return (
-        <div className="h-28 flex items-center justify-center text-[11px] text-white/40 font-mono">
+        <div className="h-28 flex items-center justify-center text-[11px] text-zinc-500 dark:text-white/40 font-mono">
           Esperando datos...
         </div>
       );
@@ -186,51 +186,43 @@ export const TrainingManagerView: React.FC = () => {
     const bottomY = height - padding;
     const areaD = `M ${firstX},${bottomY} L ${areaPoints.join(' L ')} L ${lastX},${bottomY} Z`;
 
-    const gradientId = `glass-grad-${metricType}-${isLarge ? 'lg' : 'sm'}`;
-
     return (
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto overflow-visible select-none">
-        <defs>
-          <linearGradient id={gradientId} x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#ffffff" stopOpacity={isLarge ? "0.15" : "0.20"} />
-            <stop offset="100%" stopColor="#ffffff" stopOpacity="0.0" />
-          </linearGradient>
-        </defs>
-
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto overflow-visible select-none text-zinc-900 dark:text-white">
         {/* Subtle grid lines */}
-        <line x1={padding} y1={padding} x2={width - padding} y2={padding} stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
-        <line x1={padding} y1={height / 2} x2={width - padding} y2={height / 2} stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
-        <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="rgba(255,255,255,0.15)" />
-        <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="rgba(255,255,255,0.15)" />
+        <line x1={padding} y1={padding} x2={width - padding} y2={padding} stroke="currentColor" strokeOpacity="0.08" strokeDasharray="3 3" />
+        <line x1={padding} y1={height / 2} x2={width - padding} y2={height / 2} stroke="currentColor" strokeOpacity="0.08" strokeDasharray="3 3" />
+        <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="currentColor" strokeOpacity="0.2" />
+        <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="currentColor" strokeOpacity="0.2" />
 
         {isLarge && (
           <>
-            <text x={padding - 8} y={padding + 5} fontSize="10" textAnchor="end" fill="rgba(255,255,255,0.4)" fontFamily="monospace">1.0</text>
-            <text x={padding - 8} y={height / 2 + 3} fontSize="10" textAnchor="end" fill="rgba(255,255,255,0.4)" fontFamily="monospace">0.5</text>
-            <text x={padding - 8} y={height - padding} fontSize="10" textAnchor="end" fill="rgba(255,255,255,0.4)" fontFamily="monospace">0.0</text>
-            <text x={width - padding} y={height - padding + 15} fontSize="10" textAnchor="end" fill="rgba(255,255,255,0.4)" fontFamily="monospace">Época {maxEpoch}</text>
+            <text x={padding - 8} y={padding + 5} fontSize="10" textAnchor="end" fill="currentColor" opacity="0.4" fontFamily="monospace">1.0</text>
+            <text x={padding - 8} y={height / 2 + 3} fontSize="10" textAnchor="end" fill="currentColor" opacity="0.4" fontFamily="monospace">0.5</text>
+            <text x={padding - 8} y={height - padding} fontSize="10" textAnchor="end" fill="currentColor" opacity="0.4" fontFamily="monospace">0.0</text>
+            <text x={width - padding} y={height - padding + 15} fontSize="10" textAnchor="end" fill="currentColor" opacity="0.4" fontFamily="monospace">Época {maxEpoch}</text>
           </>
         )}
 
         {/* Area fill under train curve */}
         {areaPoints.length > 1 && (
-          <path d={areaD} fill={`url(#${gradientId})`} />
+          <path d={areaD} fill="currentColor" fillOpacity={isLarge ? "0.08" : "0.1"} />
         )}
 
-        {/* Train Line (Crisp White Stroke) */}
+        {/* Train Line (Crisp Stroke) */}
         <polyline
           fill="none"
-          stroke="#ffffff"
+          stroke="currentColor"
           strokeWidth={isLarge ? "2.5" : "2"}
           points={trainPoints.join(' ')}
           strokeLinecap="round"
           strokeLinejoin="round"
         />
 
-        {/* Validation Line (Frosted Silver Dashed Stroke) */}
+        {/* Validation Line (Dashed Stroke) */}
         <polyline
           fill="none"
-          stroke="rgba(255,255,255,0.45)"
+          stroke="currentColor"
+          strokeOpacity="0.45"
           strokeWidth={isLarge ? "2" : "1.5"}
           strokeDasharray="4 3"
           points={valPoints.join(' ')}
@@ -244,8 +236,8 @@ export const TrainingManagerView: React.FC = () => {
             cx={trainPoints[trainPoints.length - 1].split(',')[0]}
             cy={trainPoints[trainPoints.length - 1].split(',')[1]}
             r={isLarge ? "5" : "3.5"}
-            fill="#ffffff"
-            stroke="rgba(0,0,0,0.5)"
+            fill="currentColor"
+            stroke="currentColor"
             strokeWidth="1.5"
           />
         )}
@@ -256,15 +248,15 @@ export const TrainingManagerView: React.FC = () => {
   return (
     <div className="space-y-4 animate-in fade-in duration-200">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-white/10">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-black/10 dark:border-white/10">
         <div>
-          <div className="flex items-center gap-2 text-white/60 text-xs font-semibold uppercase tracking-wider">
-            <PlayCircle className="w-4 h-4 text-white/80" /> Módulo 06 • Orquestador de Entrenamientos
+          <div className="flex items-center gap-2 text-zinc-600 dark:text-white/60 text-xs font-semibold uppercase tracking-wider">
+            <PlayCircle className="w-4 h-4 text-zinc-800 dark:text-white/80" /> Módulo 06 • Orquestador de Entrenamientos
           </div>
-          <h1 className="text-xl sm:text-2xl font-semibold text-white dark:text-white light:text-zinc-900 mt-1">
+          <h1 className="text-xl sm:text-2xl font-semibold text-zinc-900 dark:text-white mt-1">
             Ejecución Asíncrona & Telemetría
           </h1>
-          <p className="text-xs text-white/50 dark:text-white/50 light:text-zinc-500 mt-0.5">
+          <p className="text-xs text-zinc-600 dark:text-white/50 mt-0.5">
             Worker desacoplado con TensorFlow/Keras. Las telemetrías se persisten en base de datos para tolerar recargas.
           </p>
         </div>
@@ -282,14 +274,14 @@ export const TrainingManagerView: React.FC = () => {
           {status === 'RUNNING' || status === 'PREPARING' ? (
             <button
               onClick={cancelTraining}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 text-xs font-medium transition-colors"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-500/15 hover:bg-red-500/25 text-red-600 dark:text-red-300 border border-red-500/30 text-xs font-medium transition-colors"
             >
               <StopCircle className="w-4 h-4" /> Cancelar Job
             </button>
           ) : (
             <button
               onClick={startTraining}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl glass-btn-primary text-xs font-semibold"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl glass-btn-primary text-xs font-semibold"
             >
               <PlayCircle className="w-4 h-4" /> Iniciar Entrenamiento
             </button>
@@ -305,35 +297,35 @@ export const TrainingManagerView: React.FC = () => {
           <div className="glass-card p-5 rounded-2xl space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-white/60 dark:text-white/60 light:text-zinc-600">Estado del Job:</span>
+                <span className="text-xs font-medium text-zinc-600 dark:text-white/60">Estado del Job:</span>
                 {status === 'PREPARING' && (
-                  <span className="px-2.5 py-0.5 rounded-full text-xs glass-inset text-white/90 border border-white/10 font-medium flex items-center gap-1">
+                  <span className="px-2.5 py-0.5 rounded-full text-xs glass-inset text-zinc-800 dark:text-white/90 border border-black/10 dark:border-white/10 font-medium flex items-center gap-1">
                     <Clock className="w-3 h-3 animate-spin" /> PREPARING
                   </span>
                 )}
                 {status === 'RUNNING' && (
-                  <span className="px-2.5 py-0.5 rounded-full text-xs glass-inset text-white border border-white/20 font-medium flex items-center gap-1">
+                  <span className="px-2.5 py-0.5 rounded-full text-xs glass-inset text-zinc-900 dark:text-white border border-black/10 dark:border-white/20 font-medium flex items-center gap-1">
                     <Clock className="w-3 h-3 animate-spin" /> RUNNING (Época {currentEpoch} / {epochs})
                   </span>
                 )}
                 {status === 'COMPLETED' && (
-                  <span className="px-2.5 py-0.5 rounded-full text-xs glass-inset text-white border border-white/20 font-medium flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> COMPLETED (100%)
+                  <span className="px-2.5 py-0.5 rounded-full text-xs glass-inset text-zinc-900 dark:text-white border border-black/10 dark:border-white/20 font-medium flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> COMPLETED (100%)
                   </span>
                 )}
                 {status === 'CANCELLED' && (
-                  <span className="px-2.5 py-0.5 rounded-full text-xs bg-red-500/20 text-red-300 border border-red-500/30 font-medium flex items-center gap-1">
+                  <span className="px-2.5 py-0.5 rounded-full text-xs bg-red-500/15 text-red-600 dark:text-red-300 border border-red-500/20 font-medium flex items-center gap-1">
                     <StopCircle className="w-3 h-3" /> CANCELLED
                   </span>
                 )}
               </div>
-              <span className="font-mono text-xs font-semibold text-white dark:text-white light:text-zinc-900">{progress}%</span>
+              <span className="font-mono text-xs font-semibold text-zinc-900 dark:text-white">{progress}%</span>
             </div>
 
-            <div className="w-full h-2 rounded-full glass-inset overflow-hidden border border-white/10">
+            <div className="w-full h-2 rounded-full glass-inset overflow-hidden border border-black/10 dark:border-white/10">
               <div
                 className={`h-full transition-all duration-300 rounded-full ${
-                  status === 'CANCELLED' ? 'bg-red-400' : 'bg-white'
+                  status === 'CANCELLED' ? 'bg-red-500' : 'bg-zinc-900 dark:bg-white'
                 }`}
                 style={{ width: `${progress}%` }}
               />
@@ -343,29 +335,29 @@ export const TrainingManagerView: React.FC = () => {
           {/* Quick Metrics Bar */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="glass-card p-4 rounded-2xl">
-              <span className="text-[11px] text-white/50 dark:text-white/50 light:text-zinc-500">Pérdida (Loss)</span>
-              <div className="text-xl font-bold font-mono text-white dark:text-white light:text-zinc-900 mt-1">
+              <span className="text-[11px] text-zinc-500 dark:text-white/50 font-medium">Pérdida (Loss)</span>
+              <div className="text-xl font-bold font-mono text-zinc-900 dark:text-white mt-1">
                 {latestMetric.loss ? latestMetric.loss.toFixed(4) : '-'}
               </div>
             </div>
 
             <div className="glass-card p-4 rounded-2xl">
-              <span className="text-[11px] text-white/50 dark:text-white/50 light:text-zinc-500">Exactitud (Acc)</span>
-              <div className="text-xl font-bold font-mono text-white dark:text-white light:text-zinc-900 mt-1">
+              <span className="text-[11px] text-zinc-500 dark:text-white/50 font-medium">Exactitud (Acc)</span>
+              <div className="text-xl font-bold font-mono text-zinc-900 dark:text-white mt-1">
                 {latestMetric.accuracy ? `${(latestMetric.accuracy * 100).toFixed(1)}%` : '-'}
               </div>
             </div>
 
             <div className="glass-card p-4 rounded-2xl">
-              <span className="text-[11px] text-white/50 dark:text-white/50 light:text-zinc-500">Val Loss</span>
-              <div className="text-xl font-bold font-mono text-white/80 dark:text-white/80 light:text-zinc-800 mt-1">
+              <span className="text-[11px] text-zinc-500 dark:text-white/50 font-medium">Val Loss</span>
+              <div className="text-xl font-bold font-mono text-zinc-700 dark:text-white/80 mt-1">
                 {latestMetric.valLoss ? latestMetric.valLoss.toFixed(4) : '-'}
               </div>
             </div>
 
             <div className="glass-card p-4 rounded-2xl">
-              <span className="text-[11px] text-white/50 dark:text-white/50 light:text-zinc-500">Val Accuracy</span>
-              <div className="text-xl font-bold font-mono text-white/80 dark:text-white/80 light:text-zinc-800 mt-1">
+              <span className="text-[11px] text-zinc-500 dark:text-white/50 font-medium">Val Accuracy</span>
+              <div className="text-xl font-bold font-mono text-zinc-700 dark:text-white/80 mt-1">
                 {latestMetric.valAccuracy ? `${(latestMetric.valAccuracy * 100).toFixed(1)}%` : '-'}
               </div>
             </div>
@@ -374,19 +366,19 @@ export const TrainingManagerView: React.FC = () => {
           {/* Hyperparameters Config Row */}
           <div className="glass-card p-5 rounded-2xl space-y-4">
             <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-white/90 dark:text-white/90 light:text-zinc-800 flex items-center gap-1.5">
-                <Sliders className="w-3.5 h-3.5 text-white/70" /> Parámetros de Ejecución
+              <span className="font-semibold text-zinc-900 dark:text-white/90 flex items-center gap-1.5">
+                <Sliders className="w-3.5 h-3.5 text-zinc-600 dark:text-white/70" /> Parámetros de Ejecución
               </span>
               <div className="flex items-center gap-1.5">
-                <span className="text-[10px] text-white/50">Velocidad:</span>
+                <span className="text-[10px] text-zinc-500 dark:text-white/50">Velocidad:</span>
                 {[1, 2, 5].map((s) => (
                   <button
                     key={s}
                     onClick={() => setSpeed(s)}
                     className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-medium transition-colors ${
                       speed === s
-                        ? 'bg-white/20 text-white border border-white/20'
-                        : 'text-white/50 hover:text-white'
+                        ? 'bg-black/10 dark:bg-white/20 text-zinc-900 dark:text-white border border-black/15 dark:border-white/20 font-bold'
+                        : 'text-zinc-500 dark:text-white/50 hover:text-zinc-900 dark:hover:text-white'
                     }`}
                   >
                     {s}&times;
@@ -397,23 +389,23 @@ export const TrainingManagerView: React.FC = () => {
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <div>
-                <label className="block text-white/50 dark:text-white/50 text-[10px] uppercase font-bold mb-1.5">Épocas</label>
+                <label className="block text-zinc-600 dark:text-white/50 text-[10px] uppercase font-bold mb-1.5">Épocas</label>
                 <input
                   type="number"
                   value={epochs}
                   disabled={status === 'RUNNING'}
                   onChange={(e) => setEpochs(Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-full glass-input rounded-xl px-3 py-1.5 text-white font-mono"
+                  className="w-full glass-input rounded-xl px-3 py-1.5 font-mono"
                 />
               </div>
 
               <div>
-                <label className="block text-white/50 dark:text-white/50 text-[10px] uppercase font-bold mb-1.5">Batch Size</label>
+                <label className="block text-zinc-600 dark:text-white/50 text-[10px] uppercase font-bold mb-1.5">Batch Size</label>
                 <select
                   value={batchSize}
                   disabled={status === 'RUNNING'}
                   onChange={(e) => setBatchSize(parseInt(e.target.value))}
-                  className="w-full glass-input rounded-xl px-3 py-1.5 text-white"
+                  className="w-full glass-input rounded-xl px-3 py-1.5"
                 >
                   <option value={16}>16</option>
                   <option value={32}>32</option>
@@ -422,12 +414,12 @@ export const TrainingManagerView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-white/50 dark:text-white/50 text-[10px] uppercase font-bold mb-1.5">Optimizador</label>
+                <label className="block text-zinc-600 dark:text-white/50 text-[10px] uppercase font-bold mb-1.5">Optimizador</label>
                 <select
                   value={optimizer}
                   disabled={status === 'RUNNING'}
                   onChange={(e) => setOptimizer(e.target.value as any)}
-                  className="w-full glass-input rounded-xl px-3 py-1.5 text-white"
+                  className="w-full glass-input rounded-xl px-3 py-1.5"
                 >
                   <option value="adam">Adam</option>
                   <option value="sgd">SGD</option>
@@ -436,14 +428,14 @@ export const TrainingManagerView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-white/50 dark:text-white/50 text-[10px] uppercase font-bold mb-1.5">Learning Rate</label>
+                <label className="block text-zinc-600 dark:text-white/50 text-[10px] uppercase font-bold mb-1.5">Learning Rate</label>
                 <input
                   type="number"
                   step="0.0001"
                   value={learningRate}
                   disabled={status === 'RUNNING'}
                   onChange={(e) => setLearningRate(parseFloat(e.target.value) || 0.001)}
-                  className="w-full glass-input rounded-xl px-3 py-1.5 text-white font-mono"
+                  className="w-full glass-input rounded-xl px-3 py-1.5 font-mono"
                 />
               </div>
             </div>
@@ -452,16 +444,16 @@ export const TrainingManagerView: React.FC = () => {
           {/* Streaming Console Terminal */}
           <div className="glass-card p-5 rounded-2xl space-y-2.5">
             <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-white/90 dark:text-white/90 light:text-zinc-800 flex items-center gap-1.5">
-                <Terminal className="w-3.5 h-3.5 text-white/60" /> Salida de Consola (Worker Telemetry)
+              <span className="font-semibold text-zinc-900 dark:text-white/90 flex items-center gap-1.5">
+                <Terminal className="w-3.5 h-3.5 text-zinc-600 dark:text-white/60" /> Salida de Consola (Worker Telemetry)
               </span>
-              <span className="text-[10px] text-white/50 font-mono">Stream WebSocket Activo</span>
+              <span className="text-[10px] text-zinc-500 dark:text-white/50 font-mono">Stream WebSocket Activo</span>
             </div>
-            <div className="p-3.5 rounded-2xl glass-inset font-mono text-[11px] text-white/80 max-h-36 overflow-y-auto space-y-1">
+            <div className="p-3.5 rounded-2xl bg-zinc-950 text-zinc-200 border border-black/10 dark:border-white/10 font-mono text-[11px] max-h-36 overflow-y-auto space-y-1">
               {logs.map((log, lIdx) => (
                 <div key={lIdx} className="leading-tight">
-                  <span className="text-white/40 mr-2">&gt;</span>
-                  <span className={log.includes('acc:') ? 'text-white font-semibold' : 'text-white/70'}>{log}</span>
+                  <span className="text-zinc-500 mr-2">&gt;</span>
+                  <span className={log.includes('acc:') ? 'text-emerald-400 font-semibold' : 'text-zinc-300'}>{log}</span>
                 </div>
               ))}
             </div>
@@ -470,9 +462,9 @@ export const TrainingManagerView: React.FC = () => {
 
         {/* RIGHT DOCK: Compact Clickable Preview Cards (1/3 width) */}
         <div className="space-y-3.5">
-          <div className="text-xs font-medium text-white/50 dark:text-white/50 light:text-zinc-500 flex items-center justify-between px-1">
+          <div className="text-xs font-medium text-zinc-600 dark:text-white/50 flex items-center justify-between px-1">
             <span>Telemetría Gráfica (Dock)</span>
-            <span className="text-[10px] text-white/70">Clic para ampliar</span>
+            <span className="text-[10px] text-zinc-800 dark:text-white/70">Clic para ampliar</span>
           </div>
 
           {/* Compact Card 1: Loss Curve */}
@@ -481,23 +473,23 @@ export const TrainingManagerView: React.FC = () => {
             className="glass-card p-4 rounded-2xl glass-card-hover cursor-pointer space-y-2"
           >
             <div className="flex items-center justify-between text-xs">
-              <span className="font-medium text-white/90 dark:text-white/90 light:text-zinc-800 flex items-center gap-1.5">
-                <TrendingDown className="w-3.5 h-3.5 text-white/70" /> Curva de Pérdida
+              <span className="font-medium text-zinc-900 dark:text-white/90 flex items-center gap-1.5">
+                <TrendingDown className="w-3.5 h-3.5 text-zinc-600 dark:text-white/70" /> Curva de Pérdida
               </span>
               <div className="flex items-center gap-1.5">
-                <span className="font-mono text-[11px] text-white/90 font-medium">
+                <span className="font-mono text-[11px] text-zinc-900 dark:text-white font-medium">
                   {latestMetric.loss ? latestMetric.loss.toFixed(4) : '-'}
                 </span>
-                <Maximize2 className="w-3 h-3 text-white/40 hover:text-white transition-colors" />
+                <Maximize2 className="w-3 h-3 text-zinc-400 dark:text-white/40 hover:text-zinc-900 dark:hover:text-white transition-colors" />
               </div>
             </div>
 
             <div className="p-2 glass-inset rounded-xl">
               {renderSVGChart('loss', false)}
             </div>
-            <div className="flex justify-between items-center text-[10px] text-white/40 px-0.5">
+            <div className="flex justify-between items-center text-[10px] text-zinc-500 dark:text-white/40 px-0.5">
               <span>Train vs Val Loss</span>
-              <span className="text-white/70 font-medium">Ampliar &rarr;</span>
+              <span className="text-zinc-800 dark:text-white/70 font-medium">Ampliar &rarr;</span>
             </div>
           </div>
 
@@ -507,39 +499,39 @@ export const TrainingManagerView: React.FC = () => {
             className="glass-card p-4 rounded-2xl glass-card-hover cursor-pointer space-y-2"
           >
             <div className="flex items-center justify-between text-xs">
-              <span className="font-medium text-white/90 dark:text-white/90 light:text-zinc-800 flex items-center gap-1.5">
-                <TrendingUp className="w-3.5 h-3.5 text-white/70" /> Curva de Exactitud
+              <span className="font-medium text-zinc-900 dark:text-white/90 flex items-center gap-1.5">
+                <TrendingUp className="w-3.5 h-3.5 text-zinc-600 dark:text-white/70" /> Curva de Exactitud
               </span>
               <div className="flex items-center gap-1.5">
-                <span className="font-mono text-[11px] text-white font-medium">
+                <span className="font-mono text-[11px] text-zinc-900 dark:text-white font-medium">
                   {latestMetric.accuracy ? `${(latestMetric.accuracy * 100).toFixed(1)}%` : '-'}
                 </span>
-                <Maximize2 className="w-3 h-3 text-white/40 hover:text-white transition-colors" />
+                <Maximize2 className="w-3 h-3 text-zinc-400 dark:text-white/40 hover:text-zinc-900 dark:hover:text-white transition-colors" />
               </div>
             </div>
 
             <div className="p-2 glass-inset rounded-xl">
               {renderSVGChart('accuracy', false)}
             </div>
-            <div className="flex justify-between items-center text-[10px] text-white/40 px-0.5">
+            <div className="flex justify-between items-center text-[10px] text-zinc-500 dark:text-white/40 px-0.5">
               <span>Train vs Val Accuracy</span>
-              <span className="text-white/70 font-medium">Ampliar &rarr;</span>
+              <span className="text-zinc-800 dark:text-white/70 font-medium">Ampliar &rarr;</span>
             </div>
           </div>
 
           {/* Compact Run Metadata */}
-          <div className="glass-card p-4 rounded-2xl text-xs space-y-2 text-white/60 dark:text-white/60 light:text-zinc-600">
+          <div className="glass-card p-4 rounded-2xl text-xs space-y-2 text-zinc-600 dark:text-white/60">
             <div className="flex justify-between">
               <span>Modelo:</span>
-              <span className="font-medium text-white dark:text-white light:text-zinc-800 truncate max-w-[140px]">{activeScenario.architecture.name}</span>
+              <span className="font-medium text-zinc-900 dark:text-white truncate max-w-[140px]">{activeScenario.architecture.name}</span>
             </div>
             <div className="flex justify-between">
               <span>Dataset:</span>
-              <span className="font-medium text-white dark:text-white light:text-zinc-800 truncate max-w-[140px]">{activeScenario.dataset.name}</span>
+              <span className="font-medium text-zinc-900 dark:text-white truncate max-w-[140px]">{activeScenario.dataset.name}</span>
             </div>
             <div className="flex justify-between">
               <span>Tiempo / Época:</span>
-              <span className="font-mono font-medium text-white dark:text-white light:text-zinc-800">~38 ms</span>
+              <span className="font-mono font-medium text-zinc-900 dark:text-white">~38 ms</span>
             </div>
           </div>
         </div>
@@ -554,30 +546,30 @@ export const TrainingManagerView: React.FC = () => {
         badge={`Job: ${activeScenario.initialJob.id.slice(0, 8)}`}
       >
         <div className="space-y-4">
-          <div className="p-4 glass-inset rounded-2xl border border-white/10">
+          <div className="p-4 glass-inset rounded-2xl border border-black/10 dark:border-white/10">
             {enlargedModal && renderSVGChart(enlargedModal, true)}
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-            <div className="p-3.5 rounded-2xl glass-inset border border-white/10">
-              <span className="text-white/50 text-[10px] uppercase font-bold tracking-wider">Época Actual</span>
-              <div className="text-base font-bold font-mono text-white mt-1">{currentEpoch} / {epochs}</div>
+            <div className="p-3.5 rounded-2xl glass-inset border border-black/10 dark:border-white/10">
+              <span className="text-zinc-500 dark:text-white/50 text-[10px] uppercase font-bold tracking-wider">Época Actual</span>
+              <div className="text-base font-bold font-mono text-zinc-900 dark:text-white mt-1">{currentEpoch} / {epochs}</div>
             </div>
-            <div className="p-3.5 rounded-2xl glass-inset border border-white/10">
-              <span className="text-white/50 text-[10px] uppercase font-bold tracking-wider">Último Valor Train</span>
-              <div className="text-base font-bold font-mono text-white mt-1">
+            <div className="p-3.5 rounded-2xl glass-inset border border-black/10 dark:border-white/10">
+              <span className="text-zinc-500 dark:text-white/50 text-[10px] uppercase font-bold tracking-wider">Último Valor Train</span>
+              <div className="text-base font-bold font-mono text-zinc-900 dark:text-white mt-1">
                 {enlargedModal === 'loss' ? latestMetric.loss.toFixed(4) : `${((latestMetric.accuracy ?? 0) * 100).toFixed(1)}%`}
               </div>
             </div>
-            <div className="p-3.5 rounded-2xl glass-inset border border-white/10">
-              <span className="text-white/50 text-[10px] uppercase font-bold tracking-wider">Último Valor Val</span>
-              <div className="text-base font-bold font-mono text-white/80 mt-1">
+            <div className="p-3.5 rounded-2xl glass-inset border border-black/10 dark:border-white/10">
+              <span className="text-zinc-500 dark:text-white/50 text-[10px] uppercase font-bold tracking-wider">Último Valor Val</span>
+              <div className="text-base font-bold font-mono text-zinc-700 dark:text-white/80 mt-1">
                 {enlargedModal === 'loss' ? (latestMetric.valLoss || 0).toFixed(4) : `${((latestMetric.valAccuracy || 0) * 100).toFixed(1)}%`}
               </div>
             </div>
-            <div className="p-3.5 rounded-2xl glass-inset border border-white/10">
-              <span className="text-white/50 text-[10px] uppercase font-bold tracking-wider">Divergencia (Overfit)</span>
-              <div className="text-base font-bold font-mono text-white mt-1">&lt; 0.02 (Estable)</div>
+            <div className="p-3.5 rounded-2xl glass-inset border border-black/10 dark:border-white/10">
+              <span className="text-zinc-500 dark:text-white/50 text-[10px] uppercase font-bold tracking-wider">Divergencia (Overfit)</span>
+              <div className="text-base font-bold font-mono text-zinc-900 dark:text-white mt-1">&lt; 0.02 (Estable)</div>
             </div>
           </div>
         </div>

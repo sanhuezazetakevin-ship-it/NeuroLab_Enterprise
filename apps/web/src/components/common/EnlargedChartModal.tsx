@@ -36,22 +36,22 @@ export const EnlargedChartModal: React.FC<EnlargedChartModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-4xl max-h-[90vh] glass-panel rounded-3xl shadow-glass flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 border border-white/15">
+      <div className="relative w-full max-w-4xl max-h-[90vh] glass-panel rounded-3xl shadow-glass flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 border border-black/15 dark:border-white/15">
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-black/10 dark:border-white/10">
           <div>
             <div className="flex items-center gap-2.5">
-              <h3 className="text-base font-semibold text-white dark:text-white light:text-zinc-900 leading-tight">
+              <h3 className="text-base font-semibold text-zinc-900 dark:text-white leading-tight">
                 {title}
               </h3>
               {badge && (
-                <span className="text-[10px] px-2.5 py-0.5 rounded-full font-mono font-medium bg-white/10 text-white/80 border border-white/10">
+                <span className="text-[10px] px-2.5 py-0.5 rounded-full font-mono font-medium bg-black/5 dark:bg-white/10 text-zinc-800 dark:text-white/80 border border-black/10 dark:border-white/10">
                   {badge}
                 </span>
               )}
             </div>
             {subtitle && (
-              <p className="text-xs text-white/50 dark:text-white/50 light:text-zinc-500 mt-0.5">
+              <p className="text-xs text-zinc-600 dark:text-white/50 mt-0.5">
                 {subtitle}
               </p>
             )}
@@ -59,7 +59,7 @@ export const EnlargedChartModal: React.FC<EnlargedChartModalProps> = ({
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-xl glass-inset hover:bg-white/15 text-white/60 hover:text-white transition-colors"
+            className="p-1.5 rounded-xl glass-inset hover:bg-black/5 dark:hover:bg-white/15 text-zinc-500 dark:text-white/60 hover:text-zinc-900 dark:hover:text-white transition-colors"
             title="Cerrar vista ampliada (Esc)"
           >
             <X className="w-5 h-5" />
@@ -72,7 +72,7 @@ export const EnlargedChartModal: React.FC<EnlargedChartModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-3.5 border-t border-white/10 flex items-center justify-between text-xs text-white/40">
+        <div className="px-6 py-3.5 border-t border-black/10 dark:border-white/10 flex items-center justify-between text-xs text-zinc-500 dark:text-white/40">
           <span>Vista interactiva de inspección de alta precisión</span>
           <button
             onClick={onClose}

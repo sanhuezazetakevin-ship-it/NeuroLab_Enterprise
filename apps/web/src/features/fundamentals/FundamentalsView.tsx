@@ -94,19 +94,19 @@ export const FundamentalsView: React.FC = () => {
     }
 
     return (
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto overflow-visible select-none">
-        <line x1={padding} y1={height / 2} x2={width - padding} y2={height / 2} stroke="rgba(255,255,255,0.15)" strokeDasharray="3 3" />
-        <line x1={width / 2} y1={padding} x2={width / 2} y2={height - padding} stroke="rgba(255,255,255,0.15)" strokeDasharray="3 3" />
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto overflow-visible select-none text-zinc-900 dark:text-white">
+        <line x1={padding} y1={height / 2} x2={width - padding} y2={height / 2} stroke="currentColor" strokeOpacity="0.15" strokeDasharray="3 3" />
+        <line x1={width / 2} y1={padding} x2={width / 2} y2={height - padding} stroke="currentColor" strokeOpacity="0.15" strokeDasharray="3 3" />
 
         <polyline
           fill="none"
-          stroke="#ffffff"
+          stroke="currentColor"
           strokeWidth={isLarge ? "2.5" : "2"}
           points={points.join(' ')}
           strokeLinecap="round"
         />
 
-        <circle cx={dotX} cy={dotY} r={isLarge ? "5" : "3.5"} fill="#ffffff" stroke="rgba(0,0,0,0.5)" strokeWidth="1.5" />
+        <circle cx={dotX} cy={dotY} r={isLarge ? "5" : "3.5"} fill="currentColor" stroke="var(--canvas-bg)" strokeWidth="1.5" />
       </svg>
     );
   };
@@ -118,14 +118,15 @@ export const FundamentalsView: React.FC = () => {
     const scale = isLarge ? 1.5 : 0.82;
 
     return (
-      <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-auto overflow-visible select-none">
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-auto overflow-visible select-none text-zinc-900 dark:text-white">
         {/* Connections */}
         <line
           x1={40 * scale}
           y1={45 * scale}
           x2={130 * scale}
           y2={85 * scale}
-          stroke={w1 >= 0 ? '#ffffff' : 'rgba(255,255,255,0.3)'}
+          stroke="currentColor"
+          strokeOpacity={w1 >= 0 ? "0.9" : "0.35"}
           strokeWidth={Math.max(1.5, Math.abs(w1) * 2)}
           strokeLinecap="round"
         />
@@ -134,7 +135,8 @@ export const FundamentalsView: React.FC = () => {
           y1={125 * scale}
           x2={130 * scale}
           y2={85 * scale}
-          stroke={w2 >= 0 ? '#ffffff' : 'rgba(255,255,255,0.3)'}
+          stroke="currentColor"
+          strokeOpacity={w2 >= 0 ? "0.9" : "0.35"}
           strokeWidth={Math.max(1.5, Math.abs(w2) * 2)}
           strokeLinecap="round"
         />
@@ -143,28 +145,29 @@ export const FundamentalsView: React.FC = () => {
           y1={85 * scale}
           x2={210 * scale}
           y2={85 * scale}
-          stroke="rgba(255,255,255,0.4)"
+          stroke="currentColor"
+          strokeOpacity="0.4"
           strokeWidth="1.5"
           strokeDasharray="3 3"
         />
 
         {/* Input 1 */}
-        <circle cx={40 * scale} cy={45 * scale} r={14 * scale} fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" />
-        <text x={40 * scale} y={48 * scale} fontSize={9 * scale} textAnchor="middle" fill="#ffffff" fontWeight="bold">x1</text>
+        <circle cx={40 * scale} cy={45 * scale} r={14 * scale} fill="currentColor" fillOpacity="0.08" stroke="currentColor" strokeOpacity="0.25" strokeWidth="1.5" />
+        <text x={40 * scale} y={48 * scale} fontSize={9 * scale} textAnchor="middle" fill="currentColor" fontWeight="bold">x1</text>
 
         {/* Input 2 */}
-        <circle cx={40 * scale} cy={125 * scale} r={14 * scale} fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" />
-        <text x={40 * scale} y={128 * scale} fontSize={9 * scale} textAnchor="middle" fill="#ffffff" fontWeight="bold">x2</text>
+        <circle cx={40 * scale} cy={125 * scale} r={14 * scale} fill="currentColor" fillOpacity="0.08" stroke="currentColor" strokeOpacity="0.25" strokeWidth="1.5" />
+        <text x={40 * scale} y={128 * scale} fontSize={9 * scale} textAnchor="middle" fill="currentColor" fontWeight="bold">x2</text>
 
         {/* Sum node */}
-        <circle cx={130 * scale} cy={85 * scale} r={20 * scale} fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" />
-        <text x={130 * scale} y={83 * scale} fontSize={9 * scale} textAnchor="middle" fill="#ffffff" fontWeight="bold">&sum;+b</text>
-        <text x={130 * scale} y={95 * scale} fontSize={8 * scale} textAnchor="middle" fill="rgba(255,255,255,0.7)" fontFamily="monospace">z={z}</text>
+        <circle cx={130 * scale} cy={85 * scale} r={20 * scale} fill="currentColor" fillOpacity="0.12" stroke="currentColor" strokeOpacity="0.3" strokeWidth="1.5" />
+        <text x={130 * scale} y={83 * scale} fontSize={9 * scale} textAnchor="middle" fill="currentColor" fontWeight="bold">&sum;+b</text>
+        <text x={130 * scale} y={95 * scale} fontSize={8 * scale} textAnchor="middle" fill="currentColor" opacity="0.7" fontFamily="monospace">z={z}</text>
 
         {/* Activation Node */}
-        <rect x={195 * scale} y={67 * scale} width={36 * scale} height={36 * scale} rx={8 * scale} fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" />
-        <text x={213 * scale} y={83 * scale} fontSize={8 * scale} textAnchor="middle" fill="rgba(255,255,255,0.8)" fontWeight="bold">{activationFn}</text>
-        <text x={213 * scale} y={95 * scale} fontSize={9 * scale} textAnchor="middle" fill="#ffffff" fontFamily="monospace" fontWeight="bold">y={y}</text>
+        <rect x={195 * scale} y={67 * scale} width={36 * scale} height={36 * scale} rx={8 * scale} fill="currentColor" fillOpacity="0.15" stroke="currentColor" strokeOpacity="0.3" strokeWidth="1.5" />
+        <text x={213 * scale} y={83 * scale} fontSize={8 * scale} textAnchor="middle" fill="currentColor" opacity="0.8" fontWeight="bold">{activationFn}</text>
+        <text x={213 * scale} y={95 * scale} fontSize={9 * scale} textAnchor="middle" fill="currentColor" fontFamily="monospace" fontWeight="bold">y={y}</text>
       </svg>
     );
   };
@@ -231,15 +234,15 @@ export const FundamentalsView: React.FC = () => {
   return (
     <div className="space-y-4 animate-in fade-in duration-200">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-white/10">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-black/10 dark:border-white/10">
         <div>
-          <div className="flex items-center gap-2 text-white/60 text-xs font-semibold uppercase tracking-wider">
-            <BookOpen className="w-4 h-4 text-white/80" /> Módulo 03 • Fundamentos Neuronales (Semana 11)
+          <div className="flex items-center gap-2 text-zinc-600 dark:text-white/60 text-xs font-semibold uppercase tracking-wider">
+            <BookOpen className="w-4 h-4 text-zinc-800 dark:text-white/80" /> Módulo 03 • Fundamentos Neuronales (Semana 11)
           </div>
-          <h1 className="text-xl sm:text-2xl font-semibold text-white dark:text-white light:text-zinc-900 mt-1">
+          <h1 className="text-xl sm:text-2xl font-semibold text-zinc-900 dark:text-white mt-1">
             Matemáticas y Estructura del Perceptrón
           </h1>
-          <p className="text-xs text-white/50 dark:text-white/50 light:text-zinc-500 mt-0.5">
+          <p className="text-xs text-zinc-600 dark:text-white/50 mt-0.5">
             Operaciones de aprendizaje: entender la neurona artificial, sinapsis, sesgos y funciones de activación no lineales.
           </p>
         </div>
@@ -258,20 +261,20 @@ export const FundamentalsView: React.FC = () => {
         <div className="lg:col-span-2 space-y-4">
           {/* Sliders for Inputs, Weights and Bias */}
           <div className="glass-card p-5 rounded-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <span className="text-xs font-semibold text-white/90 dark:text-white/90 light:text-zinc-800 flex items-center gap-2">
-                <Sliders className="w-4 h-4 text-white/70" /> Parámetros Sinápticos (w) y Sesgo (b)
+            <div className="flex items-center justify-between border-b border-black/10 dark:border-white/10 pb-3">
+              <span className="text-xs font-semibold text-zinc-900 dark:text-white/90 flex items-center gap-2">
+                <Sliders className="w-4 h-4 text-zinc-600 dark:text-white/70" /> Parámetros Sinápticos (w) y Sesgo (b)
               </span>
-              <span className="text-xs font-mono font-medium text-white/80 dark:text-white/80 light:text-zinc-700">
+              <span className="text-xs font-mono font-medium text-zinc-800 dark:text-white/80">
                 y = f( &sum; w_i &middot; x_i + b ) = {y}
               </span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <div>
-                <div className="flex justify-between text-white/60 mb-1.5">
-                  <span>Entrada x1: <strong className="text-white">{x1}</strong></span>
-                  <span className="font-mono text-white font-medium">w1: {w1}</span>
+                <div className="flex justify-between text-zinc-600 dark:text-white/60 mb-1.5">
+                  <span>Entrada x1: <strong className="text-zinc-900 dark:text-white">{x1}</strong></span>
+                  <span className="font-mono text-zinc-900 dark:text-white font-medium">w1: {w1}</span>
                 </div>
                 <input
                   type="range"
@@ -280,14 +283,14 @@ export const FundamentalsView: React.FC = () => {
                   step="0.1"
                   value={w1}
                   onChange={(e) => setW1(parseFloat(e.target.value))}
-                  className="w-full accent-white cursor-pointer"
+                  className="w-full accent-zinc-900 dark:accent-white cursor-pointer"
                 />
               </div>
 
               <div>
-                <div className="flex justify-between text-white/60 mb-1.5">
-                  <span>Entrada x2: <strong className="text-white">{x2}</strong></span>
-                  <span className="font-mono text-white font-medium">w2: {w2}</span>
+                <div className="flex justify-between text-zinc-600 dark:text-white/60 mb-1.5">
+                  <span>Entrada x2: <strong className="text-zinc-900 dark:text-white">{x2}</strong></span>
+                  <span className="font-mono text-zinc-900 dark:text-white font-medium">w2: {w2}</span>
                 </div>
                 <input
                   type="range"
@@ -296,14 +299,14 @@ export const FundamentalsView: React.FC = () => {
                   step="0.1"
                   value={w2}
                   onChange={(e) => setW2(parseFloat(e.target.value))}
-                  className="w-full accent-white cursor-pointer"
+                  className="w-full accent-zinc-900 dark:accent-white cursor-pointer"
                 />
               </div>
 
               <div>
-                <div className="flex justify-between text-white/60 mb-1.5">
+                <div className="flex justify-between text-zinc-600 dark:text-white/60 mb-1.5">
                   <span>Sesgo (Bias b):</span>
-                  <span className="font-mono font-medium text-white">{bias}</span>
+                  <span className="font-mono font-medium text-zinc-900 dark:text-white">{bias}</span>
                 </div>
                 <input
                   type="range"
@@ -312,16 +315,16 @@ export const FundamentalsView: React.FC = () => {
                   step="0.1"
                   value={bias}
                   onChange={(e) => setBias(parseFloat(e.target.value))}
-                  className="w-full accent-white cursor-pointer"
+                  className="w-full accent-zinc-900 dark:accent-white cursor-pointer"
                 />
               </div>
 
               <div>
-                <label className="block text-white/60 mb-1.5">Función de Activación f(z):</label>
+                <label className="block text-zinc-600 dark:text-white/60 mb-1.5">Función de Activación f(z):</label>
                 <select
                   value={activationFn}
                   onChange={(e) => setActivationFn(e.target.value as any)}
-                  className="w-full glass-input rounded-xl px-3 py-1.5 text-white"
+                  className="w-full glass-input rounded-xl px-3 py-1.5"
                 >
                   <option value="relu">ReLU: max(0, z)</option>
                   <option value="sigmoid">Sigmoid: 1/(1+e^-z)</option>
@@ -331,9 +334,9 @@ export const FundamentalsView: React.FC = () => {
               </div>
             </div>
 
-            <div className="pt-2 border-t border-white/5 text-[11px] text-white/50 flex items-center justify-between">
-              <span>Combinación lineal: z = ({x1}&times;{w1}) + ({x2}&times;{w2}) + ({bias}) = <strong className="text-white">{z}</strong></span>
-              <span>Disparo: y = <strong className="text-white">{y}</strong></span>
+            <div className="pt-2 border-t border-black/5 dark:border-white/5 text-[11px] text-zinc-500 dark:text-white/50 flex items-center justify-between">
+              <span>Combinación lineal: z = ({x1}&times;{w1}) + ({x2}&times;{w2}) + ({bias}) = <strong className="text-zinc-900 dark:text-white">{z}</strong></span>
+              <span>Disparo: y = <strong className="text-zinc-900 dark:text-white">{y}</strong></span>
             </div>
           </div>
 
@@ -342,20 +345,20 @@ export const FundamentalsView: React.FC = () => {
             {families.map((fam) => (
               <div key={fam.id} className="glass-card p-4 rounded-2xl glass-card-hover space-y-1">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-semibold text-white/90 dark:text-white/90 light:text-zinc-900">{fam.title}</h3>
-                  <span className="text-[9px] px-2 py-0.5 rounded-full glass-inset text-white/70 font-mono">
+                  <h3 className="text-xs font-semibold text-zinc-900 dark:text-white">{fam.title}</h3>
+                  <span className="text-[9px] px-2 py-0.5 rounded-full glass-inset text-zinc-700 dark:text-white/70 font-mono">
                     {fam.tag}
                   </span>
                 </div>
-                <p className="text-[11px] text-white/50 dark:text-white/50 light:text-zinc-600 leading-tight">{fam.desc}</p>
+                <p className="text-[11px] text-zinc-600 dark:text-white/50 leading-tight">{fam.desc}</p>
               </div>
             ))}
           </div>
 
           {/* Interactive Checkpoint Quiz */}
           <div className="glass-card p-5 rounded-2xl space-y-3">
-            <span className="text-xs font-semibold text-white/90 dark:text-white/90 light:text-zinc-800 flex items-center gap-1.5">
-              <HelpCircle className="w-3.5 h-3.5 text-white/70" /> Evaluación Rápida (Checkpoint S11)
+            <span className="text-xs font-semibold text-zinc-900 dark:text-white flex items-center gap-1.5">
+              <HelpCircle className="w-3.5 h-3.5 text-zinc-600 dark:text-white/70" /> Evaluación Rápida (Checkpoint S11)
             </span>
 
             {quizQuestions.map((q) => {
@@ -364,14 +367,14 @@ export const FundamentalsView: React.FC = () => {
               const isCorrect = selected === q.correct;
 
               return (
-                <div key={q.id} className="p-3.5 rounded-2xl glass-inset border border-white/10 text-xs space-y-2">
-                  <p className="font-medium text-white/90 dark:text-white/90 light:text-zinc-800">{q.id}. {q.q}</p>
+                <div key={q.id} className="p-3.5 rounded-2xl glass-inset border border-black/10 dark:border-white/10 text-xs space-y-2">
+                  <p className="font-medium text-zinc-900 dark:text-white">{q.id}. {q.q}</p>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {q.options.map((opt, optIdx) => {
-                      let btnStyle = 'border-white/10 text-white/70 hover:bg-white/[0.08]';
+                      let btnStyle = 'border-black/10 dark:border-white/10 text-zinc-700 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/[0.08]';
                       if (isAnswered) {
-                        if (optIdx === q.correct) btnStyle = 'border-white bg-white/20 text-white font-semibold';
-                        else if (optIdx === selected) btnStyle = 'border-red-400/40 bg-red-500/20 text-red-300';
+                        if (optIdx === q.correct) btnStyle = 'border-zinc-900 dark:border-white bg-black/10 dark:bg-white/20 text-zinc-900 dark:text-white font-semibold';
+                        else if (optIdx === selected) btnStyle = 'border-red-400/40 bg-red-500/10 text-red-600 dark:text-red-300';
                         else btnStyle = 'opacity-30';
                       }
 
@@ -388,7 +391,7 @@ export const FundamentalsView: React.FC = () => {
                     })}
                   </div>
                   {isAnswered && (
-                    <div className="text-[11px] text-white/50 dark:text-white/50 pt-1 border-t border-white/5">
+                    <div className="text-[11px] text-zinc-500 dark:text-white/50 pt-1 border-t border-black/5 dark:border-white/5">
                       {q.explanation}
                     </div>
                   )}
@@ -400,9 +403,9 @@ export const FundamentalsView: React.FC = () => {
 
         {/* RIGHT DOCK: Compact Previews with Click-to-Enlarge */}
         <div className="space-y-3.5">
-          <div className="text-xs font-medium text-white/50 dark:text-white/50 light:text-zinc-500 flex items-center justify-between px-1">
+          <div className="text-xs font-medium text-zinc-600 dark:text-white/50 flex items-center justify-between px-1">
             <span>Visualizaciones (Dock)</span>
-            <span className="text-[10px] text-white/70">Clic para ampliar</span>
+            <span className="text-[10px] text-zinc-800 dark:text-white/70">Clic para ampliar</span>
           </div>
 
           {/* Compact Card 1: Perceptron Diagram Preview */}
@@ -411,21 +414,21 @@ export const FundamentalsView: React.FC = () => {
             className="glass-card p-4 rounded-2xl glass-card-hover cursor-pointer space-y-2"
           >
             <div className="flex items-center justify-between text-xs">
-              <span className="font-medium text-white/90 dark:text-white/90 light:text-zinc-800 flex items-center gap-1">
-                <Network className="w-3.5 h-3.5 text-white/70" /> Grafo Sináptico
+              <span className="font-medium text-zinc-900 dark:text-white flex items-center gap-1">
+                <Network className="w-3.5 h-3.5 text-zinc-600 dark:text-white/70" /> Grafo Sináptico
               </span>
               <div className="flex items-center gap-1">
-                <span className="font-mono text-[10px] text-white/60">z={z}</span>
-                <Maximize2 className="w-3 h-3 text-white/40 hover:text-white transition-colors" />
+                <span className="font-mono text-[10px] text-zinc-500 dark:text-white/60">z={z}</span>
+                <Maximize2 className="w-3 h-3 text-zinc-400 dark:text-white/40 hover:text-zinc-900 dark:hover:text-white transition-colors" />
               </div>
             </div>
 
             <div className="p-2 glass-inset rounded-xl">
               {renderNeuronSVG(false)}
             </div>
-            <div className="flex justify-between items-center text-[10px] text-white/40 px-0.5">
+            <div className="flex justify-between items-center text-[10px] text-zinc-500 dark:text-white/40 px-0.5">
               <span>Perceptrón artificial</span>
-              <span className="text-white/70 font-medium">Ampliar &rarr;</span>
+              <span className="text-zinc-800 dark:text-white/70 font-medium">Ampliar &rarr;</span>
             </div>
           </div>
 
@@ -435,21 +438,21 @@ export const FundamentalsView: React.FC = () => {
             className="glass-card p-4 rounded-2xl glass-card-hover cursor-pointer space-y-2"
           >
             <div className="flex items-center justify-between text-xs">
-              <span className="font-medium text-white/90 dark:text-white/90 light:text-zinc-800 flex items-center gap-1">
-                <TrendingUp className="w-3.5 h-3.5 text-white/70" /> Curva f(z): {activationFn}
+              <span className="font-medium text-zinc-900 dark:text-white flex items-center gap-1">
+                <TrendingUp className="w-3.5 h-3.5 text-zinc-600 dark:text-white/70" /> Curva f(z): {activationFn}
               </span>
               <div className="flex items-center gap-1">
-                <span className="font-mono text-[10px] text-white/60">y={y}</span>
-                <Maximize2 className="w-3 h-3 text-white/40 hover:text-white transition-colors" />
+                <span className="font-mono text-[10px] text-zinc-500 dark:text-white/60">y={y}</span>
+                <Maximize2 className="w-3 h-3 text-zinc-400 dark:text-white/40 hover:text-zinc-900 dark:hover:text-white transition-colors" />
               </div>
             </div>
 
             <div className="p-2 glass-inset rounded-xl">
               {renderActivationCurve(false)}
             </div>
-            <div className="flex justify-between items-center text-[10px] text-white/40 px-0.5">
+            <div className="flex justify-between items-center text-[10px] text-zinc-500 dark:text-white/40 px-0.5">
               <span>Plano cartesiano [-4, 4]</span>
-              <span className="text-white/70 font-medium">Ampliar &rarr;</span>
+              <span className="text-zinc-800 dark:text-white/70 font-medium">Ampliar &rarr;</span>
             </div>
           </div>
         </div>
@@ -464,12 +467,12 @@ export const FundamentalsView: React.FC = () => {
         badge="Fundamentos Semana 11"
       >
         <div className="space-y-4">
-          <div className="p-6 glass-inset rounded-2xl border border-white/10 flex justify-center">
+          <div className="p-6 glass-inset rounded-2xl border border-black/10 dark:border-white/10 flex justify-center">
             {enlargedModal === 'neuron' && renderNeuronSVG(true)}
             {enlargedModal === 'activation' && renderActivationCurve(true)}
           </div>
 
-          <div className="p-3.5 rounded-2xl glass-inset border border-white/10 text-xs text-white/70">
+          <div className="p-3.5 rounded-2xl glass-inset border border-black/10 dark:border-white/10 text-xs text-zinc-700 dark:text-white/70">
             Valores activos: Entrada x1={x1}, x2={x2} | Pesos w1={w1}, w2={w2} | Sesgo b={bias} | Suma z={z} | Salida y={y}
           </div>
         </div>

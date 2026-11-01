@@ -75,15 +75,15 @@ export const ReportsView: React.FC = () => {
   return (
     <div className="space-y-4 animate-in fade-in duration-200">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-white/10">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-black/10 dark:border-white/10">
         <div>
-          <div className="flex items-center gap-2 text-white/60 text-xs font-semibold uppercase tracking-wider">
-            <FileSpreadsheet className="w-4 h-4 text-white/80" /> Módulo 09 • Ficha Técnica & Reportes
+          <div className="flex items-center gap-2 text-zinc-600 dark:text-white/60 text-xs font-semibold uppercase tracking-wider">
+            <FileSpreadsheet className="w-4 h-4 text-zinc-700 dark:text-white/80" /> Módulo 09 • Ficha Técnica & Reportes
           </div>
-          <h1 className="text-xl sm:text-2xl font-semibold text-white dark:text-white light:text-zinc-900 mt-1">
+          <h1 className="text-xl sm:text-2xl font-semibold text-zinc-900 dark:text-white mt-1">
             Certificación Formal & Auditoría de Modelos
           </h1>
-          <p className="text-xs text-white/50 dark:text-white/50 light:text-zinc-500 mt-0.5">
+          <p className="text-xs text-zinc-500 dark:text-white/50 mt-0.5">
             Documentación técnica verificable, especificación de capas, resultados de validación y firma criptográfica inmutable.
           </p>
         </div>
@@ -111,14 +111,14 @@ export const ReportsView: React.FC = () => {
       </div>
 
       {/* Report Section Toggles */}
-      <div className="glass-card p-4 rounded-2xl flex flex-wrap items-center gap-5 text-xs text-white/70">
-        <span className="font-semibold text-white">Secciones a incluir:</span>
+      <div className="glass-card p-4 rounded-2xl flex flex-wrap items-center gap-5 text-xs text-zinc-700 dark:text-white/70">
+        <span className="font-semibold text-zinc-900 dark:text-white">Secciones a incluir:</span>
         <label className="flex items-center gap-2 cursor-pointer select-none">
           <input
             type="checkbox"
             checked={includeTopology}
             onChange={(e) => setIncludeTopology(e.target.checked)}
-            className="rounded accent-white cursor-pointer"
+            className="rounded accent-zinc-900 dark:accent-white cursor-pointer"
           />
           <span>Topología de Capas</span>
         </label>
@@ -127,7 +127,7 @@ export const ReportsView: React.FC = () => {
             type="checkbox"
             checked={includeMetrics}
             onChange={(e) => setIncludeMetrics(e.target.checked)}
-            className="rounded accent-white cursor-pointer"
+            className="rounded accent-zinc-900 dark:accent-white cursor-pointer"
           />
           <span>Métricas de Validación</span>
         </label>
@@ -136,67 +136,67 @@ export const ReportsView: React.FC = () => {
             type="checkbox"
             checked={includeAudit}
             onChange={(e) => setIncludeAudit(e.target.checked)}
-            className="rounded accent-white cursor-pointer"
+            className="rounded accent-zinc-900 dark:accent-white cursor-pointer"
           />
           <span>Firma Criptográfica SHA-256</span>
         </label>
       </div>
 
       {/* Printable Sheet */}
-      <div className="glass-card p-8 rounded-3xl space-y-6 text-xs text-white/80 print:shadow-none print:border-none print:p-0">
-        <div className="border-b border-white/10 pb-5 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+      <div className="glass-card p-8 rounded-3xl space-y-6 text-xs text-zinc-800 dark:text-white/80 print:shadow-none print:border-none print:p-0">
+        <div className="border-b border-black/10 dark:border-white/10 pb-5 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 text-white/60 font-semibold text-xs tracking-wider mb-1">
-              <ShieldCheck className="w-4 h-4 text-white/80" /> NEUROLAB ENTERPRISE &bull; AUDITORÍA SEMANA 11
+            <div className="flex items-center gap-2 text-zinc-600 dark:text-white/60 font-semibold text-xs tracking-wider mb-1">
+              <ShieldCheck className="w-4 h-4 text-zinc-700 dark:text-white/80" /> NEUROLAB ENTERPRISE &bull; AUDITORÍA SEMANA 11
             </div>
-            <h2 className="text-xl font-bold text-white tracking-tight">
+            <h2 className="text-xl font-bold text-zinc-900 dark:text-white tracking-tight">
               MODEL AUDIT CARD &amp; FICHA TÉCNICA
             </h2>
-            <p className="text-white/50 mt-0.5">Certificación oficial para despliegue en ambiente productivo</p>
+            <p className="text-zinc-500 dark:text-white/50 mt-0.5">Certificación oficial para despliegue en ambiente productivo</p>
           </div>
           <div className="sm:text-right">
-            <span className="font-mono text-white font-bold px-3 py-1 rounded-full glass-inset border border-white/20">
+            <span className="font-mono text-zinc-900 dark:text-white font-bold px-3 py-1 rounded-full glass-inset border border-black/20 dark:border-white/20">
               ESTADO: {activeScenario.modelVersion.status}
             </span>
-            <p className="text-white/40 text-[10px] mt-1.5 font-mono">
+            <p className="text-zinc-500 dark:text-white/40 text-[10px] mt-1.5 font-mono">
               Emisión: {new Date().toLocaleDateString()} | Ref: NL-ENT-S11
             </p>
           </div>
         </div>
 
         {/* Section 1: Overview */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 rounded-2xl glass-inset border border-white/10">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 rounded-2xl glass-inset border border-black/10 dark:border-white/10">
           <div>
-            <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Proyecto</span>
-            <p className="font-semibold text-white mt-0.5">{activeScenario.project.name}</p>
+            <span className="text-zinc-500 dark:text-white/40 text-[10px] uppercase font-bold tracking-wider">Proyecto</span>
+            <p className="font-semibold text-zinc-900 dark:text-white mt-0.5">{activeScenario.project.name}</p>
           </div>
           <div>
-            <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Familia Arquitectónica</span>
-            <p className="font-semibold text-white mt-0.5 font-mono">{activeScenario.architecture.family}</p>
+            <span className="text-zinc-500 dark:text-white/40 text-[10px] uppercase font-bold tracking-wider">Familia Arquitectónica</span>
+            <p className="font-semibold text-zinc-900 dark:text-white mt-0.5 font-mono">{activeScenario.architecture.family}</p>
           </div>
           <div>
-            <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Dataset de Referencia</span>
-            <p className="font-semibold text-white mt-0.5 font-mono">{activeScenario.dataset.name}</p>
+            <span className="text-zinc-500 dark:text-white/40 text-[10px] uppercase font-bold tracking-wider">Dataset de Referencia</span>
+            <p className="font-semibold text-zinc-900 dark:text-white mt-0.5 font-mono">{activeScenario.dataset.name}</p>
           </div>
         </div>
 
         {/* Section 2: Topology */}
         {includeTopology && (
           <div className="space-y-2">
-            <span className="text-white/50 text-[10px] uppercase font-bold tracking-wider">
+            <span className="text-zinc-600 dark:text-white/50 text-[10px] uppercase font-bold tracking-wider">
               1. Especificación de la Topología Compilada
             </span>
-            <div className="p-4 glass-inset rounded-2xl border border-white/10 font-mono text-[11px] space-y-1.5 text-white/80">
+            <div className="p-4 glass-inset rounded-2xl border border-black/10 dark:border-white/10 font-mono text-[11px] space-y-1.5 text-zinc-800 dark:text-white/80">
               <div>&bull; Tensor de Entrada: [{activeScenario.architecture.config.inputShape.join(', ')}]</div>
               {activeScenario.architecture.config.layers.map((layer, idx) => (
-                <div key={idx} className="text-white/70">
-                  &bull; Capa {idx + 1}: <strong className="text-white">{layer.type}</strong>
+                <div key={idx} className="text-zinc-700 dark:text-white/70">
+                  &bull; Capa {idx + 1}: <strong className="text-zinc-900 dark:text-white">{layer.type}</strong>
                   {layer.units && ` (${layer.units} neuronas, activacion: ${layer.activation})`}
                   {layer.filters && ` (filtros: ${layer.filters}, kernel: [${layer.kernelSize?.join('x')}], activacion: ${layer.activation})`}
                   {layer.rate && ` (tasa dropout: ${layer.rate})`}
                 </div>
               ))}
-              <div className="pt-2 text-white font-semibold border-t border-white/10">
+              <div className="pt-2 text-zinc-900 dark:text-white font-semibold border-t border-black/10 dark:border-white/10">
                 &bull; Total Parámetros: {activeScenario.architecture.family === 'CNN' ? '1,199,873' : '3,169'} parámetros entrenables
               </div>
             </div>
@@ -206,31 +206,31 @@ export const ReportsView: React.FC = () => {
         {/* Section 3: Evaluation Metrics */}
         {includeMetrics && (
           <div className="space-y-2">
-            <span className="text-white/50 text-[10px] uppercase font-bold tracking-wider">
+            <span className="text-zinc-600 dark:text-white/50 text-[10px] uppercase font-bold tracking-wider">
               2. Benchmarks &amp; Resultados Certificados
             </span>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-              <div className="p-3.5 glass-inset rounded-2xl border border-white/10">
-                <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Test Loss</span>
-                <p className="font-semibold text-white font-mono text-base mt-1">
+              <div className="p-3.5 glass-inset rounded-2xl border border-black/10 dark:border-white/10">
+                <span className="text-zinc-500 dark:text-white/40 text-[10px] uppercase font-bold tracking-wider">Test Loss</span>
+                <p className="font-semibold text-zinc-900 dark:text-white font-mono text-base mt-1">
                   {activeScenario.modelVersion.metricsSummary.loss.toFixed(3)}
                 </p>
               </div>
-              <div className="p-3.5 glass-inset rounded-2xl border border-white/10">
-                <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Test Accuracy</span>
-                <p className="font-semibold text-white font-mono text-base mt-1">
+              <div className="p-3.5 glass-inset rounded-2xl border border-black/10 dark:border-white/10">
+                <span className="text-zinc-500 dark:text-white/40 text-[10px] uppercase font-bold tracking-wider">Test Accuracy</span>
+                <p className="font-semibold text-zinc-900 dark:text-white font-mono text-base mt-1">
                   {(activeScenario.modelVersion.metricsSummary.accuracy * 100).toFixed(1)}%
                 </p>
               </div>
-              <div className="p-3.5 glass-inset rounded-2xl border border-white/10">
-                <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Validation Acc</span>
-                <p className="font-semibold text-white font-mono text-base mt-1">
+              <div className="p-3.5 glass-inset rounded-2xl border border-black/10 dark:border-white/10">
+                <span className="text-zinc-500 dark:text-white/40 text-[10px] uppercase font-bold tracking-wider">Validation Acc</span>
+                <p className="font-semibold text-zinc-900 dark:text-white font-mono text-base mt-1">
                   {(activeScenario.modelVersion.metricsSummary.valAccuracy * 100).toFixed(1)}%
                 </p>
               </div>
-              <div className="p-3.5 glass-inset rounded-2xl border border-white/10">
-                <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">F1-Score</span>
-                <p className="font-semibold text-white font-mono text-base mt-1">
+              <div className="p-3.5 glass-inset rounded-2xl border border-black/10 dark:border-white/10">
+                <span className="text-zinc-500 dark:text-white/40 text-[10px] uppercase font-bold tracking-wider">F1-Score</span>
+                <p className="font-semibold text-zinc-900 dark:text-white font-mono text-base mt-1">
                   {activeScenario.modelVersion.metricsSummary.f1Score || '0.941'}
                 </p>
               </div>
@@ -240,14 +240,14 @@ export const ReportsView: React.FC = () => {
 
         {/* Section 4: Cryptographic Audit Signature */}
         {includeAudit && (
-          <div className="space-y-2 pt-2 border-t border-white/10">
-            <span className="text-white/50 text-[10px] uppercase font-bold tracking-wider">
+          <div className="space-y-2 pt-2 border-t border-black/10 dark:border-white/10">
+            <span className="text-zinc-600 dark:text-white/50 text-[10px] uppercase font-bold tracking-wider">
               3. Trazabilidad Inmutable &amp; Integridad Criptográfica
             </span>
-            <div className="p-3.5 glass-inset rounded-2xl border border-white/10 font-mono text-[11px] text-white/70 break-all">
+            <div className="p-3.5 glass-inset rounded-2xl border border-black/10 dark:border-white/10 font-mono text-[11px] text-zinc-800 dark:text-white/70 break-all">
               Checksum SHA-256: {activeScenario.modelVersion.checksum}
             </div>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[10px] text-white/40 pt-1 gap-1">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[10px] text-zinc-500 dark:text-white/40 pt-1 gap-1">
               <span>Firmado electrónicamente: lead.engineer@neurolab.enterprise</span>
               <span>Latencia de Inferencia Estimada: 1.8ms / muestra</span>
             </div>

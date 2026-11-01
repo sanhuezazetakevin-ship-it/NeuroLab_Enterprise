@@ -29,13 +29,13 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
       icon: Layers,
       badge: 'Semana 11',
       content: (
-        <div className="space-y-3 text-xs text-white/70 dark:text-white/70 light:text-zinc-600">
+        <div className="space-y-3 text-xs text-zinc-700 dark:text-white/70">
           <p>
             Plataforma enterprise para las operaciones de la <strong>Semana 11 (Machine Learning & Deep Learning)</strong>.
           </p>
-          <div className="p-3.5 rounded-2xl glass-inset space-y-1.5 border border-white/10">
-            <span className="text-[11px] font-semibold text-white/90 dark:text-white/90 light:text-zinc-900 uppercase tracking-wider">Principios Arquitectónicos</span>
-            <ul className="space-y-1 list-disc list-inside text-white/60 dark:text-white/60 light:text-zinc-500">
+          <div className="p-3.5 rounded-2xl glass-inset space-y-1.5 border border-black/10 dark:border-white/10">
+            <span className="text-[11px] font-semibold text-zinc-900 dark:text-white/90 uppercase tracking-wider">Principios Arquitectónicos</span>
+            <ul className="space-y-1 list-disc list-inside text-zinc-600 dark:text-white/60">
               <li><strong>Desacoplamiento:</strong> Entrenamientos en workers asíncronos independientes.</li>
               <li><strong>Trazabilidad:</strong> Modelos inmutables con hashes SHA-256 certificados.</li>
               <li><strong>Validación en Servidor:</strong> La API FastAPI valida la coherencia dimensional de capas.</li>
@@ -52,11 +52,11 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
       icon: BookOpen,
       badge: 'Módulo 03',
       content: (
-        <div className="space-y-3 text-xs text-white/70 dark:text-white/70 light:text-zinc-600">
+        <div className="space-y-3 text-xs text-zinc-700 dark:text-white/70">
           <p>
             El módulo de <strong>Fundamentos</strong> cuenta con un simulador interactivo del Perceptrón en el lateral derecho con gráficos vectoriales que se pueden ampliar al hacer clic.
           </p>
-          <div className="p-3 rounded-2xl glass-inset border border-white/10 text-white/80 dark:text-white/80 light:text-zinc-700 text-[11px]">
+          <div className="p-3 rounded-2xl glass-inset border border-black/10 dark:border-white/10 text-zinc-800 dark:text-white/80 text-[11px]">
             Ajusta los pesos sinápticos (<code className="font-mono">w1, w2</code>) y el sesgo (<code className="font-mono">bias</code>) para ver en tiempo real el cálculo del potencial de disparo.
           </div>
         </div>
@@ -70,11 +70,11 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
       icon: Cpu,
       badge: 'Módulo 04',
       content: (
-        <div className="space-y-3 text-xs text-white/70 dark:text-white/70 light:text-zinc-600">
+        <div className="space-y-3 text-xs text-zinc-700 dark:text-white/70">
           <p>
             Configura capas para familias <strong>Feedforward (FNN)</strong>, <strong>Convolucionales (CNN)</strong>, <strong>Recurrentes (RNN/LSTM)</strong> y <strong>Generativas (GAN)</strong>.
           </p>
-          <div className="p-3 rounded-2xl glass-inset border border-white/10 text-white/80 dark:text-white/80 light:text-zinc-700 text-[11px]">
+          <div className="p-3 rounded-2xl glass-inset border border-black/10 dark:border-white/10 text-zinc-800 dark:text-white/80 text-[11px]">
             El botón "Guardar y Validar" verifica las dimensiones y parámetros entrenables en la API antes de permitir el entrenamiento.
           </div>
         </div>
@@ -88,11 +88,11 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
       icon: PlayCircle,
       badge: 'Módulo 06',
       content: (
-        <div className="space-y-3 text-xs text-white/70 dark:text-white/70 light:text-zinc-600">
+        <div className="space-y-3 text-xs text-zinc-700 dark:text-white/70">
           <p>
             Lanza un entrenamiento asíncrono y observa en el panel lateral las curvas de <strong>Pérdida (Loss)</strong> y <strong>Exactitud (Accuracy)</strong>. Haz clic en cualquier gráfico para verlo a pantalla completa.
           </p>
-          <div className="p-3 rounded-2xl glass-inset border border-white/10 text-white/80 dark:text-white/80 light:text-zinc-700 text-[11px]">
+          <div className="p-3 rounded-2xl glass-inset border border-black/10 dark:border-white/10 text-zinc-800 dark:text-white/80 text-[11px]">
             Cuenta con simulación de velocidad y botón de cancelación cooperativa.
           </div>
         </div>
@@ -106,11 +106,11 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
       icon: Box,
       badge: 'Módulo 08',
       content: (
-        <div className="space-y-3 text-xs text-white/70 dark:text-white/70 light:text-zinc-600">
+        <div className="space-y-3 text-xs text-zinc-700 dark:text-white/70">
           <p>
             Inspecciona versiones registradas, copia el hash SHA-256 y simula el cambio de estados en el ciclo de vida del modelo corporativo.
           </p>
-          <div className="p-3 rounded-2xl glass-inset border border-white/10 text-white/80 dark:text-white/80 light:text-zinc-700 text-[11px]">
+          <div className="p-3 rounded-2xl glass-inset border border-black/10 dark:border-white/10 text-zinc-800 dark:text-white/80 text-[11px]">
             La aprobación final requiere el rol de <strong>PROJECT_LEAD</strong> o <strong>ADMIN</strong>.
           </div>
         </div>
@@ -141,10 +141,10 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg glass-panel rounded-3xl p-6 shadow-glass border border-white/15 space-y-5 animate-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-lg glass-panel rounded-3xl p-6 shadow-glass border border-black/15 dark:border-white/15 space-y-5 animate-in zoom-in-95 duration-200">
         <button
           onClick={() => setWalkthroughOpen(false)}
-          className="absolute right-4 top-4 p-1.5 rounded-xl glass-inset hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+          className="absolute right-4 top-4 p-1.5 rounded-xl glass-inset hover:bg-black/5 dark:hover:bg-white/10 text-zinc-500 dark:text-white/50 hover:text-zinc-900 dark:hover:text-white transition-colors"
         >
           <X className="w-4 h-4" />
         </button>
@@ -156,8 +156,8 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
               key={i}
               className={`h-1.5 rounded-full transition-all duration-300 ${
                 i === currentStep
-                  ? 'w-6 bg-white dark:bg-white light:bg-zinc-900'
-                  : 'w-1.5 bg-white/20 dark:bg-white/20 light:bg-black/20'
+                  ? 'w-6 bg-zinc-900 dark:bg-white'
+                  : 'w-1.5 bg-black/20 dark:bg-white/20'
               }`}
             />
           ))}
@@ -165,18 +165,18 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
 
         {/* Header */}
         <div className="flex items-start gap-3 pt-1">
-          <div className="p-2.5 rounded-2xl glass-inset border border-white/15 text-white/90">
+          <div className="p-2.5 rounded-2xl glass-inset border border-black/10 dark:border-white/15 text-zinc-900 dark:text-white/90">
             <Icon className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/10 text-white/80 font-semibold border border-white/10">
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-black/5 dark:bg-white/10 text-zinc-700 dark:text-white/80 font-semibold border border-black/10 dark:border-white/10">
                 {step.badge}
               </span>
-              <span className="text-xs text-white/40">Paso {currentStep + 1} de {steps.length}</span>
+              <span className="text-xs text-zinc-500 dark:text-white/40">Paso {currentStep + 1} de {steps.length}</span>
             </div>
-            <h2 className="text-lg font-semibold text-white dark:text-white light:text-zinc-900 mt-1">{step.title}</h2>
-            <p className="text-xs text-white/50 dark:text-white/50 light:text-zinc-500">{step.subtitle}</p>
+            <h2 className="text-lg font-semibold text-zinc-900 dark:text-white mt-1">{step.title}</h2>
+            <p className="text-xs text-zinc-600 dark:text-white/50">{step.subtitle}</p>
           </div>
         </div>
 
@@ -184,14 +184,14 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
         <div>{step.content}</div>
 
         {/* Footer controls */}
-        <div className="flex items-center justify-between pt-3 border-t border-white/10">
+        <div className="flex items-center justify-between pt-3 border-t border-black/10 dark:border-white/10">
           <button
             onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
             disabled={currentStep === 0}
             className={`flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-xl transition-colors ${
               currentStep === 0
-                ? 'opacity-30 cursor-not-allowed text-white/40'
-                : 'text-white/70 hover:text-white glass-inset'
+                ? 'opacity-30 cursor-not-allowed text-zinc-400 dark:text-white/40'
+                : 'text-zinc-700 dark:text-white/70 hover:text-zinc-900 dark:hover:text-white glass-inset'
             }`}
           >
             <ChevronLeft className="w-4 h-4" /> Anterior

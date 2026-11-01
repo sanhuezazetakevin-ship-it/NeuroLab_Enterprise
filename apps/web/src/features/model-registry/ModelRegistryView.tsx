@@ -56,14 +56,14 @@ export const ModelRegistryView: React.FC = () => {
 
   return (
     <div className="space-y-4 animate-in fade-in duration-200">
-      <div className="pb-2 border-b border-white/10">
-        <div className="flex items-center gap-2 text-white/60 text-xs font-semibold uppercase tracking-wider">
-          <Box className="w-4 h-4 text-white/80" /> Módulo 08 • Registro de Modelos (Model Registry)
+      <div className="pb-2 border-b border-black/10 dark:border-white/10">
+        <div className="flex items-center gap-2 text-zinc-600 dark:text-white/60 text-xs font-semibold uppercase tracking-wider">
+          <Box className="w-4 h-4 text-zinc-700 dark:text-white/80" /> Módulo 08 • Registro de Modelos (Model Registry)
         </div>
-        <h1 className="text-xl sm:text-2xl font-semibold text-white dark:text-white light:text-zinc-900 mt-1">
+        <h1 className="text-xl sm:text-2xl font-semibold text-zinc-900 dark:text-white mt-1">
           Gobernanza de Modelos & Versionado Inmutable
         </h1>
-        <p className="text-xs text-white/50 dark:text-white/50 light:text-zinc-500 mt-0.5">
+        <p className="text-xs text-zinc-500 dark:text-white/50 mt-0.5">
           Ciclo de vida (DRAFT &rarr; REVIEWED &rarr; APPROVED &rarr; RETIRED) con integridad criptográfica SHA-256.
         </p>
       </div>
@@ -73,31 +73,31 @@ export const ModelRegistryView: React.FC = () => {
           <div key={model.id} className="glass-card p-5 rounded-2xl space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl glass-inset text-white flex items-center justify-center font-bold border border-white/10">
+                <div className="w-10 h-10 rounded-xl glass-inset text-zinc-900 dark:text-white flex items-center justify-center font-bold border border-black/10 dark:border-white/10">
                   <Box className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold text-white dark:text-white light:text-zinc-900">{activeScenario.architecture.name}</h3>
-                    <span className="font-mono text-xs px-2.5 py-0.5 rounded-full glass-inset text-white/80 border border-white/15">
+                    <h3 className="text-sm font-semibold text-zinc-900 dark:text-white">{activeScenario.architecture.name}</h3>
+                    <span className="font-mono text-xs px-2.5 py-0.5 rounded-full glass-inset text-zinc-700 dark:text-white/80 border border-black/15 dark:border-white/15">
                       {model.version}
                     </span>
                   </div>
-                  <p className="text-xs text-white/40 font-mono mt-0.5">{model.storageKey}</p>
+                  <p className="text-xs text-zinc-500 dark:text-white/40 font-mono mt-0.5">{model.storageKey}</p>
                 </div>
               </div>
 
               {/* Status Badge & Workflow selector */}
               <div className="flex flex-wrap items-center gap-2">
-                <div className="flex items-center gap-1 glass-inset p-1 rounded-xl border border-white/10 text-xs font-medium">
+                <div className="flex items-center gap-1 glass-inset p-1 rounded-xl border border-black/10 dark:border-white/10 text-xs font-medium">
                   {(['DRAFT', 'REVIEWED', 'APPROVED', 'RETIRED'] as const).map((st) => (
                     <button
                       key={st}
                       onClick={() => updateStatus(model.id, st)}
                       className={`px-2.5 py-1 rounded-lg transition-all ${
                         model.status === st
-                          ? 'bg-white text-zinc-950 font-semibold shadow-glass-sm'
-                          : 'text-white/50 hover:text-white'
+                          ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 font-semibold shadow-glass-sm'
+                          : 'text-zinc-600 dark:text-white/50 hover:text-zinc-900 dark:hover:text-white'
                       }`}
                     >
                       {st}
@@ -115,18 +115,18 @@ export const ModelRegistryView: React.FC = () => {
             </div>
 
             {/* Checksum row */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl glass-inset border border-white/10 text-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl glass-inset border border-black/10 dark:border-white/10 text-xs">
               <div className="flex items-center gap-2 overflow-hidden">
-                <span className="text-[10px] uppercase font-bold text-white/40 tracking-wider">SHA-256</span>
-                <code className="font-mono text-[11px] text-white/80 truncate">{model.checksum}</code>
+                <span className="text-[10px] uppercase font-bold text-zinc-500 dark:text-white/40 tracking-wider">SHA-256</span>
+                <code className="font-mono text-[11px] text-zinc-800 dark:text-white/80 truncate">{model.checksum}</code>
               </div>
               <button
                 onClick={() => copyChecksum(model.checksum, model.id)}
-                className="flex items-center gap-1 text-[11px] text-white/70 hover:text-white shrink-0 self-end sm:self-auto font-medium"
+                className="flex items-center gap-1 text-[11px] text-zinc-600 dark:text-white/70 hover:text-zinc-900 dark:hover:text-white shrink-0 self-end sm:self-auto font-medium"
               >
                 {copiedId === model.id ? (
                   <>
-                    <Check className="w-3.5 h-3.5 text-emerald-400" /> Copiado
+                    <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Copiado
                   </>
                 ) : (
                   <>
@@ -139,26 +139,26 @@ export const ModelRegistryView: React.FC = () => {
             {/* Metrics pills */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <div className="p-2.5 glass-inset rounded-xl">
-                <span className="text-white/40 text-[10px] uppercase font-bold">Accuracy</span>
-                <p className="font-mono font-semibold text-white mt-0.5">
+                <span className="text-zinc-500 dark:text-white/40 text-[10px] uppercase font-bold">Accuracy</span>
+                <p className="font-mono font-semibold text-zinc-900 dark:text-white mt-0.5">
                   {(model.metricsSummary.accuracy * 100).toFixed(1)}%
                 </p>
               </div>
               <div className="p-2.5 glass-inset rounded-xl">
-                <span className="text-white/40 text-[10px] uppercase font-bold">Loss</span>
-                <p className="font-mono font-semibold text-white mt-0.5">
+                <span className="text-zinc-500 dark:text-white/40 text-[10px] uppercase font-bold">Loss</span>
+                <p className="font-mono font-semibold text-zinc-900 dark:text-white mt-0.5">
                   {model.metricsSummary.loss.toFixed(4)}
                 </p>
               </div>
               <div className="p-2.5 glass-inset rounded-xl">
-                <span className="text-white/40 text-[10px] uppercase font-bold">Val Accuracy</span>
-                <p className="font-mono font-semibold text-white/80 mt-0.5">
+                <span className="text-zinc-500 dark:text-white/40 text-[10px] uppercase font-bold">Val Accuracy</span>
+                <p className="font-mono font-semibold text-zinc-700 dark:text-white/80 mt-0.5">
                   {model.metricsSummary.valAccuracy ? `${(model.metricsSummary.valAccuracy * 100).toFixed(1)}%` : '-'}
                 </p>
               </div>
               <div className="p-2.5 glass-inset rounded-xl">
-                <span className="text-white/40 text-[10px] uppercase font-bold">Registro</span>
-                <p className="font-mono text-white/60 text-[11px] mt-0.5">
+                <span className="text-zinc-500 dark:text-white/40 text-[10px] uppercase font-bold">Registro</span>
+                <p className="font-mono text-zinc-600 dark:text-white/60 text-[11px] mt-0.5">
                   {new Date(model.createdAt).toLocaleDateString()}
                 </p>
               </div>
