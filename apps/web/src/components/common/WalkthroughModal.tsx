@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import {
-  Sparkles,
   X,
   ChevronRight,
   ChevronLeft,
-  CheckCircle,
   BookOpen,
   Cpu,
   PlayCircle,
@@ -19,68 +17,65 @@ interface WalkthroughModalProps {
 }
 
 export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTab }) => {
-  const { walkthroughOpen, setWalkthroughOpen, activeScenario, switchScenario } = useDemo();
+  const { walkthroughOpen, setWalkthroughOpen } = useDemo();
   const [currentStep, setCurrentStep] = useState(0);
 
   if (!walkthroughOpen) return null;
 
   const steps = [
     {
-      title: 'Bienvenido a NeuroLab Enterprise',
-      subtitle: 'Plataforma empresarial para el ciclo de vida de Redes Neuronales Artificiales',
-      icon: Sparkles,
-      color: 'text-emerald-400',
-      badge: 'Visión General',
+      title: 'NeuroLab Enterprise',
+      subtitle: 'Plataforma para el diseño, validación y entrenamiento de Redes Neuronales',
+      icon: Layers,
+      badge: 'Semana 11',
       content: (
-        <div className="space-y-3 text-xs text-slate-300">
+        <div className="space-y-3 text-xs text-slate-600 dark:text-slate-300">
           <p>
-            Esta plataforma transforma el contenido curricular de la <strong>Semana 11 (Machine Learning & Deep Learning)</strong> en un entorno productivo de nivel industrial.
+            Plataforma enterprise para las operaciones curriculares de la <strong>Semana 11 (Machine Learning & Deep Learning)</strong>.
           </p>
-          <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 space-y-2">
-            <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">Principios de Arquitectura</span>
-            <ul className="space-y-1 list-disc list-inside text-slate-400">
-              <li><strong>Desacoplamiento:</strong> Los entrenamientos ocurren en workers aislados, nunca bloquean la web.</li>
-              <li><strong>Trazabilidad:</strong> Modelos inmutables con hashes SHA-256 de integridad.</li>
-              <li><strong>Validación estricta:</strong> La API FastAPI valida matemáticamente los tensores en servidor.</li>
+          <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1.5">
+            <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Principios Arquitectónicos</span>
+            <ul className="space-y-1 list-disc list-inside text-slate-500 dark:text-slate-400">
+              <li><strong>Desacoplamiento:</strong> Entrenamientos en workers asíncronos independientes.</li>
+              <li><strong>Trazabilidad:</strong> Modelos inmutables con hashes SHA-256 certificados.</li>
+              <li><strong>Validación en Servidor:</strong> La API FastAPI valida la coherencia dimensional de capas.</li>
             </ul>
           </div>
         </div>
       ),
-      actionLabel: 'Comenzar Recorrido',
+      actionLabel: 'Iniciar Recorrido',
       actionTab: null
     },
     {
-      title: '1. Fundamentos Neuronales Interactivos',
-      subtitle: 'Operación Semana 11: neuronas, capas, pesos, sesgos y activaciones',
+      title: '1. Fundamentos Neuronales (S11)',
+      subtitle: 'Neuronas, sinapsis, pesos, sesgos y funciones de activación',
       icon: BookOpen,
-      color: 'text-indigo-400',
       badge: 'Módulo 03',
       content: (
-        <div className="space-y-3 text-xs text-slate-300">
+        <div className="space-y-3 text-xs text-slate-600 dark:text-slate-300">
           <p>
-            El módulo de <strong>Fundamentos</strong> cuenta con un simulador interactivo donde puedes modificar entradas, pesos sinápticos (<code className="text-emerald-400">w1, w2</code>) y sesgo (<code className="text-indigo-300">bias</code>) para ver en tiempo real la combinación lineal y la curva de activación elegida (ReLU, Sigmoid, Tanh, Softmax).
+            El módulo de <strong>Fundamentos</strong> cuenta con un simulador interactivo del Perceptrón en el lateral derecho con gráficos vectoriales que se pueden ampliar al hacer clic.
           </p>
-          <div className="p-2.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-300">
-            💡 <strong>Prueba práctica:</strong> Desliza los controles y observa cómo cambia el potencial de disparo de la neurona.
+          <div className="p-2.5 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 text-blue-800 dark:text-blue-300 text-[11px]">
+            Ajusta los pesos sinápticos (<code className="font-mono">w1, w2</code>) y el sesgo (<code className="font-mono">bias</code>) para ver en tiempo real el cálculo del potencial de disparo.
           </div>
         </div>
       ),
-      actionLabel: 'Ir a Fundamentos (S11)',
+      actionLabel: 'Ir a Fundamentos',
       actionTab: 'fundamentals'
     },
     {
-      title: '2. Diseñador Visual de Topologías',
-      subtitle: 'Construcción con validación dimensional y familias de redes',
+      title: '2. Diseñador de Arquitecturas',
+      subtitle: 'Comprobación matemática de tensores y familias de redes',
       icon: Cpu,
-      color: 'text-cyan-400',
       badge: 'Módulo 04',
       content: (
-        <div className="space-y-3 text-xs text-slate-300">
+        <div className="space-y-3 text-xs text-slate-600 dark:text-slate-300">
           <p>
-            Diseña arquitecturas para 4 familias: <strong>Feedforward (FNN)</strong>, <strong>Convolucionales (CNN)</strong>, <strong>Recurrentes (RNN/LSTM)</strong> y <strong>Generativas (GAN)</strong>.
+            Configura capas para familias <strong>Feedforward (FNN)</strong>, <strong>Convolucionales (CNN)</strong>, <strong>Recurrentes (RNN/LSTM)</strong> y <strong>Generativas (GAN)</strong>.
           </p>
-          <div className="p-2.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-300">
-            🛡️ <strong>Seguridad matemática:</strong> El botón "Validar en Servidor" ejecuta la comprobación de formas de tensores y parámetros entrenables en FastAPI antes de autorizar el entrenamiento.
+          <div className="p-2.5 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 text-blue-800 dark:text-blue-300 text-[11px]">
+            El botón "Guardar y Validar" verifica las dimensiones y parámetros entrenables en la API antes de permitir el entrenamiento.
           </div>
         </div>
       ),
@@ -88,18 +83,17 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
       actionTab: 'architectures'
     },
     {
-      title: '3. Telemetría de Entrenamiento en Vivo',
-      subtitle: 'Worker Keras asíncrono y streaming de métricas sin recargar',
+      title: '3. Orquestador de Entrenamientos',
+      subtitle: 'Workers TensorFlow/Keras y telemetría por época',
       icon: PlayCircle,
-      color: 'text-amber-400',
       badge: 'Módulo 06',
       content: (
-        <div className="space-y-3 text-xs text-slate-300">
+        <div className="space-y-3 text-xs text-slate-600 dark:text-slate-300">
           <p>
-            Lanza un entrenamiento y observa las curvas continuas de <strong>Pérdida (Loss)</strong> y <strong>Exactitud (Accuracy)</strong> en tiempo real, junto con la terminal de logs y la opción de cancelación cooperativa.
+            Lanza un entrenamiento asíncrono y observa en el panel lateral las curvas de <strong>Pérdida (Loss)</strong> y <strong>Exactitud (Accuracy)</strong>. Haz clic en cualquier gráfico para verlo a pantalla completa.
           </p>
-          <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300">
-            ⚡ <strong>Modo Demo Activo:</strong> Puedes iniciar y pausar el entrenamiento en cualquier momento con datos realistas simulados.
+          <div className="p-2.5 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 text-blue-800 dark:text-blue-300 text-[11px]">
+            Cuenta con simulación de velocidad y botón de cancelación cooperativa.
           </div>
         </div>
       ),
@@ -107,22 +101,21 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
       actionTab: 'training'
     },
     {
-      title: '4. Gobernanza y Model Registry',
-      subtitle: 'Inmutabilidad criptográfica, auditoría y certificación',
+      title: '4. Gobernanza & Model Registry',
+      subtitle: 'Inmutabilidad SHA-256 y ciclo de vida de artefactos',
       icon: Box,
-      color: 'text-emerald-400',
-      badge: 'Módulos 08 y 10',
+      badge: 'Módulo 08',
       content: (
-        <div className="space-y-3 text-xs text-slate-300">
+        <div className="space-y-3 text-xs text-slate-600 dark:text-slate-300">
           <p>
-            Cada modelo completado recibe un hash SHA-256 inviolable y transita por los estados: <code className="text-amber-400">DRAFT</code> &rarr; <code className="text-indigo-400">REVIEWED</code> &rarr; <code className="text-emerald-400">APPROVED</code> &rarr; <code className="text-red-400">RETIRED</code>.
+            Cada modelo entrenado transita por los estados: <code className="font-mono">DRAFT</code> &rarr; <code className="font-mono">REVIEWED</code> &rarr; <code className="font-mono">APPROVED</code> &rarr; <code className="font-mono">RETIRED</code>.
           </p>
-          <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">
-            📋 <strong>Reportes Ejecutivos:</strong> Exporta la ficha técnica completa en formato imprimible/PDF o CSV con un solo clic.
+          <div className="p-2.5 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 text-blue-800 dark:text-blue-300 text-[11px]">
+            Genera la ficha técnica formal y exporta a formato CSV o PDF imprimible con un clic.
           </div>
         </div>
       ),
-      actionLabel: 'Ir a Model Registry',
+      actionLabel: 'Ir a Registro',
       actionTab: 'model-registry'
     }
   ];
@@ -154,42 +147,42 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
-      <div className="bg-slate-900 border border-slate-700/80 rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
         {/* Header */}
-        <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/90">
+        <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900/60">
           <div className="flex items-center gap-2.5">
-            <div className={`p-2 rounded-xl bg-slate-800 ${current.color}`}>
-              <StepIcon className="w-5 h-5" />
+            <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400">
+              <StepIcon className="w-4 h-4" />
             </div>
             <div>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
+              <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.2 rounded bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
                 {current.badge} • Paso {currentStep + 1} de {steps.length}
               </span>
-              <h3 className="text-base font-bold text-white mt-1 leading-snug">{current.title}</h3>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white mt-0.5 leading-snug">{current.title}</h3>
             </div>
           </div>
           <button
             onClick={() => setWalkthroughOpen(false)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-4">
-          <p className="text-xs font-semibold text-slate-400">{current.subtitle}</p>
+        <div className="p-5 space-y-3">
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">{current.subtitle}</p>
           {current.content}
 
           {/* Stepper dots */}
-          <div className="flex justify-center items-center gap-1.5 pt-3">
+          <div className="flex justify-center items-center gap-1.5 pt-2">
             {steps.map((_, idx) => (
               <button
                 key={idx}
                 onClick={() => setCurrentStep(idx)}
                 className={`h-1.5 rounded-full transition-all ${
-                  idx === currentStep ? 'w-6 bg-emerald-500' : 'w-1.5 bg-slate-700 hover:bg-slate-600'
+                  idx === currentStep ? 'w-5 bg-blue-600 dark:bg-blue-500' : 'w-1.5 bg-slate-300 dark:bg-slate-700'
                 }`}
               />
             ))}
@@ -197,34 +190,34 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
         </div>
 
         {/* Footer */}
-        <div className="p-4 bg-slate-950/70 border-t border-slate-800 flex items-center justify-between">
+        <div className="p-4 bg-slate-50 dark:bg-slate-950/60 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <button
             onClick={handlePrev}
             disabled={currentStep === 0}
             className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium ${
-              currentStep === 0 ? 'text-slate-600 cursor-not-allowed' : 'text-slate-300 hover:bg-slate-800'
+              currentStep === 0 ? 'text-slate-400 cursor-not-allowed' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'
             }`}
           >
-            <ChevronLeft className="w-4 h-4" /> Anterior
+            <ChevronLeft className="w-3.5 h-3.5" /> Anterior
           </button>
 
           <div className="flex items-center gap-2">
             {current.actionTab && (
               <button
                 onClick={handleDirectJump}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors"
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition-colors"
               >
                 <span>{current.actionLabel}</span>
-                <ArrowRight className="w-3.5 h-3.5 text-emerald-400" />
+                <ArrowRight className="w-3 h-3 text-blue-600 dark:text-blue-400" />
               </button>
             )}
 
             <button
               onClick={handleNext}
-              className="flex items-center gap-1 px-4 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs transition-colors shadow-lg shadow-emerald-500/20"
+              className="flex items-center gap-1 px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs transition-colors shadow-xs"
             >
               <span>{currentStep === steps.length - 1 ? 'Finalizar' : 'Siguiente'}</span>
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>

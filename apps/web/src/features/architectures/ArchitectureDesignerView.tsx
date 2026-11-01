@@ -8,17 +8,15 @@ import {
   Save,
   Layers,
   ArrowRight,
-  Info,
-  Sparkles,
-  ChevronDown,
   Workflow,
-  Sliders,
+  Maximize2,
   MoveUp,
   MoveDown
 } from 'lucide-react';
 import { LayerConfig, LayerType, NetworkFamily, NetworkTopology, ArchitectureValidationResult } from '../../types';
 import { ApiClient } from '../../lib/api';
 import { useDemo } from '../../lib/DemoContext';
+import { EnlargedChartModal } from '../../components/common/EnlargedChartModal';
 
 export const ArchitectureDesignerView: React.FC = () => {
   const { activeScenario, showToast } = useDemo();
@@ -38,8 +36,8 @@ export const ArchitectureDesignerView: React.FC = () => {
   });
 
   const [isSaving, setIsSaving] = useState(false);
+  const [enlargedTopologyOpen, setEnlargedTopologyOpen] = useState(false);
 
-  // Sync when active scenario changes
   useEffect(() => {
     setArchName(activeScenario.architecture.name);
     setFamily(activeScenario.architecture.family);
@@ -47,7 +45,6 @@ export const ArchitectureDesignerView: React.FC = () => {
     setLayers(activeScenario.architecture.config.layers);
   }, [activeScenario]);
 
-  // Recalculate validation whenever layers or family changes
   useEffect(() => {
     const topology: NetworkTopology = {
       inputShape: family === 'CNN' ? [128, 128, 1] : [inputFeatures],
@@ -70,7 +67,7 @@ export const ArchitectureDesignerView: React.FC = () => {
         { id: '3', type: 'Dense', units: 32, activation: 'relu' },
         { id: '4', type: 'Dense', units: 1, activation: 'sigmoid' },
       ]);
-      showToast('Plantilla cargada: MLP Feedforward Base', 'info');
+      showToast('Plantilla cargada: MLP Feedforward', 'info');
     } else if (presetType === 'cnn') {
       setArchName('ChestNet CNN Clasificación 2D');
       setFamily('CNN');
@@ -84,7 +81,7 @@ export const ArchitectureDesignerView: React.FC = () => {
         { id: '6', type: 'Dense', units: 64, activation: 'relu' },
         { id: '7', type: 'Dense', units: 1, activation: 'sigmoid' },
       ]);
-      showToast('Plantilla cargada: CNN Convolucional 2D', 'info');
+      showToast('Plantilla cargada: CNN Convolucional', 'info');
     } else if (presetType === 'lstm') {
       setArchName('GridLoad LSTM Time Series');
       setFamily('RNN');
@@ -107,7 +104,7 @@ export const ArchitectureDesignerView: React.FC = () => {
         { id: '4', type: 'BatchNormalization' },
         { id: '5', type: 'Dense', units: 784, activation: 'tanh' },
       ]);
-      showToast('Plantilla cargada: Subred Generadora GAN', 'info');
+      showToast('Plantilla cargada: Generador GAN', 'info');
     }
   };
 
@@ -124,7 +121,7 @@ export const ArchitectureDesignerView: React.FC = () => {
       poolSize: type === 'MaxPooling2D' ? [2, 2] : undefined,
     };
     setLayers([...layers, newLayer]);
-    showToast(`Capa ${type} agregada a la secuencia`, 'info');
+    showToast(`Capa ${type} añadida`, 'info');
   };
 
   const removeLayer = (id: string) => {
@@ -158,184 +155,176 @@ export const ArchitectureDesignerView: React.FC = () => {
     setIsSaving(true);
     setTimeout(() => {
       setIsSaving(false);
-      showToast(`¡Arquitectura "${archName}" certificada y guardada en servidor!`, 'success');
-    }, 600);
+      showToast(`Arquitectura validada y guardada en backend`, 'success');
+    }, 500);
   };
 
-  // Memory footprint approximation
   const memoryKB = ((validation.totalParameters * 4) / 1024).toFixed(1);
 
+  // Helper to render horizontal topology
+  const renderTopologyFlow = (isLarge = false) => {
+    return (
+      <div className="flex items-center gap-2 overflow-x-auto py-2">
+        <div className="shrink-0 p-2.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-center min-w-[90px]">
+          <span className="text-[9px] text-slate-500 uppercase font-bold">Input</span>
+          <div className="text-xs font-mono font-bold text-slate-800 dark:text-white mt-0.5">
+            [{family === 'CNN' ? '128,128,1' : inputFeatures}]
+          </div>
+        </div>
+
+        {layers.map((layer, idx) => (
+          <React.Fragment key={layer.id}>
+            <ArrowRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <div className="shrink-0 p-2.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-center min-w-[95px]">
+              <span className="text-[9px] text-blue-600 dark:text-blue-400 uppercase font-bold">{layer.type}</span>
+              <div className="text-xs font-mono font-bold text-slate-800 dark:text-white">
+                {layer.units && `${layer.units}u`}
+                {layer.filters && `${layer.filters}f`}
+                {layer.rate && `r=${layer.rate}`}
+              </div>
+              {layer.activation && (
+                <span className="inline-block text-[8px] px-1 rounded bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono">
+                  {layer.activation}
+                </span>
+              )}
+            </div>
+          </React.Fragment>
+        ))}
+
+        <ArrowRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+        <div className="shrink-0 p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 text-center min-w-[90px]">
+          <span className="text-[9px] text-emerald-600 dark:text-emerald-400 uppercase font-bold">Output</span>
+          <div className="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-300 mt-0.5">
+            {JSON.stringify(validation.outputShape)}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
-      {/* Top Header & Preset Buttons */}
+    <div className="space-y-5 animate-in fade-in duration-200">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold uppercase tracking-wider">
+          <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 text-xs font-semibold uppercase tracking-wider">
             <Cpu className="w-4 h-4" /> Módulo 04 • Diseñador de Arquitecturas
           </div>
-          <h1 className="text-2xl font-bold text-white mt-1">Constructor Visual & Validador de Tensores</h1>
-          <p className="text-xs text-slate-300 mt-1">
-            Diseña topologías para FNN, CNN, RNN y GAN con validación dimensional matemática en el backend FastAPI.
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1">
+            Topologías & Validación Dimensional
+          </h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Configuración de capas y verificación matemática de tensores en servidor FastAPI antes de compilar con TensorFlow.
           </p>
         </div>
 
         <button
           onClick={handleSaveAndValidate}
           disabled={!validation.valid || isSaving}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all shadow-lg ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-xs transition-colors shadow-xs ${
             validation.valid
-              ? 'bg-emerald-500 hover:bg-emerald-600 text-slate-950 shadow-emerald-500/20'
-              : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+              ? 'bg-blue-600 hover:bg-blue-700 text-white'
+              : 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
           }`}
         >
           <Save className="w-4 h-4" />
-          {isSaving ? 'Validando en Servidor...' : 'Guardar y Validar en Backend'}
+          {isSaving ? 'Validando...' : 'Guardar y Validar'}
         </button>
       </div>
 
-      {/* Preset Quick Load Bar */}
-      <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
-        <div className="flex items-center gap-2 text-slate-300 font-semibold">
-          <Sparkles className="w-4 h-4 text-emerald-400" />
-          <span>Plantillas Rápidas:</span>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+      {/* Preset Quick Load Strip */}
+      <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs shadow-xs">
+        <span className="text-slate-500 dark:text-slate-400 font-medium">Plantillas de Referencia:</span>
+        <div className="flex flex-wrap items-center gap-1.5">
           <button
             onClick={() => loadPreset('mlp')}
-            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium"
+            className="px-2.5 py-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium border border-slate-200 dark:border-slate-700"
           >
             MLP Feedforward (S11)
           </button>
           <button
             onClick={() => loadPreset('cnn')}
-            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium"
+            className="px-2.5 py-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium border border-slate-200 dark:border-slate-700"
           >
-            CNN Convolucional (Imágenes)
+            CNN Convolucional
           </button>
           <button
             onClick={() => loadPreset('lstm')}
-            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium"
+            className="px-2.5 py-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium border border-slate-200 dark:border-slate-700"
           >
-            LSTM Recurrente (Series)
+            LSTM Recurrente
           </button>
           <button
             onClick={() => loadPreset('gan')}
-            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium"
+            className="px-2.5 py-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium border border-slate-200 dark:border-slate-700"
           >
             Generador GAN
           </button>
         </div>
       </div>
 
-      {/* Configuration Inputs */}
-      <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Configuration Controls */}
+      <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 grid grid-cols-1 md:grid-cols-3 gap-3 shadow-xs text-xs">
         <div>
-          <label className="block text-xs font-semibold text-slate-400 mb-1">Nombre de la Arquitectura</label>
+          <label className="block text-slate-500 dark:text-slate-400 font-semibold mb-1">Nombre</label>
           <input
             type="text"
             value={archName}
             onChange={(e) => setArchName(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1 text-slate-800 dark:text-white"
           />
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-slate-400 mb-1">Familia de Red</label>
+          <label className="block text-slate-500 dark:text-slate-400 font-semibold mb-1">Familia</label>
           <select
             value={family}
             onChange={(e) => setFamily(e.target.value as NetworkFamily)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-medium"
+            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1 text-slate-800 dark:text-white"
           >
-            <option value="FEEDFORWARD">Feedforward (FNN / Dense)</option>
-            <option value="CNN">Convolucional (CNN / 2D)</option>
+            <option value="FEEDFORWARD">Feedforward (FNN)</option>
+            <option value="CNN">Convolucional (CNN)</option>
             <option value="RNN">Recurrente (RNN / LSTM)</option>
-            <option value="GAN">Generativa Adversaria (GAN)</option>
+            <option value="GAN">Generativa (GAN)</option>
           </select>
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-slate-400 mb-1">Dimensión de Entrada (Input Shape)</label>
+          <label className="block text-slate-500 dark:text-slate-400 font-semibold mb-1">Input Shape</label>
           <input
             type="number"
             value={inputFeatures}
             onChange={(e) => setInputFeatures(parseInt(e.target.value) || 1)}
             min="1"
-            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
+            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1 text-slate-800 dark:text-white font-mono"
           />
         </div>
       </div>
 
-      {/* Visual Flow / Layer Topology Nodes */}
-      <div className="p-5 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
-        <h2 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-          <Workflow className="w-4 h-4 text-emerald-400" /> Flujo Dimensional de Tensores
-        </h2>
-
-        {/* Horizontal Node Flowchart */}
-        <div className="flex items-center gap-2 overflow-x-auto py-2">
-          {/* Input Node */}
-          <div className="shrink-0 p-3 rounded-xl bg-slate-950 border border-blue-500/40 text-center min-w-[100px]">
-            <span className="text-[10px] text-blue-400 uppercase font-bold">Input Tensor</span>
-            <div className="text-xs font-mono font-bold text-white mt-1">
-              [{family === 'CNN' ? '128, 128, 1' : inputFeatures}]
-            </div>
-          </div>
-
-          {layers.map((layer, idx) => (
-            <React.Fragment key={layer.id}>
-              <ArrowRight className="w-4 h-4 text-slate-600 shrink-0" />
-              <div className="shrink-0 p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-emerald-500/50 text-center min-w-[110px] transition-colors">
-                <span className="text-[10px] text-emerald-400 uppercase font-bold">{layer.type}</span>
-                <div className="text-xs font-mono font-bold text-white mt-0.5">
-                  {layer.units && `${layer.units}u`}
-                  {layer.filters && `${layer.filters}f`}
-                  {layer.rate && `r=${layer.rate}`}
-                </div>
-                {layer.activation && (
-                  <span className="inline-block mt-1 text-[9px] px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-mono">
-                    {layer.activation}
-                  </span>
-                )}
-              </div>
-            </React.Fragment>
-          ))}
-
-          {/* Output Node */}
-          <ArrowRight className="w-4 h-4 text-slate-600 shrink-0" />
-          <div className="shrink-0 p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-center min-w-[100px]">
-            <span className="text-[10px] text-emerald-400 uppercase font-bold">Output Shape</span>
-            <div className="text-xs font-mono font-bold text-emerald-300 mt-1">
-              {JSON.stringify(validation.outputShape)}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Layer Editor & Validation Metrics */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Layer Stack Editor */}
+      {/* Main Grid: Left Layer Stack (2 cols) + Right Compact Previews (1 col) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* LEFT COLUMN: Layers Editor */}
         <div className="lg:col-span-2 space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-white flex items-center gap-2">
-              <Layers className="w-4 h-4 text-emerald-400" /> Secuencia de Capas ({layers.length})
+            <h2 className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 uppercase tracking-wider">
+              <Layers className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Secuencia de Capas ({layers.length})
             </h2>
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-slate-400">Añadir:</span>
+            <div className="flex items-center gap-1 text-xs">
               <button
                 onClick={() => addLayer('Dense')}
-                className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded-lg border border-slate-700 font-medium"
+                className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded border border-slate-200 dark:border-slate-700"
               >
                 + Dense
               </button>
               <button
                 onClick={() => addLayer('Dropout')}
-                className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded-lg border border-slate-700 font-medium"
+                className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded border border-slate-200 dark:border-slate-700"
               >
                 + Dropout
               </button>
               <button
                 onClick={() => addLayer('BatchNormalization')}
-                className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded-lg border border-slate-700 font-medium"
+                className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded border border-slate-200 dark:border-slate-700"
               >
                 + BatchNorm
               </button>
@@ -346,55 +335,53 @@ export const ArchitectureDesignerView: React.FC = () => {
             {layers.map((layer, index) => (
               <div
                 key={layer.id}
-                className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between gap-4 hover:border-slate-700 transition-colors"
+                className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 transition-colors text-xs"
               >
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-2">
                   <div className="flex flex-col gap-0.5">
                     <button
                       onClick={() => moveLayer(index, 'up')}
                       disabled={index === 0}
-                      className="p-0.5 text-slate-500 hover:text-white disabled:opacity-30"
-                      title="Mover arriba"
+                      className="p-0.5 text-slate-400 hover:text-slate-700 dark:hover:text-white disabled:opacity-20"
                     >
                       <MoveUp className="w-3 h-3" />
                     </button>
                     <button
                       onClick={() => moveLayer(index, 'down')}
                       disabled={index === layers.length - 1}
-                      className="p-0.5 text-slate-500 hover:text-white disabled:opacity-30"
-                      title="Mover abajo"
+                      className="p-0.5 text-slate-400 hover:text-slate-700 dark:hover:text-white disabled:opacity-20"
                     >
                       <MoveDown className="w-3 h-3" />
                     </button>
                   </div>
 
-                  <div className="w-6 h-6 rounded bg-slate-800 text-slate-400 font-mono text-xs flex items-center justify-center font-bold">
+                  <span className="w-5 h-5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-mono text-[11px] flex items-center justify-center font-bold">
                     {index + 1}
-                  </div>
+                  </span>
 
-                  <span className="font-mono text-xs font-bold text-white bg-slate-800 px-2 py-0.5 rounded text-emerald-400">
+                  <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-blue-600 dark:text-blue-400">
                     {layer.type}
                   </span>
                 </div>
 
-                <div className="flex items-center gap-3 text-xs">
+                <div className="flex items-center gap-3">
                   {layer.type === 'Dense' && (
                     <>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-slate-400">Neuronas:</span>
+                      <div className="flex items-center gap-1">
+                        <span className="text-slate-500">Unidades:</span>
                         <input
                           type="number"
                           value={layer.units || 32}
                           onChange={(e) => updateLayerUnits(layer.id, parseInt(e.target.value) || 1)}
-                          className="w-16 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-white font-mono"
+                          className="w-14 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 text-xs text-slate-800 dark:text-white font-mono"
                         />
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-slate-400">Activación:</span>
+                      <div className="flex items-center gap-1">
+                        <span className="text-slate-500">Activación:</span>
                         <select
                           value={layer.activation || 'relu'}
                           onChange={(e) => updateLayerActivation(layer.id, e.target.value)}
-                          className="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-white"
+                          className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 text-xs text-slate-800 dark:text-white"
                         >
                           <option value="relu">ReLU</option>
                           <option value="sigmoid">Sigmoid</option>
@@ -407,8 +394,8 @@ export const ArchitectureDesignerView: React.FC = () => {
                   )}
 
                   {layer.type === 'Dropout' && (
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-slate-400">Rate:</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-slate-500">Rate:</span>
                       <input
                         type="number"
                         step="0.05"
@@ -416,17 +403,16 @@ export const ArchitectureDesignerView: React.FC = () => {
                         max="0.9"
                         value={layer.rate ?? 0.2}
                         onChange={(e) => updateDropoutRate(layer.id, parseFloat(e.target.value) || 0)}
-                        className="w-16 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-white font-mono"
+                        className="w-16 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 text-xs text-slate-800 dark:text-white font-mono"
                       />
                     </div>
                   )}
 
                   <button
                     onClick={() => removeLayer(layer.id)}
-                    className="p-1.5 text-slate-500 hover:text-red-400 transition-colors"
-                    title="Eliminar capa"
+                    className="p-1 text-slate-400 hover:text-red-500 transition-colors"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
@@ -434,77 +420,89 @@ export const ArchitectureDesignerView: React.FC = () => {
           </div>
         </div>
 
-        {/* Backend Validation & Parameter Summary */}
+        {/* RIGHT DOCK: Compact Previews with Click-to-Enlarge */}
         <div className="space-y-4">
-          <div className="p-5 rounded-xl bg-slate-900 border border-slate-800 space-y-4">
-            <h2 className="text-sm font-bold text-white flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 text-emerald-400" /> Resumen Técnico de Compilación
-            </h2>
+          <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center justify-between px-1">
+            <span>Visualización (Miniatura)</span>
+            <span className="text-[10px] text-blue-600 dark:text-blue-400">Clic para ampliar</span>
+          </div>
 
-            <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 space-y-2.5 text-xs">
-              <div className="flex justify-between">
-                <span className="text-slate-400">Estado de Validación:</span>
-                {validation.valid ? (
-                  <span className="text-emerald-400 font-bold flex items-center gap-1">
-                    <CheckCircle className="w-3.5 h-3.5" /> Aprobada para TensorFlow
-                  </span>
-                ) : (
-                  <span className="text-red-400 font-bold flex items-center gap-1">
-                    <AlertTriangle className="w-3.5 h-3.5" /> Errores detectados
-                  </span>
-                )}
-              </div>
-
-              <div className="flex justify-between">
-                <span className="text-slate-400">Parámetros Totales:</span>
-                <span className="font-mono font-bold text-white">
-                  {validation.totalParameters.toLocaleString()}
-                </span>
-              </div>
-
-              <div className="flex justify-between">
-                <span className="text-slate-400">Parámetros Entrenables:</span>
-                <span className="font-mono text-emerald-400 font-bold">
-                  {validation.trainableParameters.toLocaleString()}
-                </span>
-              </div>
-
-              <div className="flex justify-between">
-                <span className="text-slate-400">Memoria Estimada de Pesos:</span>
-                <span className="font-mono text-indigo-300 font-semibold">{memoryKB} KB</span>
-              </div>
-
-              <div className="flex justify-between">
-                <span className="text-slate-400">Forma Salida (Keras):</span>
-                <span className="font-mono text-amber-300 font-bold">
-                  {JSON.stringify(validation.outputShape)}
-                </span>
-              </div>
+          {/* Compact Card 1: Flow Diagram Preview */}
+          <div
+            onClick={() => setEnlargedTopologyOpen(true)}
+            className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-500/50 cursor-pointer transition-all shadow-xs group"
+          >
+            <div className="flex items-center justify-between text-xs mb-1.5">
+              <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+                <Workflow className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Grafo de Topología
+              </span>
+              <Maximize2 className="w-3 h-3 text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" />
             </div>
 
-            {/* Error notifications */}
-            {validation.errors.length > 0 && (
-              <div className="p-3 rounded-lg bg-red-950/40 border border-red-800/50 text-xs text-red-300 space-y-1">
-                <div className="font-bold flex items-center gap-1">
-                  <AlertTriangle className="w-3.5 h-3.5" /> Errores dimensionales:
-                </div>
-                {validation.errors.map((err, i) => (
-                  <div key={i}>&bull; {err}</div>
-                ))}
-              </div>
-            )}
+            <div className="p-1 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-100 dark:border-slate-800/80 overflow-hidden">
+              {renderTopologyFlow(false)}
+            </div>
+            <div className="flex justify-between items-center text-[10px] text-slate-400 mt-1.5 px-0.5">
+              <span>{layers.length} capas encadenadas</span>
+              <span className="text-blue-600 dark:text-blue-400 font-medium">Ampliar &rarr;</span>
+            </div>
+          </div>
 
-            <div className="p-3 rounded-lg bg-slate-950/70 border border-slate-800 text-[11px] text-slate-400 space-y-1">
-              <div className="flex items-center gap-1 text-slate-300 font-semibold">
-                <Info className="w-3.5 h-3.5 text-emerald-400" /> Regla de Negocio (Sec. 10):
-              </div>
-              <p>
-                La configuración se valida en el backend FastAPI con Pydantic. Al compilar con Keras, el modelo calcula los pesos de cada capa w_ij y sus términos de sesgo b_j.
-              </p>
+          {/* Technical Summary Card */}
+          <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-2.5 text-xs">
+            <span className="font-semibold text-slate-800 dark:text-slate-200 block border-b border-slate-100 dark:border-slate-800 pb-1.5">
+              Resumen Técnico Keras
+            </span>
+
+            <div className="flex justify-between">
+              <span className="text-slate-500">Parámetros Totales:</span>
+              <span className="font-mono font-bold text-slate-800 dark:text-white">
+                {validation.totalParameters.toLocaleString()}
+              </span>
+            </div>
+
+            <div className="flex justify-between">
+              <span className="text-slate-500">Parámetros Entrenables:</span>
+              <span className="font-mono font-bold text-blue-600 dark:text-blue-400">
+                {validation.trainableParameters.toLocaleString()}
+              </span>
+            </div>
+
+            <div className="flex justify-between">
+              <span className="text-slate-500">Memoria de Pesos:</span>
+              <span className="font-mono text-slate-700 dark:text-slate-300">{memoryKB} KB</span>
+            </div>
+
+            <div className="flex justify-between">
+              <span className="text-slate-500">Salida del Grafo:</span>
+              <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                {JSON.stringify(validation.outputShape)}
+              </span>
             </div>
           </div>
         </div>
       </div>
+
+      {/* ENLARGED TOPOLOGY MODAL */}
+      <EnlargedChartModal
+        isOpen={enlargedTopologyOpen}
+        onClose={() => setEnlargedTopologyOpen(false)}
+        title={`Grafo de Topología Neuronal: ${archName}`}
+        subtitle="Flujo completo de transformación de tensores verificado dimensionalmente"
+        badge={family}
+      >
+        <div className="space-y-4">
+          <div className="p-6 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
+            {renderTopologyFlow(true)}
+          </div>
+
+          <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400 space-y-1">
+            <div>&bull; Total Parámetros: <strong>{validation.totalParameters.toLocaleString()}</strong> ({validation.trainableParameters.toLocaleString()} entrenables)</div>
+            <div>&bull; Memoria aproximada de almacenamiento: <strong>{memoryKB} KB</strong></div>
+            <div>&bull; Tensor de salida: <strong>{JSON.stringify(validation.outputShape)}</strong></div>
+          </div>
+        </div>
+      </EnlargedChartModal>
     </div>
   );
 };

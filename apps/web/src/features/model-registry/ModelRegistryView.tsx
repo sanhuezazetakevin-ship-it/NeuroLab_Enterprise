@@ -2,16 +2,8 @@ import React, { useState } from 'react';
 import {
   Box,
   Download,
-  CheckCircle,
-  ShieldCheck,
-  Tag,
-  FileCode,
-  Clock,
   Copy,
-  Check,
-  Sparkles,
-  Layers,
-  ArrowRight
+  Check
 } from 'lucide-react';
 import { ModelVersion, ModelLifecycleStatus } from '../../types';
 import { useDemo } from '../../lib/DemoContext';
@@ -42,53 +34,54 @@ export const ModelRegistryView: React.FC = () => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const updateStatus = (id: string, newStatus: ModelLifecycleStatus) => {
-    // RBAC check: only ADMIN or PROJECT_LEAD can approve
     if (newStatus === 'APPROVED' && !['ADMIN', 'PROJECT_LEAD'].includes(currentRole)) {
-      showToast('Permiso denegado: Solo el Administrador o Responsable de Proyecto pueden Aprobar modelos para Producción (RBAC)', 'warning');
+      showToast('Permiso denegado: Solo Administrador o Responsable de Proyecto pueden Aprobar versiones (RBAC)', 'warning');
       return;
     }
 
     setModels(models.map((m) => (m.id === id ? { ...m, status: newStatus } : m)));
-    showToast(`Estado de versión actualizado a: ${newStatus}`, 'success');
+    showToast(`Estado de versión: ${newStatus}`, 'success');
   };
 
   const copyChecksum = (checksum: string, id: string) => {
     navigator.clipboard.writeText(checksum);
     setCopiedId(id);
-    showToast('Hash SHA-256 copiado al portapapeles', 'info');
+    showToast('Hash SHA-256 copiado', 'info');
     setTimeout(() => setCopiedId(null), 2500);
   };
 
   const handleDownload = (storageKey: string) => {
-    showToast(`Iniciando descarga autorizada del artefacto: ${storageKey}`, 'success');
+    showToast(`Descarga autorizada: ${storageKey}`, 'success');
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-5 animate-in fade-in duration-200">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold uppercase tracking-wider">
+          <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 text-xs font-semibold uppercase tracking-wider">
             <Box className="w-4 h-4" /> Módulo 08 • Registro de Modelos (Model Registry)
           </div>
-          <h1 className="text-2xl font-bold text-white mt-1">Gobernanza de Modelos & Versionado Inmutable</h1>
-          <p className="text-xs text-slate-300 mt-1">
-            Ciclo de vida (DRAFT &rarr; REVIEWED &rarr; APPROVED &rarr; RETIRED) con integridad criptográfica SHA-256 y trazabilidad de pesos.
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1">
+            Gobernanza de Modelos & Versionado Inmutable
+          </h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Ciclo de vida (DRAFT &rarr; REVIEWED &rarr; APPROVED &rarr; RETIRED) con integridad criptográfica SHA-256.
           </p>
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3.5">
         {models.map((model) => (
-          <div key={model.id} className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4 shadow-xl">
+          <div key={model.id} className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-emerald-600/20 to-teal-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-                  <Box className="w-6 h-6" />
+                <div className="w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold">
+                  <Box className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-base font-bold text-white">{activeScenario.architecture.name}</h3>
-                    <span className="font-mono text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-indigo-300 border border-slate-700 font-bold">
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">{activeScenario.architecture.name}</h3>
+                    <span className="font-mono text-xs px-2 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 font-semibold">
                       {model.version}
                     </span>
                   </div>
@@ -97,20 +90,20 @@ export const ModelRegistryView: React.FC = () => {
               </div>
 
               {/* Status Badge & Workflow selector */}
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-lg border border-slate-200 dark:border-slate-800 text-xs font-semibold">
                   {(['DRAFT', 'REVIEWED', 'APPROVED', 'RETIRED'] as const).map((st) => (
                     <button
                       key={st}
                       onClick={() => updateStatus(model.id, st)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                      className={`px-2 py-0.5 rounded transition-all ${
                         model.status === st
                           ? st === 'APPROVED'
-                            ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
+                            ? 'bg-emerald-600 text-white shadow-xs'
                             : st === 'RETIRED'
-                            ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                            : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
-                          : 'text-slate-400 hover:text-white'
+                            ? 'bg-red-600 text-white shadow-xs'
+                            : 'bg-blue-600 text-white shadow-xs'
+                          : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
                       }`}
                     >
                       {st}
@@ -120,25 +113,25 @@ export const ModelRegistryView: React.FC = () => {
 
                 <button
                   onClick={() => handleDownload(model.storageKey)}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold border border-slate-200 dark:border-slate-700 transition-colors"
                 >
-                  <Download className="w-4 h-4 text-emerald-400" /> Descargar (.keras)
+                  <Download className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Descargar (.keras)
                 </button>
               </div>
             </div>
 
             {/* Metrics & Checksum */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-slate-800 text-xs">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 text-xs">
               <div className="space-y-1">
-                <span className="text-slate-500 text-[10px] uppercase font-bold flex items-center justify-between">
-                  <span>Integridad Criptográfica Inmutable (SHA-256)</span>
+                <div className="text-slate-500 text-[10px] uppercase font-bold flex items-center justify-between">
+                  <span>Integridad SHA-256</span>
                   <button
                     onClick={() => copyChecksum(model.checksum, model.id)}
-                    className="text-emerald-400 hover:text-emerald-300 flex items-center gap-1 normal-case font-sans"
+                    className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 normal-case font-sans"
                   >
                     {copiedId === model.id ? (
                       <>
-                        <Check className="w-3 h-3" /> ¡Copiado!
+                        <Check className="w-3 h-3" /> Copiado
                       </>
                     ) : (
                       <>
@@ -146,19 +139,19 @@ export const ModelRegistryView: React.FC = () => {
                       </>
                     )}
                   </button>
-                </span>
-                <div className="p-2.5 rounded-xl bg-slate-950 font-mono text-[11px] text-slate-300 break-all border border-slate-800">
+                </div>
+                <div className="p-2 rounded bg-slate-50 dark:bg-slate-950 font-mono text-[11px] text-slate-700 dark:text-slate-300 break-all border border-slate-200 dark:border-slate-800">
                   {model.checksum}
                 </div>
               </div>
 
               <div className="space-y-1">
-                <span className="text-slate-500 text-[10px] uppercase font-bold">Métricas Certificadas</span>
-                <div className="p-2.5 rounded-xl bg-slate-950 flex items-center justify-between border border-slate-800 font-mono text-xs">
-                  <span>Accuracy: <strong className="text-emerald-400">{(model.metricsSummary.accuracy * 100).toFixed(1)}%</strong></span>
-                  <span>Loss: <strong className="text-slate-200">{model.metricsSummary.loss}</strong></span>
-                  <span>Val Acc: <strong className="text-indigo-400">{(model.metricsSummary.valAccuracy * 100).toFixed(1)}%</strong></span>
-                  <span>F1: <strong className="text-amber-300">{model.metricsSummary.f1Score || '0.941'}</strong></span>
+                <span className="text-slate-500 text-[10px] uppercase font-bold">Métricas Aprobadas</span>
+                <div className="p-2 rounded bg-slate-50 dark:bg-slate-950 flex items-center justify-between border border-slate-200 dark:border-slate-800 font-mono text-xs">
+                  <span>Acc: <strong className="text-emerald-600 dark:text-emerald-400">{(model.metricsSummary.accuracy * 100).toFixed(1)}%</strong></span>
+                  <span>Loss: <strong className="text-slate-700 dark:text-slate-300">{model.metricsSummary.loss}</strong></span>
+                  <span>Val Acc: <strong className="text-blue-600 dark:text-blue-400">{(model.metricsSummary.valAccuracy * 100).toFixed(1)}%</strong></span>
+                  <span>F1: <strong className="text-amber-600 dark:text-amber-400">{model.metricsSummary.f1Score || '0.941'}</strong></span>
                 </div>
               </div>
             </div>

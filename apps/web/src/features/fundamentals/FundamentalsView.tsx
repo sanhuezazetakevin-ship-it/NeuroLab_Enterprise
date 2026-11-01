@@ -1,18 +1,18 @@
 import React, { useState } from 'react';
 import {
   BookOpen,
-  Sparkles,
   Sliders,
-  CheckCircle2,
-  HelpCircle,
-  Network,
   RotateCcw,
-  Zap,
-  Info,
+  Network,
+  HelpCircle,
   Check,
-  X
+  Info,
+  Maximize2,
+  TrendingUp,
+  Activity
 } from 'lucide-react';
 import { useDemo } from '../../lib/DemoContext';
+import { EnlargedChartModal } from '../../components/common/EnlargedChartModal';
 
 export const FundamentalsView: React.FC = () => {
   const { showToast } = useDemo();
@@ -41,7 +41,9 @@ export const FundamentalsView: React.FC = () => {
   }
   const y = Number(activated.toFixed(3));
 
-  // Reset neuron parameters to baseline
+  // Modal enlargement state
+  const [enlargedModal, setEnlargedModal] = useState<'neuron' | 'activation' | null>(null);
+
   const resetNeuron = () => {
     setX1(0.8);
     setX2(-0.5);
@@ -49,16 +51,17 @@ export const FundamentalsView: React.FC = () => {
     setW2(0.8);
     setBias(-0.2);
     setActivationFn('relu');
-    showToast('Parámetros de neurona restablecidos a valores iniciales', 'info');
+    showToast('Parámetros de neurona restablecidos', 'info');
   };
 
-  // Generate SVG curve points for z in [-4, 4]
-  const renderActivationCurve = () => {
+  // Render SVG Activation Curve
+  const renderActivationCurve = (isLarge = false) => {
     const points: string[] = [];
     const minZ = -4;
     const maxZ = 4;
-    const width = 280;
-    const height = 140;
+    const width = isLarge ? 640 : 260;
+    const height = isLarge ? 240 : 100;
+    const padding = isLarge ? 30 : 12;
 
     for (let currentZ = minZ; currentZ <= maxZ; currentZ += 0.2) {
       let val = 0;
@@ -67,55 +70,101 @@ export const FundamentalsView: React.FC = () => {
       else if (activationFn === 'tanh') val = Math.tanh(currentZ);
       else if (activationFn === 'leaky_relu') val = currentZ > 0 ? currentZ : 0.1 * currentZ;
 
-      // Coordinate mapping to SVG canvas:
-      // z [-4, 4] -> x [20, 260]
-      const px = 20 + ((currentZ - minZ) / (maxZ - minZ)) * 240;
-      // val range mapping:
-      // For Sigmoid: [0, 1] -> y [120, 20]
-      // For ReLU / Leaky: [-0.5, 4] -> y [125, 15]
-      // For Tanh: [-1, 1] -> y [125, 15]
-      let py = 70;
+      const px = padding + ((currentZ - minZ) / (maxZ - minZ)) * (width - 2 * padding);
+      let py = height / 2;
       if (activationFn === 'sigmoid') {
-        py = 120 - val * 100;
+        py = (height - padding) - val * (height - 2 * padding);
       } else if (activationFn === 'tanh') {
-        py = 70 - val * 50;
+        py = (height / 2) - val * ((height - 2 * padding) / 2);
       } else {
-        py = 115 - (val / 4) * 95;
+        py = (height - padding) - (val / 4) * (height - 2 * padding);
       }
       points.push(`${px.toFixed(1)},${py.toFixed(1)}`);
     }
 
-    // Current point dot position
     const clampedZ = Math.max(-4, Math.min(4, z));
-    const dotX = 20 + ((clampedZ - minZ) / (maxZ - minZ)) * 240;
-    let dotY = 70;
+    const dotX = padding + ((clampedZ - minZ) / (maxZ - minZ)) * (width - 2 * padding);
+    let dotY = height / 2;
     if (activationFn === 'sigmoid') {
-      dotY = 120 - y * 100;
+      dotY = (height - padding) - y * (height - 2 * padding);
     } else if (activationFn === 'tanh') {
-      dotY = 70 - y * 50;
+      dotY = (height / 2) - y * ((height - 2 * padding) / 2);
     } else {
-      dotY = 115 - (Math.min(4, y) / 4) * 95;
+      dotY = (height - padding) - (Math.min(4, y) / 4) * (height - 2 * padding);
     }
 
     return (
-      <svg className="w-full h-36 overflow-visible" viewBox="0 0 280 140">
-        {/* Background Grid & Axis */}
-        <line x1="20" y1="70" x2="260" y2="70" stroke="#334155" strokeDasharray="3 3" />
-        <line x1="140" y1="10" x2="140" y2="130" stroke="#334155" strokeDasharray="3 3" />
-        <text x="255" y="65" fill="#64748b" fontSize="9" fontFamily="monospace">z</text>
-        <text x="145" y="18" fill="#64748b" fontSize="9" fontFamily="monospace">f(z)</text>
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto overflow-visible select-none">
+        <line x1={padding} y1={height / 2} x2={width - padding} y2={height / 2} stroke="#94a3b8" strokeDasharray="3 3" className="dark:stroke-slate-700" />
+        <line x1={width / 2} y1={padding} x2={width / 2} y2={height - padding} stroke="#94a3b8" strokeDasharray="3 3" className="dark:stroke-slate-700" />
 
-        {/* Function Path */}
         <polyline
           fill="none"
-          stroke="#10b981"
-          strokeWidth="2.5"
+          stroke="#2563eb"
+          strokeWidth={isLarge ? "3" : "2"}
           points={points.join(' ')}
           strokeLinecap="round"
         />
 
-        {/* Current Point Dot */}
-        <circle cx={dotX} cy={dotY} r="5" fill="#22c55e" stroke="#ffffff" strokeWidth="2" className="animate-pulse" />
+        <circle cx={dotX} cy={dotY} r={isLarge ? "5.5" : "3.5"} fill="#2563eb" stroke="#ffffff" strokeWidth="1.5" />
+      </svg>
+    );
+  };
+
+  // Render SVG Neuron Diagram
+  const renderNeuronSVG = (isLarge = false) => {
+    const w = isLarge ? 600 : 280;
+    const h = isLarge ? 260 : 130;
+    const scale = isLarge ? 1.6 : 0.85;
+
+    return (
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-auto overflow-visible select-none">
+        {/* Connections */}
+        <line
+          x1={40 * scale}
+          y1={45 * scale}
+          x2={130 * scale}
+          y2={85 * scale}
+          stroke={w1 >= 0 ? '#2563eb' : '#dc2626'}
+          strokeWidth={Math.max(1.5, Math.abs(w1) * 2.5)}
+          strokeLinecap="round"
+        />
+        <line
+          x1={40 * scale}
+          y1={125 * scale}
+          x2={130 * scale}
+          y2={85 * scale}
+          stroke={w2 >= 0 ? '#2563eb' : '#dc2626'}
+          strokeWidth={Math.max(1.5, Math.abs(w2) * 2.5)}
+          strokeLinecap="round"
+        />
+        <line
+          x1={130 * scale}
+          y1={85 * scale}
+          x2={210 * scale}
+          y2={85 * scale}
+          stroke="#64748b"
+          strokeWidth="2"
+          strokeDasharray="3 3"
+        />
+
+        {/* Input 1 */}
+        <circle cx={40 * scale} cy={45 * scale} r={14 * scale} fill="#f1f5f9" stroke="#cbd5e1" strokeWidth="1.5" className="dark:fill-slate-800 dark:stroke-slate-700" />
+        <text x={40 * scale} y={48 * scale} fontSize={9 * scale} textAnchor="middle" fill="#334155" className="dark:fill-slate-200" fontWeight="bold">x1</text>
+
+        {/* Input 2 */}
+        <circle cx={40 * scale} cy={125 * scale} r={14 * scale} fill="#f1f5f9" stroke="#cbd5e1" strokeWidth="1.5" className="dark:fill-slate-800 dark:stroke-slate-700" />
+        <text x={40 * scale} y={128 * scale} fontSize={9 * scale} textAnchor="middle" fill="#334155" className="dark:fill-slate-200" fontWeight="bold">x2</text>
+
+        {/* Sum node */}
+        <circle cx={130 * scale} cy={85 * scale} r={20 * scale} fill="#eff6ff" stroke="#2563eb" strokeWidth="2" className="dark:fill-blue-950/40 dark:stroke-blue-500" />
+        <text x={130 * scale} y={83 * scale} fontSize={9 * scale} textAnchor="middle" fill="#1e40af" className="dark:fill-blue-300" fontWeight="bold">&sum;+b</text>
+        <text x={130 * scale} y={95 * scale} fontSize={8 * scale} textAnchor="middle" fill="#2563eb" className="dark:fill-blue-400" fontFamily="monospace">z={z}</text>
+
+        {/* Activation Node */}
+        <rect x={195 * scale} y={67 * scale} width={36 * scale} height={36 * scale} rx={6 * scale} fill="#f8fafc" stroke="#64748b" strokeWidth="1.5" className="dark:fill-slate-800 dark:stroke-slate-700" />
+        <text x={213 * scale} y={83 * scale} fontSize={8 * scale} textAnchor="middle" fill="#475569" className="dark:fill-slate-300" fontWeight="bold">{activationFn}</text>
+        <text x={213 * scale} y={95 * scale} fontSize={9 * scale} textAnchor="middle" fill="#2563eb" className="dark:fill-blue-400" fontFamily="monospace" fontWeight="bold">y={y}</text>
       </svg>
     );
   };
@@ -126,36 +175,25 @@ export const FundamentalsView: React.FC = () => {
   const quizQuestions = [
     {
       id: 1,
-      q: '¿Cuál es la función del término de sesgo (bias b) en la neurona artificial?',
+      q: '¿Cuál es el rol del término de sesgo (bias b) en la combinación lineal de una neurona?',
       options: [
-        'Multiplicar las entradas para amplificar la señal.',
-        'Desplazar horizontalmente la función de activación para controlar el umbral de disparo.',
-        'Asegurar que todas las salidas sean positivas exclusivamente.'
+        'Amplificar linealmente el producto punto de las entradas.',
+        'Desplazar la función de activación horizontalmente para controlar el umbral de disparo.',
+        'Normalizar la suma vectorial entre cero y uno.'
       ],
       correct: 1,
-      explanation: 'El sesgo actúa como un término independiente que permite a la neurona disparar incluso si todas las entradas x_i son cero.'
+      explanation: 'El sesgo permite que la neurona dispare una salida no nula incluso cuando el vector de entradas es idéntico a cero.'
     },
     {
       id: 2,
-      q: '¿Por qué la función ReLU es la más utilizada en capas ocultas de redes profundas?',
+      q: '¿Por qué la función ReLU es el estándar en capas ocultas de redes neuronales profundas?',
       options: [
-        'Porque normaliza las salidas estrictamente entre 0 y 1.',
-        'Porque mitiga el problema del desvanecimiento del gradiente y su cómputo es max(0, z).',
-        'Porque genera salidas centradas en cero.'
+        'Porque restringe la salida a valores centrados en cero.',
+        'Porque mitiga el desvanecimiento del gradiente al tener derivada 1 para z > 0.',
+        'Porque es estrictamente convexa en todo el espacio de entrada.'
       ],
       correct: 1,
-      explanation: 'ReLU tiene derivada constante igual a 1 para z > 0, evitando que los gradientes se desvanezcan al retropropagarse por muchas capas.'
-    },
-    {
-      id: 3,
-      q: '¿Qué familia de red neuronal es la más adecuada para secuencias y series temporales?',
-      options: [
-        'Redes Convolucionales (CNN) sin memoria.',
-        'Redes Generativas Adversarias (GAN).',
-        'Redes Recurrentes (RNN, LSTM, GRU) con bucles temporales.'
-      ],
-      correct: 2,
-      explanation: 'Las RNN mantienen un vector de estado interno que transmite memoria a través de los pasos de tiempo de la secuencia.'
+      explanation: 'La derivada constante de ReLU para entradas positivas preserva la magnitud de los gradientes durante la retropropagación (Backpropagation).'
     }
   ];
 
@@ -166,348 +204,280 @@ export const FundamentalsView: React.FC = () => {
   const families = [
     {
       id: 'FEEDFORWARD',
-      title: 'Feedforward (FNN / Multilayer Perceptron)',
-      tag: 'Operación Semana 11',
-      desc: 'El flujo de señales es estrictamente unidireccional, sin ciclos de realimentación. Diseñada para clasificación tabular, regresión y scoring.',
+      title: 'Feedforward (MLP)',
+      tag: 'Semana 11',
+      desc: 'Flujo unidireccional sin ciclos de realimentación. Especialmente adecuada para datos tabulares estructurados.',
       layers: 'Dense, Dropout, BatchNormalization',
-      useCase: 'Detección de fraude, predicción de fuga (churn), riesgo crediticio.'
-    },
-    {
-      id: 'RNN',
-      title: 'Recurrentes (RNN, LSTM, GRU)',
-      tag: 'Secuencias Temporales',
-      desc: 'Poseen conexiones de realimentación y memoria interna. Extraen dependencias contextuales y de orden en el tiempo.',
-      layers: 'SimpleRNN, LSTM, GRU, Dense',
-      useCase: 'Pronóstico de demanda, análisis de texto (NLP), señales biomédicas.'
     },
     {
       id: 'CNN',
-      title: 'Convolucionales (CNN)',
-      tag: 'Visión Artificial',
-      desc: 'Implementan filtros matriciales (kernels) que preservan la relación espacial 2D de píxeles, detectando patrones invariantes a traslación.',
+      title: 'Convolucional (CNN)',
+      tag: 'Visión 2D',
+      desc: 'Filtros espaciales que extraen patrones locales preservando invariancia ante traslación.',
       layers: 'Conv2D, MaxPooling2D, Flatten, Dense',
-      useCase: 'Inspección de defectos, radiología, reconocimiento facial.'
+    },
+    {
+      id: 'RNN',
+      title: 'Recurrente (LSTM / GRU)',
+      tag: 'Secuencias',
+      desc: 'Células de memoria que retienen contexto a lo largo de pasos de tiempo secuenciales.',
+      layers: 'SimpleRNN, LSTM, GRU, Dense',
     },
     {
       id: 'GAN',
-      title: 'Generativas Adversarias (GAN)',
-      tag: 'Generación Sintética',
-      desc: 'Dos redes (Generador y Discriminador) entrenadas simultáneamente en un juego minimax de teoría de juegos.',
-      layers: 'Generator Subnetwork vs. Discriminator',
-      useCase: 'Aumento de datos escasos, síntesis de voz, super-resolución de imágenes.'
+      title: 'Generativa (GAN)',
+      tag: 'Adversaria',
+      desc: 'Estructura dual: un Generador compite frente a un Discriminador en un juego minimax.',
+      layers: 'Generator Subnetwork vs Discriminator',
     }
   ];
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
+    <div className="space-y-5 animate-in fade-in duration-200">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold uppercase tracking-wider">
+          <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 text-xs font-semibold uppercase tracking-wider">
             <BookOpen className="w-4 h-4" /> Módulo 03 • Fundamentos Neuronales (Semana 11)
           </div>
-          <h1 className="text-2xl font-bold text-white mt-1">
-            Arquitectura y Matemáticas de la Red Neuronal
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1">
+            Matemáticas y Estructura del Perceptrón
           </h1>
-          <p className="text-xs text-slate-300 mt-1 max-w-3xl">
-            Simulador interactivo de la neurona artificial (Perceptrón), exploración de funciones de activación no lineales y catálogo comparativo de familias.
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Operaciones de aprendizaje: entender la neurona artificial, sinapsis, sesgos y funciones de activación no lineales.
           </p>
         </div>
 
         <button
           onClick={resetNeuron}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 text-xs font-semibold transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 text-xs font-medium transition-colors shadow-xs"
         >
-          <RotateCcw className="w-3.5 h-3.5" /> Restablecer Simulador
+          <RotateCcw className="w-3.5 h-3.5" /> Restablecer Valores
         </button>
       </div>
 
-      {/* INTERACTIVE NEURON SIMULATOR */}
-      <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
-          <div className="flex items-center gap-2">
-            <Sliders className="w-5 h-5 text-emerald-400" />
-            <h2 className="text-base font-bold text-white">
-              Simulador Visual del Perceptrón Artificial
-            </h2>
-          </div>
-          <span className="text-xs font-mono px-3 py-1 rounded bg-slate-950 text-emerald-300 border border-slate-800 font-bold">
-            y = f( &sum; w_i &middot; x_i + b )
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-          {/* Controls: Inputs and Weights */}
-          <div className="space-y-4 bg-slate-950 p-4 rounded-xl border border-slate-800/80">
-            <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
-              <span>1. Sinapsis y Pesos</span>
-              <span className="text-[10px] text-emerald-400 font-normal">Ajusta en tiempo real</span>
-            </h3>
-
-            <div>
-              <div className="flex justify-between text-xs text-slate-400 mb-1">
-                <span>Entrada x1: <strong className="text-white font-mono">{x1}</strong></span>
-                <span className="text-emerald-400 font-mono font-bold">Peso w1: {w1}</span>
-              </div>
-              <input
-                type="range"
-                min="-2"
-                max="2"
-                step="0.1"
-                value={w1}
-                onChange={(e) => setW1(parseFloat(e.target.value))}
-                className="w-full accent-emerald-500 cursor-pointer"
-              />
+      {/* Main Grid: Left Primary Controls (2 cols) + Right Compact Previews (1 col) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* LEFT COLUMN: Controls & Academic Quiz */}
+        <div className="lg:col-span-2 space-y-4">
+          {/* Sliders for Inputs, Weights and Bias */}
+          <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2.5">
+              <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                <Sliders className="w-4 h-4 text-blue-600 dark:text-blue-400" /> Parámetros Sinápticos (w) y Sesgo (b)
+              </span>
+              <span className="text-xs font-mono font-semibold text-blue-600 dark:text-blue-400">
+                y = f( &sum; w_i &middot; x_i + b ) = {y}
+              </span>
             </div>
 
-            <div>
-              <div className="flex justify-between text-xs text-slate-400 mb-1">
-                <span>Entrada x2: <strong className="text-white font-mono">{x2}</strong></span>
-                <span className="text-emerald-400 font-mono font-bold">Peso w2: {w2}</span>
-              </div>
-              <input
-                type="range"
-                min="-2"
-                max="2"
-                step="0.1"
-                value={w2}
-                onChange={(e) => setW2(parseFloat(e.target.value))}
-                className="w-full accent-emerald-500 cursor-pointer"
-              />
-            </div>
-
-            <div className="pt-2 border-t border-slate-800">
-              <div className="flex justify-between text-xs text-slate-400 mb-1">
-                <span className="text-indigo-400 font-semibold">Sesgo / Bias (b):</span>
-                <span className="text-indigo-300 font-mono font-bold">{bias}</span>
-              </div>
-              <input
-                type="range"
-                min="-2"
-                max="2"
-                step="0.1"
-                value={bias}
-                onChange={(e) => setBias(parseFloat(e.target.value))}
-                className="w-full accent-indigo-500 cursor-pointer"
-              />
-            </div>
-          </div>
-
-          {/* Dynamic SVG Visual Neural Diagram */}
-          <div className="flex flex-col items-center justify-center p-4 bg-slate-950/70 rounded-xl border border-slate-800/80">
-            <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2 self-start">
-              2. Grafo Sináptico Dinámico
-            </h3>
-
-            <svg viewBox="0 0 320 180" className="w-full h-44">
-              {/* Synapse Lines with thickness proportional to absolute weight */}
-              {/* x1 to Sum */}
-              <line
-                x1="60"
-                y1="50"
-                x2="160"
-                y2="90"
-                stroke={w1 >= 0 ? '#10b981' : '#ef4444'}
-                strokeWidth={Math.max(1.5, Math.abs(w1) * 3)}
-                strokeLinecap="round"
-                className="transition-all duration-150"
-              />
-              {/* x2 to Sum */}
-              <line
-                x1="60"
-                y1="130"
-                x2="160"
-                y2="90"
-                stroke={w2 >= 0 ? '#10b981' : '#ef4444'}
-                strokeWidth={Math.max(1.5, Math.abs(w2) * 3)}
-                strokeLinecap="round"
-                className="transition-all duration-150"
-              />
-              {/* Sum to Activation */}
-              <line
-                x1="160"
-                y1="90"
-                x2="250"
-                y2="90"
-                stroke="#6366f1"
-                strokeWidth="3"
-                strokeDasharray="4 4"
-              />
-
-              {/* Input Node 1 */}
-              <circle cx="60" cy="50" r="18" fill="#1e293b" stroke="#3b82f6" strokeWidth="2" />
-              <text x="60" y="47" fill="#ffffff" fontSize="9" textAnchor="middle" fontWeight="bold">x1</text>
-              <text x="60" y="58" fill="#93c5fd" fontSize="8" textAnchor="middle" fontFamily="monospace">{x1}</text>
-
-              {/* Weight 1 Label */}
-              <rect x="90" y="50" width="36" height="15" rx="3" fill="#0f172a" stroke="#334155" />
-              <text x="108" y="61" fill={w1 >= 0 ? '#34d399' : '#f87171'} fontSize="8" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
-                w1:{w1}
-              </text>
-
-              {/* Input Node 2 */}
-              <circle cx="60" cy="130" r="18" fill="#1e293b" stroke="#3b82f6" strokeWidth="2" />
-              <text x="60" y="127" fill="#ffffff" fontSize="9" textAnchor="middle" fontWeight="bold">x2</text>
-              <text x="60" y="138" fill="#93c5fd" fontSize="8" textAnchor="middle" fontFamily="monospace">{x2}</text>
-
-              {/* Weight 2 Label */}
-              <rect x="90" y="115" width="36" height="15" rx="3" fill="#0f172a" stroke="#334155" />
-              <text x="108" y="126" fill={w2 >= 0 ? '#34d399' : '#f87171'} fontSize="8" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
-                w2:{w2}
-              </text>
-
-              {/* Summing Node (Soma) */}
-              <circle cx="160" cy="90" r="26" fill="#064e3b" stroke="#10b981" strokeWidth="2.5" />
-              <text x="160" y="84" fill="#a7f3d0" fontSize="9" textAnchor="middle" fontWeight="bold">&sum; + b</text>
-              <text x="160" y="99" fill="#ffffff" fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold">z={z}</text>
-
-              {/* Activation Node */}
-              <rect x="230" y="68" width="45" height="44" rx="8" fill="#312e81" stroke="#818cf8" strokeWidth="2" />
-              <text x="252" y="85" fill="#c7d2fe" fontSize="8" textAnchor="middle" fontWeight="bold" className="uppercase">
-                {activationFn}
-              </text>
-              <text x="252" y="100" fill="#ffffff" fontSize="11" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
-                y={y}
-              </text>
-            </svg>
-
-            <p className="text-[11px] text-slate-400 text-center mt-2">
-              Suma ponderada: <span className="font-mono text-white">({x1}&times;{w1}) + ({x2}&times;{w2}) + ({bias}) = </span>
-              <span className="font-mono text-emerald-400 font-bold">{z}</span> &rarr; Disparo <span className="font-mono text-indigo-300 font-bold">{y}</span>.
-            </p>
-          </div>
-
-          {/* Mathematical Activation Curve Visualizer */}
-          <div className="space-y-3 bg-slate-950 p-4 rounded-xl border border-slate-800/80">
-            <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
-              3. Curva de Activación f(z)
-            </h3>
-
-            {/* SVG Plot */}
-            <div className="p-2 rounded-lg bg-slate-900 border border-slate-800">
-              {renderActivationCurve()}
-            </div>
-
-            {/* Activation Function Selector */}
-            <div className="grid grid-cols-2 gap-1.5 pt-1">
-              {[
-                { id: 'relu', label: 'ReLU', desc: 'max(0, z)' },
-                { id: 'sigmoid', label: 'Sigmoid', desc: '1/(1+e^-z)' },
-                { id: 'tanh', label: 'Tanh', desc: 'tanh(z)' },
-                { id: 'leaky_relu', label: 'Leaky ReLU', desc: 'z o 0.1z' },
-              ].map((fn) => (
-                <button
-                  key={fn.id}
-                  onClick={() => setActivationFn(fn.id as any)}
-                  className={`p-2 rounded-lg text-left border text-xs transition-colors ${
-                    activationFn === fn.id
-                      ? 'bg-emerald-500/15 border-emerald-500/50 text-emerald-300 font-bold'
-                      : 'border-slate-800 text-slate-400 hover:bg-slate-900 hover:text-white'
-                  }`}
-                >
-                  <div className="text-[11px]">{fn.label}</div>
-                  <div className="text-[9px] text-slate-500 font-mono">{fn.desc}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* FAMILIES CATALOG */}
-      <div>
-        <h2 className="text-base font-bold text-white mb-4 flex items-center gap-2">
-          <Network className="w-5 h-5 text-emerald-400" /> Clasificación de Familias de Redes Neuronales
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {families.map((fam) => (
-            <div key={fam.id} className="p-5 rounded-xl bg-slate-900 border border-slate-800 flex flex-col justify-between hover:border-slate-700 transition-colors">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider font-mono">
-                    {fam.id}
-                  </span>
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-indigo-300 border border-slate-700 font-semibold">
+                <div className="flex justify-between text-slate-600 dark:text-slate-400 mb-1">
+                  <span>Entrada x1: <strong>{x1}</strong></span>
+                  <span className="font-mono text-blue-600 dark:text-blue-400 font-bold">w1: {w1}</span>
+                </div>
+                <input
+                  type="range"
+                  min="-2"
+                  max="2"
+                  step="0.1"
+                  value={w1}
+                  onChange={(e) => setW1(parseFloat(e.target.value))}
+                  className="w-full accent-blue-600 cursor-pointer"
+                />
+              </div>
+
+              <div>
+                <div className="flex justify-between text-slate-600 dark:text-slate-400 mb-1">
+                  <span>Entrada x2: <strong>{x2}</strong></span>
+                  <span className="font-mono text-blue-600 dark:text-blue-400 font-bold">w2: {w2}</span>
+                </div>
+                <input
+                  type="range"
+                  min="-2"
+                  max="2"
+                  step="0.1"
+                  value={w2}
+                  onChange={(e) => setW2(parseFloat(e.target.value))}
+                  className="w-full accent-blue-600 cursor-pointer"
+                />
+              </div>
+
+              <div>
+                <div className="flex justify-between text-slate-600 dark:text-slate-400 mb-1">
+                  <span>Sesgo (Bias b):</span>
+                  <span className="font-mono font-bold text-slate-800 dark:text-white">{bias}</span>
+                </div>
+                <input
+                  type="range"
+                  min="-2"
+                  max="2"
+                  step="0.1"
+                  value={bias}
+                  onChange={(e) => setBias(parseFloat(e.target.value))}
+                  className="w-full accent-slate-600 cursor-pointer"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-600 dark:text-slate-400 mb-1">Función de Activación f(z):</label>
+                <select
+                  value={activationFn}
+                  onChange={(e) => setActivationFn(e.target.value as any)}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1 text-slate-800 dark:text-white"
+                >
+                  <option value="relu">ReLU: max(0, z)</option>
+                  <option value="sigmoid">Sigmoid: 1/(1+e^-z)</option>
+                  <option value="tanh">Tanh: tanh(z)</option>
+                  <option value="leaky_relu">Leaky ReLU: z o 0.1z</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 text-[11px] text-slate-500 flex items-center justify-between">
+              <span>Combinación lineal: z = ({x1}&times;{w1}) + ({x2}&times;{w2}) + ({bias}) = <strong>{z}</strong></span>
+              <span>Disparo: y = <strong>{y}</strong></span>
+            </div>
+          </div>
+
+          {/* Families Catalog Grid */}
+          <div className="grid grid-cols-2 gap-3">
+            {families.map((fam) => (
+              <div key={fam.id} className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold text-slate-900 dark:text-white">{fam.title}</h3>
+                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono">
                     {fam.tag}
                   </span>
                 </div>
-                <h3 className="text-sm font-bold text-white">{fam.title}</h3>
-                <p className="text-xs text-slate-300 mt-1 leading-relaxed">{fam.desc}</p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">{fam.desc}</p>
               </div>
+            ))}
+          </div>
 
-              <div className="mt-4 pt-3 border-t border-slate-800 space-y-1.5 text-[11px]">
-                <div className="text-slate-400">
-                  <strong className="text-slate-200">Capas admitidas:</strong> <code className="text-emerald-400">{fam.layers}</code>
+          {/* Interactive Checkpoint Quiz */}
+          <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
+            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+              <HelpCircle className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Evaluación Rápida (Checkpoint S11)
+            </span>
+
+            {quizQuestions.map((q) => {
+              const selected = quizAnswers[q.id];
+              const isAnswered = selected !== undefined && selected !== null;
+              const isCorrect = selected === q.correct;
+
+              return (
+                <div key={q.id} className="p-3 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs space-y-1.5">
+                  <p className="font-semibold text-slate-800 dark:text-slate-200">{q.id}. {q.q}</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+                    {q.options.map((opt, optIdx) => {
+                      let btnStyle = 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900';
+                      if (isAnswered) {
+                        if (optIdx === q.correct) btnStyle = 'border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-semibold';
+                        else if (optIdx === selected) btnStyle = 'border-red-400 bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400';
+                        else btnStyle = 'opacity-40';
+                      }
+
+                      return (
+                        <button
+                          key={optIdx}
+                          disabled={isAnswered}
+                          onClick={() => handleSelectQuiz(q.id, optIdx)}
+                          className={`p-2 rounded border text-left text-[11px] transition-colors ${btnStyle}`}
+                        >
+                          {opt}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {isAnswered && (
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 pt-1">
+                      {q.explanation}
+                    </div>
+                  )}
                 </div>
-                <div className="text-slate-400">
-                  <strong className="text-slate-200">Casos empresariales:</strong> {fam.useCase}
-                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* RIGHT DOCK: Compact Previews with Click-to-Enlarge */}
+        <div className="space-y-4">
+          <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center justify-between px-1">
+            <span>Visualizaciones (Miniaturas)</span>
+            <span className="text-[10px] text-blue-600 dark:text-blue-400">Clic para ampliar</span>
+          </div>
+
+          {/* Compact Card 1: Perceptron Diagram Preview */}
+          <div
+            onClick={() => setEnlargedModal('neuron')}
+            className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-500/50 cursor-pointer transition-all shadow-xs group"
+          >
+            <div className="flex items-center justify-between text-xs mb-1.5">
+              <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+                <Network className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Grafo Sináptico
+              </span>
+              <div className="flex items-center gap-1">
+                <span className="font-mono text-[10px] text-slate-500">z={z}</span>
+                <Maximize2 className="w-3 h-3 text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors ml-1" />
               </div>
             </div>
-          ))}
-        </div>
-      </div>
 
-      {/* INTERACTIVE KNOWLEDGE CHECKPOINT / QUIZ */}
-      <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <div className="flex items-center gap-2">
-            <HelpCircle className="w-5 h-5 text-indigo-400" />
-            <h2 className="text-base font-bold text-white">
-              Evaluación Conceptual Rápida (Checkpoint Semana 11)
-            </h2>
+            <div className="p-2 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-100 dark:border-slate-800/80">
+              {renderNeuronSVG(false)}
+            </div>
+            <div className="flex justify-between items-center text-[10px] text-slate-400 mt-1.5 px-0.5">
+              <span>Perceptrón artificial 2 entradas</span>
+              <span className="text-blue-600 dark:text-blue-400 font-medium">Ampliar &rarr;</span>
+            </div>
           </div>
-          <span className="text-xs text-slate-400">3 preguntas interactivas</span>
-        </div>
 
-        <div className="space-y-4">
-          {quizQuestions.map((q) => {
-            const selected = quizAnswers[q.id];
-            const isAnswered = selected !== undefined && selected !== null;
-            const isCorrect = selected === q.correct;
-
-            return (
-              <div key={q.id} className="p-4 rounded-xl bg-slate-950 border border-slate-800/80 space-y-2">
-                <p className="text-xs font-bold text-white">{q.id}. {q.q}</p>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
-                  {q.options.map((opt, optIdx) => {
-                    let btnStyle = 'border-slate-800 text-slate-300 hover:bg-slate-900';
-                    if (isAnswered) {
-                      if (optIdx === q.correct) {
-                        btnStyle = 'border-emerald-500/60 bg-emerald-500/15 text-emerald-300 font-semibold';
-                      } else if (optIdx === selected) {
-                        btnStyle = 'border-red-500/60 bg-red-500/15 text-red-300';
-                      } else {
-                        btnStyle = 'border-slate-800 text-slate-600 opacity-60';
-                      }
-                    }
-
-                    return (
-                      <button
-                        key={optIdx}
-                        disabled={isAnswered}
-                        onClick={() => handleSelectQuiz(q.id, optIdx)}
-                        className={`p-2.5 rounded-lg border text-xs text-left transition-colors flex items-start gap-2 ${btnStyle}`}
-                      >
-                        <span className="font-mono text-[10px] text-slate-500">{String.fromCharCode(65 + optIdx)})</span>
-                        <span className="flex-1 leading-snug">{opt}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {isAnswered && (
-                  <div className={`p-2 rounded-lg text-xs flex items-center gap-2 ${isCorrect ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-300'}`}>
-                    {isCorrect ? <Check className="w-4 h-4 text-emerald-400 shrink-0" /> : <Info className="w-4 h-4 text-amber-400 shrink-0" />}
-                    <span>{q.explanation}</span>
-                  </div>
-                )}
+          {/* Compact Card 2: Activation Curve Preview */}
+          <div
+            onClick={() => setEnlargedModal('activation')}
+            className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-500/50 cursor-pointer transition-all shadow-xs group"
+          >
+            <div className="flex items-center justify-between text-xs mb-1.5">
+              <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+                <TrendingUp className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Curva f(z): {activationFn}
+              </span>
+              <div className="flex items-center gap-1">
+                <span className="font-mono text-[10px] text-slate-500">y={y}</span>
+                <Maximize2 className="w-3 h-3 text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors ml-1" />
               </div>
-            );
-          })}
+            </div>
+
+            <div className="p-2 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-100 dark:border-slate-800/80">
+              {renderActivationCurve(false)}
+            </div>
+            <div className="flex justify-between items-center text-[10px] text-slate-400 mt-1.5 px-0.5">
+              <span>Plano cartesiano [-4, 4]</span>
+              <span className="text-blue-600 dark:text-blue-400 font-medium">Ampliar &rarr;</span>
+            </div>
+          </div>
         </div>
       </div>
+
+      {/* ENLARGED MODAL */}
+      <EnlargedChartModal
+        isOpen={enlargedModal !== null}
+        onClose={() => setEnlargedModal(null)}
+        title={enlargedModal === 'neuron' ? 'Esquema Sináptico del Perceptrón (Vista Ampliada)' : `Función de Activación ${activationFn.toUpperCase()} (Detalle Matemático)`}
+        subtitle={enlargedModal === 'neuron' ? 'Visualización vectorial de entradas ponderadas x_i * w_i, sesgo b y nodo de activación' : 'Plano cartesiano de alta definición con punto de operación (z, y) en tiempo real'}
+        badge="Fundamentos Semana 11"
+      >
+        <div className="space-y-4">
+          <div className="p-6 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 flex justify-center">
+            {enlargedModal === 'neuron' && renderNeuronSVG(true)}
+            {enlargedModal === 'activation' && renderActivationCurve(true)}
+          </div>
+
+          <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400">
+            Valores activos: Entrada x1={x1}, x2={x2} | Pesos w1={w1}, w2={w2} | Sesgo b={bias} | Suma z={z} | Salida y={y}
+          </div>
+        </div>
+      </EnlargedChartModal>
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { UserRole, Project, Architecture, Dataset, TrainingJob, ModelVersion } from '../types';
+import { UserRole, Project } from '../types';
 import { DEMO_SCENARIOS, DemoScenario } from './demoData';
 
 interface ToastInfo {
@@ -9,6 +9,8 @@ interface ToastInfo {
 }
 
 interface DemoContextType {
+  theme: 'dark' | 'light';
+  toggleTheme: () => void;
   isDemoMode: boolean;
   toggleDemoMode: () => void;
   activeScenarioId: string;
@@ -29,6 +31,12 @@ interface DemoContextType {
 const DemoContext = createContext<DemoContextType | undefined>(undefined);
 
 export const DemoProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    const saved = localStorage.getItem('neurolab_theme');
+    if (saved === 'light' || saved === 'dark') return saved;
+    return 'dark'; // Default to enterprise dark mode
+  });
+
   const [isDemoMode, setIsDemoMode] = useState<boolean>(true);
   const [activeScenarioId, setActiveScenarioId] = useState<string>('fintech');
   const [currentRole, setCurrentRole] = useState<UserRole>('AI_ENGINEER');
@@ -36,10 +44,25 @@ export const DemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [walkthroughOpen, setWalkthroughOpen] = useState<boolean>(false);
 
   const activeScenario = DEMO_SCENARIOS[activeScenarioId] || DEMO_SCENARIOS.fintech;
-
   const [activeProject, setActiveProject] = useState<Project>(activeScenario.project);
-
   const allProjects: Project[] = Object.values(DEMO_SCENARIOS).map((s) => s.project);
+
+  // Sync theme with HTML class
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'dark') {
+      root.classList.add('dark');
+      root.classList.remove('light');
+    } else {
+      root.classList.add('light');
+      root.classList.remove('dark');
+    }
+    localStorage.setItem('neurolab_theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
 
   const showToast = (message: string, type: 'success' | 'info' | 'warning' | 'error' = 'success') => {
     const id = Math.random().toString(36).substring(2, 9);
@@ -57,24 +80,23 @@ export const DemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (DEMO_SCENARIOS[scenarioId]) {
       setActiveScenarioId(scenarioId);
       setActiveProject(DEMO_SCENARIOS[scenarioId].project);
-      showToast(`Escenario cargado: ${DEMO_SCENARIOS[scenarioId].title}`, 'info');
+      showToast(`Caso cargado: ${DEMO_SCENARIOS[scenarioId].title}`, 'info');
     }
   };
 
   const switchRole = (role: UserRole) => {
     setCurrentRole(role);
-    showToast(`Perspectiva RBAC cambiada a: ${role}`, 'info');
+    showToast(`Perspectiva RBAC: ${role}`, 'info');
   };
 
   const toggleDemoMode = () => {
     setIsDemoMode((prev) => {
       const next = !prev;
-      showToast(next ? 'Modo Demostración Activado' : 'Modo Demostración Desactivado', next ? 'success' : 'warning');
+      showToast(next ? 'Simulador activo' : 'Modo live activo', next ? 'success' : 'info');
       return next;
     });
   };
 
-  // Sync active scenario project changes
   useEffect(() => {
     if (DEMO_SCENARIOS[activeScenarioId]) {
       setActiveProject(DEMO_SCENARIOS[activeScenarioId].project);
@@ -84,6 +106,8 @@ export const DemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return (
     <DemoContext.Provider
       value={{
+        theme,
+        toggleTheme,
         isDemoMode,
         toggleDemoMode,
         activeScenarioId,

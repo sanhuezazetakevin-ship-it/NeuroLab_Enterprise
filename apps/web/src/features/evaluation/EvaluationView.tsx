@@ -1,22 +1,20 @@
 import React, { useState } from 'react';
 import {
   LineChart,
-  CheckCircle2,
   Target,
   Award,
-  Zap,
-  HelpCircle,
-  FileText,
   Activity,
-  Layers,
-  Info
+  Maximize2,
+  Info,
+  CheckCircle2
 } from 'lucide-react';
 import { useDemo } from '../../lib/DemoContext';
+import { EnlargedChartModal } from '../../components/common/EnlargedChartModal';
 
 export const EvaluationView: React.FC = () => {
-  const { activeScenario, showToast } = useDemo();
+  const { activeScenario } = useDemo();
 
-  const [activeTab, setActiveTab] = useState<'matrix' | 'roc' | 'runs'>('matrix');
+  const [enlargedModal, setEnlargedModal] = useState<'matrix' | 'roc' | null>(null);
 
   const accuracy = (activeScenario.modelVersion.metricsSummary.accuracy * 100).toFixed(1);
   const loss = activeScenario.modelVersion.metricsSummary.loss.toFixed(3);
@@ -24,9 +22,8 @@ export const EvaluationView: React.FC = () => {
     ? activeScenario.modelVersion.metricsSummary.f1Score.toFixed(3)
     : '0.941';
 
-  // Scenario-specific confusion matrix
   let matrix = [
-    { label: 'Real: 0 (Normal / No Fraude)', pred0: 485, pred1: 15, total: 500 },
+    { label: 'Real: 0 (Normal / Negativo)', pred0: 485, pred1: 15, total: 500 },
     { label: 'Real: 1 (Positivo / Fraude)', pred0: 22, pred1: 478, total: 500 },
   ];
 
@@ -62,7 +59,7 @@ export const EvaluationView: React.FC = () => {
     },
     {
       id: 'EXP-03',
-      name: 'Variante con Optimizador SGD + Momentum',
+      name: 'Variante con Optimizador SGD',
       epochs: 30,
       batchSize: 128,
       accuracy: '86.1%',
@@ -73,256 +70,253 @@ export const EvaluationView: React.FC = () => {
     }
   ];
 
+  const renderROCChart = (isLarge = false) => {
+    const w = isLarge ? 640 : 260;
+    const h = isLarge ? 280 : 110;
+    const pad = isLarge ? 35 : 12;
+
+    return (
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-auto overflow-visible select-none">
+        <line x1={pad} y1={pad} x2={w - pad} y2={pad} stroke="#cbd5e1" strokeDasharray="3 3" className="dark:stroke-slate-800" />
+        <line x1={pad} y1={h - pad} x2={w - pad} y2={h - pad} stroke="#94a3b8" className="dark:stroke-slate-700" />
+        <line x1={pad} y1={pad} x2={pad} y2={h - pad} stroke="#94a3b8" className="dark:stroke-slate-700" />
+
+        {/* Diagonal Guess */}
+        <line x1={pad} y1={h - pad} x2={w - pad} y2={pad} stroke="#94a3b8" strokeDasharray="4 4" strokeWidth="1" className="dark:stroke-slate-700" />
+
+        {/* ROC Curve */}
+        <path
+          d={`M ${pad} ${h - pad} C ${pad + 20} ${pad + 50}, ${pad + 60} ${pad + 10}, ${w - pad} ${pad}`}
+          fill="none"
+          stroke="#2563eb"
+          strokeWidth={isLarge ? "3" : "2"}
+          strokeLinecap="round"
+        />
+
+        {isLarge && (
+          <>
+            <text x={w - pad} y={h - 10} fontSize="10" textAnchor="end" fill="#64748b" fontFamily="monospace">False Positive Rate (1 - Specificity)</text>
+            <text x={pad + 10} y={pad + 15} fontSize="10" fill="#64748b" fontFamily="monospace">True Positive Rate (Recall)</text>
+          </>
+        )}
+      </svg>
+    );
+  };
+
+  const renderMatrixTable = (isLarge = false) => {
+    return (
+      <table className="w-full text-center text-xs font-mono">
+        <thead>
+          <tr className="text-slate-500 border-b border-slate-200 dark:border-slate-800">
+            <th className="p-2 text-left font-sans font-semibold">Etiqueta Real</th>
+            <th className="p-2">Pred: 0</th>
+            <th className="p-2">Pred: 1</th>
+            <th className="p-2">Total</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+          {matrix.map((row, idx) => (
+            <tr key={idx}>
+              <td className="p-2.5 text-left font-sans font-medium text-slate-700 dark:text-slate-300">{row.label}</td>
+              <td className={`p-2.5 font-bold ${idx === 0 ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded font-mono' : 'text-slate-500'}`}>
+                {row.pred0}
+              </td>
+              <td className={`p-2.5 font-bold ${idx === 1 ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded font-mono' : 'text-slate-500'}`}>
+                {row.pred1}
+              </td>
+              <td className="p-2.5 text-slate-400">{row.total}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  };
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-5 animate-in fade-in duration-200">
       {/* Header */}
       <div>
-        <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold uppercase tracking-wider">
+        <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 text-xs font-semibold uppercase tracking-wider">
           <LineChart className="w-4 h-4" /> Módulo 07 • Evaluación & Métricas
         </div>
-        <h1 className="text-2xl font-bold text-white mt-1">Evaluación de Rendimiento & Benchmarks</h1>
-        <p className="text-xs text-slate-300 mt-1">
-          Análisis de generalización en test set independiente, matrices de confusión, curvas ROC y auditoría de límites.
+        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1">
+          Rendimiento & Benchmarks del Modelo
+        </h1>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          Generalización en conjunto de prueba no visto, matriz de confusión y discriminabilidad ROC.
         </p>
       </div>
 
-      {/* Metrics Summary KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 rounded-xl bg-slate-900 border border-slate-800">
-          <span className="text-xs text-slate-400 font-semibold">Exactitud en Test Set</span>
-          <div className="text-2xl font-bold text-emerald-400 font-mono mt-1">{accuracy}%</div>
-          <span className="text-[10px] text-slate-500">Muestras no vistas durante entrenamiento</span>
+      {/* Summary KPI Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+          <span className="text-[11px] text-slate-500 dark:text-slate-400">Test Accuracy</span>
+          <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400 font-mono mt-0.5">{accuracy}%</div>
+          <span className="text-[10px] text-slate-400">Generalización verificada</span>
         </div>
 
-        <div className="p-4 rounded-xl bg-slate-900 border border-slate-800">
-          <span className="text-xs text-slate-400 font-semibold">Test Loss (Pérdida)</span>
-          <div className="text-2xl font-bold text-white font-mono mt-1">{loss}</div>
-          <span className="text-[10px] text-slate-500">Crossentropy / Función de coste</span>
+        <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+          <span className="text-[11px] text-slate-500 dark:text-slate-400">Test Loss</span>
+          <div className="text-xl font-bold text-slate-900 dark:text-white font-mono mt-0.5">{loss}</div>
+          <span className="text-[10px] text-slate-400">Función de coste final</span>
         </div>
 
-        <div className="p-4 rounded-xl bg-slate-900 border border-slate-800">
-          <span className="text-xs text-slate-400 font-semibold">F1-Score Calibrado</span>
-          <div className="text-2xl font-bold text-indigo-400 font-mono mt-1">{f1}</div>
-          <span className="text-[10px] text-slate-500">Balance entre Precisión y Sensibilidad</span>
+        <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+          <span className="text-[11px] text-slate-500 dark:text-slate-400">F1-Score</span>
+          <div className="text-xl font-bold text-blue-600 dark:text-blue-400 font-mono mt-0.5">{f1}</div>
+          <span className="text-[10px] text-slate-400">Media armónica calibrada</span>
         </div>
 
-        <div className="p-4 rounded-xl bg-slate-900 border border-slate-800">
-          <span className="text-xs text-slate-400 font-semibold">Área Bajo la Curva (ROC-AUC)</span>
-          <div className="text-2xl font-bold text-cyan-400 font-mono mt-1">0.964</div>
-          <span className="text-[10px] text-slate-500">Discriminabilidad excelente (&gt; 0.90)</span>
+        <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+          <span className="text-[11px] text-slate-500 dark:text-slate-400">Área ROC (AUC)</span>
+          <div className="text-xl font-bold text-slate-900 dark:text-white font-mono mt-0.5">0.964</div>
+          <span className="text-[10px] text-slate-400">Discriminabilidad excelente</span>
         </div>
       </div>
 
-      {/* Tab Switcher */}
-      <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
-        <button
-          onClick={() => setActiveTab('matrix')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-            activeTab === 'matrix'
-              ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          Matriz de Confusión
-        </button>
-        <button
-          onClick={() => setActiveTab('roc')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-            activeTab === 'roc'
-              ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          Curva ROC & Calibración
-        </button>
-        <button
-          onClick={() => setActiveTab('runs')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-            activeTab === 'runs'
-              ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          Comparativa de Experimentos
-        </button>
-      </div>
-
-      {/* Tab 1: Confusion Matrix */}
-      {activeTab === 'matrix' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="p-5 rounded-xl bg-slate-900 border border-slate-800 space-y-4">
-            <h2 className="text-sm font-bold text-white flex items-center gap-2">
-              <Target className="w-4 h-4 text-emerald-400" /> Matriz de Confusión (Test Set)
-            </h2>
+      {/* Main Grid: Left Runs Table (2 cols) + Right Compact Previews (1 col) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* LEFT COLUMN: Experiments Comparison Table & Observations */}
+        <div className="lg:col-span-2 space-y-4">
+          <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 uppercase tracking-wider">
+                <Award className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Comparativa de Experimentos
+              </h2>
+              <span className="text-[10px] text-slate-400 font-mono">3 ejecuciones registradas</span>
+            </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-center text-xs font-mono">
+              <table className="w-full text-left text-xs">
                 <thead>
-                  <tr className="text-slate-400 border-b border-slate-800">
-                    <th className="p-2.5 text-left font-sans">Etiqueta Real</th>
-                    <th className="p-2.5">Pred: Clase 0</th>
-                    <th className="p-2.5">Pred: Clase 1</th>
-                    <th className="p-2.5">Total</th>
+                  <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500">
+                    <th className="pb-2 font-semibold">Experimento</th>
+                    <th className="pb-2 font-semibold">Épocas</th>
+                    <th className="pb-2 font-semibold">Exactitud</th>
+                    <th className="pb-2 font-semibold">Loss</th>
+                    <th className="pb-2 font-semibold">F1</th>
+                    <th className="pb-2 font-semibold">Estado</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800">
-                  {matrix.map((row, idx) => (
-                    <tr key={idx}>
-                      <td className="p-3 text-left font-sans font-medium text-slate-300">{row.label}</td>
-                      <td className={`p-3 font-bold ${idx === 0 ? 'bg-emerald-950/50 text-emerald-300 border border-emerald-500/30 rounded' : 'text-slate-400'}`}>
-                        {row.pred0}
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
+                  {experiments.map((exp) => (
+                    <tr
+                      key={exp.id}
+                      className={`transition-colors ${
+                        exp.isBest
+                          ? 'bg-blue-50/60 dark:bg-blue-500/10'
+                          : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                      }`}
+                    >
+                      <td className="py-2.5 font-sans font-bold text-slate-800 dark:text-slate-200">
+                        {exp.name}
+                        {exp.isBest && (
+                          <span className="ml-1.5 text-[9px] px-1.5 py-0.2 rounded bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 font-mono">
+                            Mejor
+                          </span>
+                        )}
                       </td>
-                      <td className={`p-3 font-bold ${idx === 1 ? 'bg-emerald-950/50 text-emerald-300 border border-emerald-500/30 rounded' : 'text-slate-400'}`}>
-                        {row.pred1}
+                      <td className="py-2.5 text-slate-600 dark:text-slate-300">{exp.epochs}</td>
+                      <td className="py-2.5 font-bold text-emerald-600 dark:text-emerald-400">{exp.accuracy}</td>
+                      <td className="py-2.5 text-slate-600 dark:text-slate-300">{exp.loss}</td>
+                      <td className="py-2.5 text-blue-600 dark:text-blue-400">{exp.f1Score}</td>
+                      <td className="py-2.5 font-sans">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                          {exp.status}
+                        </span>
                       </td>
-                      <td className="p-3 text-slate-500">{row.total}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-
-            <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 text-[11px] text-slate-400 space-y-1">
-              <div className="flex items-center gap-1.5 text-slate-200 font-semibold">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Interpretación Estadística:
-              </div>
-              <p>
-                La diagonal principal en verde corresponde a clasificaciones correctas (Verdaderos Negativos y Verdaderos Positivos). La tasa de error es inferior al 4.2%.
-              </p>
-            </div>
           </div>
 
-          {/* Observations and Limitations */}
-          <div className="p-5 rounded-xl bg-slate-900 border border-slate-800 space-y-4">
-            <h2 className="text-sm font-bold text-white flex items-center gap-2">
-              <Info className="w-4 h-4 text-emerald-400" /> Registro de Limitaciones & Observaciones
-            </h2>
-
-            <div className="space-y-3 text-xs">
-              <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 space-y-1">
-                <span className="text-slate-200 font-semibold">Sensibilidad ante Datos Fuera de Distribución (OOD):</span>
-                <p className="text-slate-400">
-                  El modelo fue calibrado en transacciones/imágenes con características estandarizadas. Se recomienda monitorear con data drift detector en producción.
-                </p>
-              </div>
-
-              <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 space-y-1">
-                <span className="text-slate-200 font-semibold">Latencia Promedio de Inferencia:</span>
-                <p className="text-slate-400">
-                  <code className="text-emerald-400">1.8 ms</code> por transacción en CPU; adecuado para validación síncrona en pasarelas de pago.
-                </p>
-              </div>
-
-              <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 space-y-1">
-                <span className="text-slate-200 font-semibold">Regla de Aprobación de Modelo (Sec. 10):</span>
-                <p className="text-slate-400">
-                  Cumple con el criterio de aceptación: Accuracy &gt; 92.0% y False Negative Rate &lt; 5.0%.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Tab 2: ROC Curve */}
-      {activeTab === 'roc' && (
-        <div className="p-5 rounded-xl bg-slate-900 border border-slate-800 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-white flex items-center gap-2">
-              <Activity className="w-4 h-4 text-emerald-400" /> Curva ROC (Receiver Operating Characteristic)
-            </h2>
-            <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-              AUC = 0.964
+          <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-2 text-xs">
+            <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+              <Info className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Observaciones de Gobernanza
             </span>
-          </div>
-
-          <div className="p-4 bg-slate-950 rounded-xl border border-slate-800 flex justify-center">
-            <svg viewBox="0 0 400 240" className="w-full max-w-lg h-56">
-              {/* Background grid */}
-              <line x1="40" y1="20" x2="380" y2="20" stroke="#1e293b" strokeDasharray="3 3" />
-              <line x1="40" y1="110" x2="380" y2="110" stroke="#1e293b" strokeDasharray="3 3" />
-              <line x1="40" y1="200" x2="380" y2="200" stroke="#334155" />
-              <line x1="40" y1="20" x2="40" y2="200" stroke="#334155" />
-
-              {/* Random Guess Diagonal */}
-              <line x1="40" y1="200" x2="380" y2="20" stroke="#475569" strokeDasharray="4 4" strokeWidth="1.5" />
-
-              {/* ROC Curve for Model (AUC = 0.964) */}
-              <path
-                d="M 40 200 C 60 80, 110 30, 380 20"
-                fill="none"
-                stroke="#10b981"
-                strokeWidth="3"
-                strokeLinecap="round"
-              />
-
-              {/* Labels */}
-              <text x="375" y="215" fill="#64748b" fontSize="10" fontFamily="monospace" textAnchor="end">FPR (1 - Specificity)</text>
-              <text x="45" y="32" fill="#64748b" fontSize="10" fontFamily="monospace">TPR (Recall)</text>
-            </svg>
-          </div>
-          <p className="text-xs text-slate-400 text-center">
-            La curva en verde muestra una tasa elevada de verdaderos positivos (TPR) con una tasa insignificante de falsos positivos (FPR).
-          </p>
-        </div>
-      )}
-
-      {/* Tab 3: Experiments Comparison */}
-      {activeTab === 'runs' && (
-        <div className="p-5 rounded-xl bg-slate-900 border border-slate-800 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-white flex items-center gap-2">
-              <Award className="w-4 h-4 text-emerald-400" /> Tabla Comparativa de Ejecuciones (Runs)
-            </h2>
-            <span className="text-xs text-slate-400">Total: 3 corridas registradas</span>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-slate-800 text-slate-400">
-                  <th className="pb-2.5 font-medium">Experimento</th>
-                  <th className="pb-2.5 font-medium">Épocas</th>
-                  <th className="pb-2.5 font-medium">Batch</th>
-                  <th className="pb-2.5 font-medium">Exactitud (Test)</th>
-                  <th className="pb-2.5 font-medium">Pérdida</th>
-                  <th className="pb-2.5 font-medium">F1-Score</th>
-                  <th className="pb-2.5 font-medium">Estado</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60 font-mono">
-                {experiments.map((exp) => (
-                  <tr
-                    key={exp.id}
-                    className={`transition-colors ${
-                      exp.isBest ? 'bg-emerald-500/10 hover:bg-emerald-500/15' : 'hover:bg-slate-800/30'
-                    }`}
-                  >
-                    <td className="py-3 font-sans font-bold text-slate-200">
-                      {exp.name}
-                      {exp.isBest && (
-                        <span className="ml-2 text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold font-mono">
-                          Mejor Modelo
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3 text-slate-300">{exp.epochs}</td>
-                    <td className="py-3 text-slate-300">{exp.batchSize}</td>
-                    <td className="py-3 font-bold text-emerald-400">{exp.accuracy}</td>
-                    <td className="py-3 text-slate-300">{exp.loss}</td>
-                    <td className="py-3 text-indigo-300">{exp.f1Score}</td>
-                    <td className="py-3 font-sans">
-                      <span className="px-2 py-0.5 rounded text-[10px] bg-slate-800 text-slate-300 border border-slate-700">
-                        {exp.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
+              El modelo cumple con el criterio de aceptación técnica: F1 &gt; 0.90 y tasa de error menor al 5.0%. Los pesos están listos para certificación en el Registro de Modelos.
+            </p>
           </div>
         </div>
-      )}
+
+        {/* RIGHT DOCK: Compact Previews with Click-to-Enlarge */}
+        <div className="space-y-4">
+          <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center justify-between px-1">
+            <span>Visualizaciones (Miniaturas)</span>
+            <span className="text-[10px] text-blue-600 dark:text-blue-400">Clic para ampliar</span>
+          </div>
+
+          {/* Compact Card 1: Mini Confusion Matrix Preview */}
+          <div
+            onClick={() => setEnlargedModal('matrix')}
+            className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-500/50 cursor-pointer transition-all shadow-xs group"
+          >
+            <div className="flex items-center justify-between text-xs mb-1.5">
+              <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+                <Target className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Matriz de Confusión
+              </span>
+              <Maximize2 className="w-3 h-3 text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" />
+            </div>
+
+            <div className="p-1 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-100 dark:border-slate-800/80 overflow-hidden">
+              {renderMatrixTable(false)}
+            </div>
+            <div className="flex justify-between items-center text-[10px] text-slate-400 mt-1.5 px-0.5">
+              <span>Test Set (1,000 muestras)</span>
+              <span className="text-blue-600 dark:text-blue-400 font-medium">Ampliar &rarr;</span>
+            </div>
+          </div>
+
+          {/* Compact Card 2: Mini ROC Curve Preview */}
+          <div
+            onClick={() => setEnlargedModal('roc')}
+            className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-500/50 cursor-pointer transition-all shadow-xs group"
+          >
+            <div className="flex items-center justify-between text-xs mb-1.5">
+              <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+                <Activity className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Curva ROC
+              </span>
+              <div className="flex items-center gap-1">
+                <span className="font-mono text-[10px] text-blue-600 dark:text-blue-400 font-bold">AUC 0.964</span>
+                <Maximize2 className="w-3 h-3 text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors ml-1" />
+              </div>
+            </div>
+
+            <div className="p-1.5 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-100 dark:border-slate-800/80">
+              {renderROCChart(false)}
+            </div>
+            <div className="flex justify-between items-center text-[10px] text-slate-400 mt-1.5 px-0.5">
+              <span>Sensibilidad vs 1 - Especificidad</span>
+              <span className="text-blue-600 dark:text-blue-400 font-medium">Ampliar &rarr;</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ENLARGED MODAL */}
+      <EnlargedChartModal
+        isOpen={enlargedModal !== null}
+        onClose={() => setEnlargedModal(null)}
+        title={enlargedModal === 'matrix' ? 'Matriz de Confusión Detallada (Test Set)' : 'Curva ROC & Análisis de Discriminabilidad'}
+        subtitle={enlargedModal === 'matrix' ? 'Conteo de verdaderos positivos, verdaderos negativos, falsos positivos y falsos negativos' : 'Tasa de verdaderos positivos frente a falsos positivos con AUC = 0.964'}
+        badge="Evaluación Final"
+      >
+        <div className="space-y-4">
+          <div className="p-6 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 flex justify-center">
+            {enlargedModal === 'matrix' && renderMatrixTable(true)}
+            {enlargedModal === 'roc' && renderROCChart(true)}
+          </div>
+
+          <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400">
+            {enlargedModal === 'matrix'
+              ? 'Diagonal resaltada en azul refleja clasificaciones correctas (96.3% de aciertos sobre el total de prueba).'
+              : 'El área bajo la curva (AUC = 0.964) certifica que el modelo supera con creces el baseline aleatorio (0.50).'}
+          </div>
+        </div>
+      </EnlargedChartModal>
     </div>
   );
 };
