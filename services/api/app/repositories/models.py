@@ -1,0 +1,101 @@
+import uuid
+from datetime import datetime, timezone
+from sqlalchemy import (
+    Column, String, Text, Integer, Float, Boolean, DateTime, ForeignKey, JSON
+)
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
+from sqlalchemy.orm import relationship
+from app.core.database import Base
+
+class UserModel(Base):
+    __tablename__ = "users"
+
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    password_hash = Column(String(255), nullable=False)
+    display_name = Column(String(150), nullable=False)
+    role = Column(String(50), nullable=False, default="AI_ENGINEER")
+    status = Column(String(50), nullable=False, default="ACTIVE")
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+class ProjectModel(Base):
+    __tablename__ = "projects"
+
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String(200), nullable=False)
+    description = Column(Text, nullable=True)
+    owner_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    status = Column(String(50), nullable=False, default="ACTIVE")
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+class ArchitectureModel(Base):
+    __tablename__ = "architectures"
+
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    project_id = Column(PG_UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(200), nullable=False)
+    family = Column(String(50), nullable=False)
+    config_json = Column(JSONB, nullable=False)
+    version = Column(Integer, nullable=False, default=1)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+class DatasetModel(Base):
+    __tablename__ = "datasets"
+
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    project_id = Column(PG_UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(200), nullable=False)
+    version = Column(String(50), nullable=False, default="v1.0")
+    storage_key = Column(String(500), nullable=False)
+    metadata_json = Column(JSONB, nullable=False, default={})
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+class TrainingJobModel(Base):
+    __tablename__ = "training_jobs"
+
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    project_id = Column(PG_UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    architecture_id = Column(PG_UUID(as_uuid=True), ForeignKey("architectures.id", ondelete="RESTRICT"), nullable=False)
+    dataset_id = Column(PG_UUID(as_uuid=True), ForeignKey("datasets.id", ondelete="RESTRICT"), nullable=False)
+    status = Column(String(50), nullable=False, default="QUEUED")
+    progress = Column(Float, nullable=False, default=0.0)
+    hyperparameters = Column(JSONB, nullable=False, default={})
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    ended_at = Column(DateTime(timezone=True), nullable=True)
+    error_message = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+class TrainingMetricModel(Base):
+    __tablename__ = "training_metrics"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    job_id = Column(PG_UUID(as_uuid=True), ForeignKey("training_jobs.id", ondelete="CASCADE"), nullable=False)
+    epoch = Column(Integer, nullable=False)
+    metric_name = Column(String(100), nullable=False)
+    metric_value = Column(Float, nullable=False)
+    recorded_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+class ModelVersionModel(Base):
+    __tablename__ = "model_versions"
+
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    project_id = Column(PG_UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    job_id = Column(PG_UUID(as_uuid=True), ForeignKey("training_jobs.id", ondelete="RESTRICT"), nullable=False)
+    version = Column(String(50), nullable=False)
+    storage_key = Column(String(500), nullable=False)
+    status = Column(String(50), nullable=False, default="DRAFT")
+    checksum = Column(String(128), nullable=False)
+    metrics_summary = Column(JSONB, nullable=True, default={})
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+class AuditEventModel(Base):
+    __tablename__ = "audit_events"
+
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    actor_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    project_id = Column(PG_UUID(as_uuid=True), ForeignKey("projects.id", ondelete="SET NULL"), nullable=True)
+    action = Column(String(100), nullable=False)
+    metadata_json = Column(JSONB, nullable=False, default={})
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

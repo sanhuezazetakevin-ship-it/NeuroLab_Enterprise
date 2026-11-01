@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "neurolab-api"
+version = "1.0.0"
+description = "Enterprise Neural Network Platform API"
+authors = [{ name = "NeuroLab Enterprise Team" }]
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.28.0",
+    "pydantic>=2.6.0",
+    "sqlalchemy>=2.0.28",
+    "asyncpg>=0.29.0",
+    "redis>=5.0.2"
+]
