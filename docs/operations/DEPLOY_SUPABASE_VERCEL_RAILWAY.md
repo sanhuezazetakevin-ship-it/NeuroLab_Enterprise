@@ -105,6 +105,28 @@ La API sube los CSV a `datasets/<project>/<dataset>.csv` y el worker publica
 `models/<project>/<job>/model.keras`, `scaler.pkl`, `preprocessor.pkl` y
 `training_manifest.json`.
 
+### 2.4 Probar en tu PC usando solo la base de datos de Supabase
+
+Si quieres ejecutar la API, el worker y el frontend en tu equipo pero guardar
+los metadatos en Supabase, no necesitas Storage todavía:
+
+```powershell
+cd C:\Users\sanhu\Desktop\NeuroLab_Enterprise
+python scripts/setup_supabase_db.py
+```
+
+El script pide la cadena **Session pooler** sin mostrarla por pantalla, prueba
+la conexión, aplica `alembic upgrade head`, ejecuta el seed del administrador y
+muestra las variables para arrancar API y worker. Usa `STORAGE_BACKEND=local`
+con `DATA_DIR`/`MODEL_DIR` en tu PC; al desplegar en hosts distintos cambia a
+`STORAGE_BACKEND=s3`.
+
+Para comprobar solo la conexión:
+
+```powershell
+python scripts/setup_supabase_db.py --check-only
+```
+
 ---
 
 ## 3. Railway
