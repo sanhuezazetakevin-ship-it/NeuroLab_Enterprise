@@ -61,9 +61,9 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
         <div className="space-y-3 text-xs text-zinc-700 dark:text-white/70">
           <p>
             Cree un proyecto o seleccione uno existente. El rol efectivo determina qué puede
-            hacer: los roles <strong>VIEWER</strong> y <strong>REVIEWER</strong> solo consultan,
-            mientras que <strong>AI_ENGINEER</strong>, <strong>PROJECT_LEAD</strong> y{' '}
-            <strong>ADMIN</strong> pueden cargar datos y entrenar.
+            hacer: los roles <strong>Lector</strong> y <strong>Revisor / Auditor</strong> solo consultan,
+            mientras que <strong>Ingeniero de IA</strong>, <strong>Responsable de Proyecto</strong> y{' '}
+            <strong>Administrador</strong> pueden cargar datos y entrenar.
           </p>
           <div className="p-3 rounded-2xl glass-inset border border-black/10 dark:border-white/10 text-zinc-800 dark:text-white/80 text-[11px]">
             El selector de proyecto en la barra superior cambia el contexto de todos los módulos.
@@ -95,8 +95,8 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
       actionTab: 'architectures' as NavTab,
     },
     {
-      title: '3. Datasets verificados',
-      subtitle: 'CSV con validación de esquema, target y checksum',
+      title: '3. Conjuntos de datos verificados',
+      subtitle: 'CSV con validación de esquema, columna objetivo y checksum',
       icon: Database,
       badge: 'Módulo 05',
       content: (
@@ -107,11 +107,11 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
             conteos de nulos.
           </p>
           <div className="p-3 rounded-2xl glass-inset border border-black/10 dark:border-white/10 text-zinc-800 dark:text-white/80 text-[11px]">
-            Un dataset sin columna objetivo no podrá usarse para entrenar.
+            Un conjunto de datos sin columna objetivo no podrá usarse para entrenar.
           </div>
         </div>
       ),
-      actionLabel: 'Ir a Datasets',
+      actionLabel: 'Ir a Conjuntos de datos',
       actionTab: 'datasets' as NavTab,
     },
     {
@@ -122,8 +122,8 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
       content: (
         <div className="space-y-3 text-xs text-zinc-700 dark:text-white/70">
           <p>
-            Inicie un trabajo con arquitectura y dataset verificados. El estado avanza{' '}
-            <strong>QUEUED → PREPARING → RUNNING → COMPLETED / FAILED / CANCELLED</strong>. Las
+            Inicie un trabajo con arquitectura y conjunto de datos verificados. El estado avanza{' '}
+            <strong>En cola → Preparando → En ejecución → Completado / Fallido / Cancelado</strong>. Las
             curvas llegan por SSE y se reconstruyen desde PostgreSQL al reconectar.
           </p>
           <div className="p-3 rounded-2xl glass-inset border border-black/10 dark:border-white/10 text-zinc-800 dark:text-white/80 text-[11px]">
@@ -143,11 +143,11 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
         <div className="space-y-3 text-xs text-zinc-700 dark:text-white/70">
           <p>
             Al completar, el worker evalúa el conjunto de prueba y registra una versión{' '}
-            <strong>DRAFT</strong> con métricas y checksum. Revise la matriz de confusión, apruebe
+            <strong>Borrador</strong> con métricas y checksum. Revise la matriz de confusión, apruebe
             o retire la versión según su rol y descargue el artefacto <code>.keras</code>.
           </p>
           <div className="p-3 rounded-2xl glass-inset border border-black/10 dark:border-white/10 text-zinc-800 dark:text-white/80 text-[11px]">
-            La aprobación requiere <strong>PROJECT_LEAD</strong> o <strong>ADMIN</strong>. Cada
+            La aprobación requiere <strong>Responsable de Proyecto</strong> o <strong>Administrador</strong>. Cada
             cambio de estado queda en el registro de auditoría.
           </div>
         </div>

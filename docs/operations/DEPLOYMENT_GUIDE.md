@@ -31,7 +31,7 @@ Copie `.env.example` a `.env` y ajuste los valores.
 | `TRAINING_QUEUE` | `neurolab:training:queue` | Nombre de la cola |
 | `QUEUE_POLL_SECONDS` | `2` | Espera del worker sin trabajos |
 | `DATA_DIR` | `services/api/data/uploads` | CSV, cola y flags (API y worker deben compartirlo) |
-| `MODEL_DIR` | `services/api/data/models` | Artefactos `.keras`, scaler y manifiesto |
+| `MODEL_DIR` | `services/api/data/models` | Artefactos `.keras`, scaler, manifiesto y ficha |
 | `MAX_UPLOAD_MB` | `50` | Tamaño máximo de CSV |
 | `MAX_CSV_ROWS` | `500000` | Filas máximas |
 | `MAX_CSV_COLUMNS` | `500` | Columnas máximas |
@@ -39,6 +39,8 @@ Copie `.env.example` a `.env` y ajuste los valores.
 | `TRAINING_TIMEOUT_SECONDS` | `7200` | Timeout de entrenamiento |
 | `STORAGE_BACKEND` | `local` | `local` o `s3` (Supabase Storage, MinIO, S3, R2) |
 | `S3_*` | vacío | Endpoint, región, claves y bucket cuando `STORAGE_BACKEND=s3` |
+| `INFERENCE_REQUIRE_APPROVED` | `false` | `true` sirve sólo modelos `APPROVED` en `/predict` |
+| `INSTALL_INFERENCE` | `false` | Build-arg de Docker: instala TensorFlow/sklearn en la API |
 | `CORS_ORIGINS` | `http://localhost:5173,…` | Orígenes permitidos si no se usa el proxy Nginx |
 | `CORS_ORIGIN_REGEX` | vacío | Regex para dominios de preview (por ejemplo Vercel) |
 | `VITE_API_URL` | `/api/v1` (Docker) | URL de API compilada en el frontend |
@@ -55,6 +57,12 @@ cp .env.example .env
 docker compose up -d --build
 docker compose ps
 ```
+
+Para habilitar la inferencia en la API, defina `INSTALL_INFERENCE=true` en
+`.env` antes del build (o ejecute
+`INSTALL_INFERENCE=true docker compose up -d --build api`). Esto instala
+TensorFlow y scikit-learn en el contenedor de la API y aumenta su consumo de
+memoria. Sin esa variable, `/predict` responde `503`.
 
 Servicios y puertos:
 

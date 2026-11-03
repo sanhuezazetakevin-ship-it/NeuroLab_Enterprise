@@ -26,10 +26,14 @@ from typing import Any, Dict, Optional
 from uuid import UUID
 
 import worker_db as db
+from baselines import compute_baselines, describe_dataset, weights_to_json
 from builder import KerasModelBuilder, ModelBuildError
+from environment import capture_environment
 from evaluator import ModelEvaluator
+from metrics import compare_with_baselines, generalization_gap
 from object_storage import ObjectStorageError, object_storage
 from preprocessing import DataPreparationError, PreparedDataset, prepare_dataset
+from reproducibility import configure_determinism
 from storage import ArtifactStorageError, ArtifactStorageManager
 from trainer import train_model
 from worker_config import (
@@ -151,6 +155,15 @@ class TrainingWorkerDaemon:
         if not target_column or not storage_key:
             raise DataPreparationError("El payload del trabajo no contiene target_column o storage_key")
 
+        seed = int(hyperparameters.get("random_seed", 42) or 42)
+        # Se aplica antes de construir el modelo: el determinismo de operaciones
+        # debe activarse antes de crear capas y de ejecutar el primer paso.
+        reproducibility = configure_determinism(
+            seed,
+            deterministic=bool(hyperparameters.get("deterministic", True)),
+        )
+        environment = capture_environment()
+
         if self._check_cancel(job_id):
             self._finish_cancelled(job_id, 0.0, "Cancelado antes de iniciar")
             return "CANCELLED"
@@ -175,7 +188,7 @@ class TrainingWorkerDaemon:
                     task=payload.get("task") or dataset.get("metadata_json", {}).get("task"),
                     val_split=validation_split,
                     test_split=0.15,
-                    random_state=int(hyperparameters.get("random_seed", 42) or 42),
+                    random_state=seed,
                 )
             finally:
                 if downloaded_dataset:
@@ -222,6 +235,7 @@ class TrainingWorkerDaemon:
                 hyperparameters=hyperparameters,
                 on_epoch=on_epoch,
                 check_cancel=lambda: self._check_cancel(job_id),
+                class_weights=data.class_weights,
             )
 
             if outcome.status == "CANCELLED":
@@ -237,16 +251,39 @@ class TrainingWorkerDaemon:
 
             logger.info("Trabajo %s: evaluando modelo final", job_id)
             evaluation = ModelEvaluator.evaluate(model, data)
+
+            logger.info("Trabajo %s: calculando baselines de referencia", job_id)
+            baseline_report = compute_baselines(data, random_state=seed)
+            comparison = compare_with_baselines(
+                evaluation, baseline_report, task=data.task
+            )
+            generalization = generalization_gap(outcome.history)
+
             artifacts = ArtifactStorageManager.save_model_artifact(
                 model=model,
                 data=data,
                 project_id=project_id,
                 job_id=job_id,
                 hyperparameters=hyperparameters,
-                dataset_checksum=dataset.get("checksum"),
-                extra={"evaluation": evaluation, "epochs_completed": outcome.epochs_completed},
+                architecture=architecture,
+                dataset=dataset,
+                evaluation=evaluation,
+                baseline_report=baseline_report,
+                comparison=comparison,
+                generalization=generalization,
+                environment=environment,
+                reproducibility=reproducibility,
+                training_summary={
+                    "epochs_completed": outcome.epochs_completed,
+                    "early_stopped": outcome.early_stopped,
+                    "best_epoch": outcome.best_epoch,
+                    "duration_seconds": outcome.duration_seconds,
+                    "final_metrics": outcome.final_metrics,
+                },
+                dataset_filename=dataset.get("original_filename"),
             )
 
+            dataset_description = describe_dataset(data)
             metrics_summary = {
                 **evaluation,
                 "epochs_completed": outcome.epochs_completed,
@@ -255,6 +292,27 @@ class TrainingWorkerDaemon:
                 "code_version": hyperparameters.get("code_version", "1.0.0"),
                 "artifacts": artifacts["artifacts"],
                 "class_labels": data.class_labels,
+                # --- Trazabilidad y evaluación comparada (Nivel A) ---
+                "baselines": baseline_report,
+                "baseline_comparison": comparison,
+                "generalization": generalization,
+                "dataset": dataset_description,
+                "class_weights": weights_to_json(data.class_weights, list(data.class_labels)),
+                "training": {
+                    "epochs_completed": outcome.epochs_completed,
+                    "early_stopped": outcome.early_stopped,
+                    "best_epoch": outcome.best_epoch,
+                    "duration_seconds": outcome.duration_seconds,
+                },
+                "reproducibility": reproducibility,
+                "environment": {
+                    "python": environment.get("python"),
+                    "packages": environment.get("packages"),
+                    "git_commit": environment.get("git_commit"),
+                },
+                "input_schema": data.input_schema,
+                "feature_columns": list(data.numeric_columns) + list(data.categorical_columns),
+                "model_card": "model_card.md",
             }
             model_version = db.create_model_version(
                 project_id=project_id,
@@ -263,6 +321,32 @@ class TrainingWorkerDaemon:
                 checksum=artifacts["checksum"],
                 metrics_summary=metrics_summary,
             )
+
+            # La ficha se publica después de conocer la versión asignada por el
+            # registro; si falla, el modelo ya está persistido y el trabajo sigue
+            # siendo válido (solo se pierde la ficha legible).
+            try:
+                card_artifacts = ArtifactStorageManager.publish_model_card(
+                    artifact_dir=artifacts["artifact_dir"],
+                    manifest=artifacts["manifest"],
+                    version=model_version["version"],
+                )
+                # El manifiesto se reescribe con model_version y se agrega la
+                # ficha; actualizar los hashes evita una discrepancia de
+                # integridad entre lo registrado y lo publicado.
+                try:
+                    db.update_model_artifacts(
+                        model_id=model_version["id"], artifacts=card_artifacts
+                    )
+                except Exception:
+                    logger.warning(
+                        "No fue posible actualizar los hashes de la ficha en el registro",
+                        exc_info=True,
+                    )
+                logger.info("Ficha del modelo publicada: %s", card_artifacts["model_card"]["path"])
+            except ArtifactStorageError as exc:
+                logger.warning("No fue posible publicar la ficha del modelo: %s", exc)
+
             db.set_job_status(job_id, "COMPLETED", progress=100.0, ended_at=_now(), error_message="")
             try:
                 db.record_audit(
@@ -274,6 +358,8 @@ class TrainingWorkerDaemon:
                         "model_version_id": str(model_version["id"]),
                         "model_version": model_version["version"],
                         "checksum": artifacts["checksum"],
+                        "random_seed": seed,
+                        "beats_baseline": comparison.get("beats_baseline"),
                         "metrics": {
                             key: value
                             for key, value in evaluation.items()

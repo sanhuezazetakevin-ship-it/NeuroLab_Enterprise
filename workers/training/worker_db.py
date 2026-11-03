@@ -233,11 +233,14 @@ def get_job_bundle(job_id: uuid.UUID) -> Optional[Dict[str, Any]]:
             },
             "dataset": {
                 "id": str(dataset["id"]),
+                "name": dataset["name"],
+                "version": dataset["version"],
+                "original_filename": dataset["original_filename"],
                 "storage_key": dataset["storage_key"],
                 "checksum": dataset["checksum"],
-                "metadata_json": metadata_json,
+                "size_bytes": dataset["size_bytes"],
                 "target_column": dataset["target_column"],
-                "version": dataset["version"],
+                "metadata_json": metadata_json,
             },
             "target_column": hyperparameters.get("target_column") or metadata_json.get("target_column"),
             "task": hyperparameters.get("task") or metadata_json.get("task"),
@@ -322,6 +325,35 @@ def create_model_version(
         }
         conn.execute(insert(model_versions).values(**row))
         return row
+
+
+def update_model_artifacts(
+    *, model_id: uuid.UUID, artifacts: Dict[str, Any]
+) -> None:
+    """Completa el resumen del modelo con artefactos publicados después.
+
+    La ficha y el manifiesto final se generan cuando ya existe la versión (el
+    manifiesto incorpora ``model_version``), así que sus hashes deben
+    registrarse al final para que coincidan exactamente con el disco.
+    """
+    with connection() as conn:
+        current = conn.execute(
+            select(model_versions.c.metrics_summary).where(
+                model_versions.c.id == model_id
+            )
+        ).scalar_one()
+        summary = dict(current or {})
+        merged = dict(summary.get("artifacts") or {})
+        merged.update(artifacts)
+        summary["artifacts"] = merged
+        card_path = (artifacts.get("model_card") or {}).get("path")
+        if card_path:
+            summary["model_card"] = card_path
+        conn.execute(
+            update(model_versions)
+            .where(model_versions.c.id == model_id)
+            .values(metrics_summary=summary)
+        )
 
 
 def record_audit(

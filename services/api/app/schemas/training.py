@@ -17,6 +17,11 @@ class HyperparametersConfig(BaseModel):
     metrics: List[str] = Field(default_factory=lambda: ["accuracy"])
     random_seed: int = Field(default=42, ge=0, le=2**31 - 1)
     validation_split: float = Field(default=0.15, gt=0.0, lt=0.5)
+    # Control de entrenamiento reproducible y regularización.
+    deterministic: bool = True
+    early_stopping: bool = True
+    early_stopping_patience: int = Field(default=10, ge=1, le=100)
+    reduce_lr_on_plateau: bool = True
 
     @field_validator("optimizer", mode="before")
     @classmethod

@@ -46,7 +46,7 @@ const MainAppContent: React.FC = () => {
       {currentTab === 'dashboard' && <DashboardView onNavigate={setCurrentTab} />}
       {currentTab === 'projects' && <ProjectsView />}
       {currentTab === 'fundamentals' && <FundamentalsView />}
-      {currentTab === 'architectures' && <ArchitectureDesignerView />}
+      {currentTab === 'architectures' && <ArchitectureDesignerView onNavigate={setCurrentTab} />}
       {currentTab === 'datasets' && <DatasetsView />}
       {currentTab === 'training' && <TrainingManagerView />}
       {currentTab === 'evaluation' && <EvaluationView />}

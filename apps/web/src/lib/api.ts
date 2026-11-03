@@ -14,6 +14,7 @@ import {
   ModelMetrics,
   ModelVersion,
   NetworkTopology,
+  PredictionResult,
   Project,
   ProjectMember,
   SystemStatus,
@@ -106,12 +107,43 @@ function normalizeProject(raw: Json): Project {
     description: raw.description || '',
     ownerId: raw.owner_id,
     status: raw.status,
+    networkFamily: raw.network_family || 'FEEDFORWARD',
     createdAt: raw.created_at,
     updatedAt: raw.updated_at,
     architecturesCount: raw.architectures_count ?? 0,
     datasetsCount: raw.datasets_count ?? 0,
     jobsCount: raw.jobs_count ?? 0,
     effectiveRole: raw.effective_role || undefined,
+  };
+}
+
+function normalizeNeuronSummary(raw: Json | null | undefined) {
+  if (!raw || !raw.available) {
+    return {
+      available: false,
+      reason: raw?.reason || 'El dataset no tiene columna objetivo calculada',
+      inputNeurons: 0,
+      outputNeurons: 0,
+      classLabels: [],
+      classCount: 0,
+      features: [],
+    };
+  }
+  return {
+    available: true,
+    inputNeurons: raw.input_neurons ?? 0,
+    outputNeurons: raw.output_neurons ?? 1,
+    outputActivation: raw.output_activation || 'linear',
+    loss: raw.loss || undefined,
+    classLabels: raw.class_labels || [],
+    classCount: raw.class_count ?? 0,
+    features: (raw.features || []).map((feature: Json) => ({
+      name: feature.name,
+      kind: feature.kind,
+      neurons: feature.neurons ?? 1,
+      values: feature.values,
+    })),
+    truncated: Boolean(raw.truncated),
   };
 }
 
@@ -134,6 +166,7 @@ function normalizeDatasetMetadata(raw: Json | null | undefined) {
     featuresCount: meta.features_count ?? meta.featuresCount ?? 0,
     targetColumn: meta.target_column ?? meta.targetColumn ?? undefined,
     task: meta.task || undefined,
+    neurons: normalizeNeuronSummary(meta.neurons),
     columns: (meta.columns || []).map((column: Json) => ({
       name: column.name,
       dtype: column.dtype,
@@ -253,6 +286,10 @@ function normalizeModelMetrics(raw: Json | null | undefined): ModelMetrics | nul
     testRmse: raw.test_rmse,
     testMae: raw.test_mae,
     r2Score: raw.r2_score,
+    rocAuc: raw.roc_auc,
+    prAuc: raw.pr_auc,
+    balancedAccuracy: raw.balanced_accuracy,
+    decisionThreshold: raw.decision_threshold,
     confusionMatrix: raw.confusion_matrix,
     classLabels: raw.class_labels,
     epochsCompleted: raw.epochs_completed,
@@ -261,6 +298,19 @@ function normalizeModelMetrics(raw: Json | null | undefined): ModelMetrics | nul
     artifacts: raw.artifacts,
     datasetChecksum: raw.dataset_checksum,
     datasetVersion: raw.dataset_version,
+    inputSchema: raw.input_schema,
+    featureColumns: raw.feature_columns,
+    baselineComparison: raw.baseline_comparison
+      ? {
+          available: Boolean(raw.baseline_comparison.available),
+          metric: raw.baseline_comparison.metric,
+          modelScore: raw.baseline_comparison.model_score,
+          bestBaseline: raw.baseline_comparison.best_baseline,
+          bestBaselineScore: raw.baseline_comparison.best_baseline_score,
+          delta: raw.baseline_comparison.delta,
+          beatsBaseline: raw.baseline_comparison.beats_baseline,
+        }
+      : undefined,
   };
   return metrics;
 }
@@ -394,21 +444,33 @@ export class ApiClient {
     return data.map(normalizeProject);
   }
 
-  static async createProject(name: string, description?: string): Promise<Project> {
+  static async createProject(
+    name: string,
+    description?: string,
+    networkFamily: string = 'FEEDFORWARD',
+  ): Promise<Project> {
     const data = await this.request<Json>('/projects', {
       method: 'POST',
-      body: JSON.stringify({ name, description: description || null }),
+      body: JSON.stringify({
+        name,
+        description: description || null,
+        network_family: networkFamily,
+      }),
     });
     return normalizeProject(data);
   }
 
   static async updateProject(
     projectId: string,
-    payload: { name?: string; description?: string; status?: string },
+    payload: { name?: string; description?: string; status?: string; networkFamily?: string },
   ): Promise<Project> {
+    const { networkFamily, ...rest } = payload;
     const data = await this.request<Json>(`/projects/${projectId}`, {
       method: 'PATCH',
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        ...rest,
+        ...(networkFamily ? { network_family: networkFamily } : {}),
+      }),
     });
     return normalizeProject(data);
   }
@@ -596,6 +658,39 @@ export class ApiClient {
     const disposition = response.headers.get('content-disposition') || '';
     const match = /filename="?([^";]+)"?/i.exec(disposition);
     return { blob: await response.blob(), filename: match?.[1] || 'model.keras' };
+  }
+
+  static async predictModel(
+    modelId: string,
+    records: Record<string, unknown>[],
+    threshold?: number,
+  ): Promise<PredictionResult> {
+    const raw = await this.request<Json>(`/models/${modelId}/predict`, {
+      method: 'POST',
+      body: JSON.stringify({ records, ...(threshold != null ? { threshold } : {}) }),
+    });
+    return {
+      modelId: raw.model_id,
+      modelVersion: raw.model_version,
+      modelStatus: raw.model_status,
+      task: raw.task,
+      targetColumn: raw.target_column,
+      classLabels: raw.class_labels || [],
+      decisionThreshold: raw.decision_threshold,
+      predictions: (raw.predictions || []).map((item: Json) => ({
+        index: item.index,
+        prediction: item.prediction,
+        label: item.label,
+        probability: item.probability,
+        probabilities: item.probabilities,
+        threshold: item.threshold,
+      })),
+      warnings: raw.warnings || [],
+    };
+  }
+
+  static async getModelCard(modelId: string): Promise<string> {
+    return this.request<string>(`/models/${modelId}/card`);
   }
 
   // ---------------------------------------------------------------- Audit

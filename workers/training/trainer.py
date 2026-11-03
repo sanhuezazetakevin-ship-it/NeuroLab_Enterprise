@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
 import tensorflow as tf
@@ -18,6 +18,14 @@ class TrainingOutcome:
     status: str
     epochs_completed: int
     history: Dict[str, List[float]]
+    duration_seconds: float = 0.0
+    early_stopped: bool = False
+    best_epoch: int = 0
+    final_metrics: Dict[str, float] = None  # type: ignore[assignment]
+
+    def __post_init__(self) -> None:
+        if self.final_metrics is None:
+            self.final_metrics = {}
 
 
 class TelemetryCallback(tf.keras.callbacks.Callback):
@@ -84,6 +92,7 @@ def train_model(
     hyperparameters: Dict[str, Any],
     on_epoch: Callable[[int, Dict[str, float]], None],
     check_cancel: Callable[[], bool],
+    class_weights: Optional[Dict[int, float]] = None,
 ) -> TrainingOutcome:
     epochs = int(hyperparameters.get("epochs", 30) or 30)
     batch_size = int(hyperparameters.get("batch_size", 32) or 32)
@@ -96,13 +105,27 @@ def train_model(
     )
     callbacks: List[Any] = [callback]
 
-    if hyperparameters.get("early_stopping", False):
+    early_stopping = None
+    if hyperparameters.get("early_stopping", True):
+        early_stopping = tf.keras.callbacks.EarlyStopping(
+            monitor="val_loss",
+            patience=int(hyperparameters.get("early_stopping_patience", 10) or 10),
+            restore_best_weights=True,
+            min_delta=1e-4,
+        )
+        callbacks.append(early_stopping)
+
+    # ReduceLROnPlateau es una buena práctica por defecto: si la pérdida de
+    # validación deja de mejorar, baja la tasa de aprendizaje en lugar de
+    # seguir dando pasos grandes. Se puede desactivar explícitamente.
+    if hyperparameters.get("reduce_lr_on_plateau", True):
         callbacks.append(
-            tf.keras.callbacks.EarlyStopping(
+            tf.keras.callbacks.ReduceLROnPlateau(
                 monitor="val_loss",
-                patience=int(hyperparameters.get("early_stopping_patience", 10) or 10),
-                restore_best_weights=True,
-                min_delta=1e-4,
+                factor=float(hyperparameters.get("lr_reduction_factor", 0.5) or 0.5),
+                patience=int(hyperparameters.get("lr_reduction_patience", 5) or 5),
+                min_lr=1e-6,
+                verbose=0,
             )
         )
     callbacks.append(tf.keras.callbacks.TerminateOnNaN())
@@ -110,6 +133,14 @@ def train_model(
     if check_cancel():
         return TrainingOutcome(status="CANCELLED", epochs_completed=0, history={})
 
+    applied_class_weights = {
+        int(label): float(weight)
+        for label, weight in (class_weights or {}).items()
+    }
+    if applied_class_weights:
+        logger.info("Entrenando con pesos balanceados por clase: %s", applied_class_weights)
+
+    started = time.monotonic()
     history = model.fit(
         X_train,
         y_train,
@@ -119,7 +150,9 @@ def train_model(
         verbose=0,
         shuffle=True,
         callbacks=callbacks,
+        class_weight=applied_class_weights or None,
     )
+    duration = time.monotonic() - started
 
     if callback.cancelled:
         status = "CANCELLED"
@@ -128,13 +161,32 @@ def train_model(
     else:
         status = "COMPLETED"
 
+    recorded = {
+        key: [float(value) for value in values]
+        for key, values in (history.history or {}).items()
+    }
+    val_losses = recorded.get("val_loss") or []
+    best_epoch = (int(np.argmin(val_losses)) + 1) if val_losses else callback.epochs_completed
+    early_stopped = bool(
+        early_stopping is not None and getattr(early_stopping, "stopped_epoch", 0) > 0
+    )
+    final_metrics = {
+        key: float(values[-1]) for key, values in recorded.items() if values
+    }
+
     logger.info(
-        "Entrenamiento finalizado con estado=%s tras %s épocas",
+        "Entrenamiento finalizado con estado=%s tras %s épocas en %.1fs (early_stopped=%s)",
         status,
         callback.epochs_completed,
+        duration,
+        early_stopped,
     )
     return TrainingOutcome(
         status=status,
         epochs_completed=callback.epochs_completed,
-        history={key: [float(value) for value in values] for key, values in (history.history or {}).items()},
+        history=recorded,
+        duration_seconds=round(duration, 3),
+        early_stopped=early_stopped,
+        best_epoch=best_epoch,
+        final_metrics=final_metrics,
     )

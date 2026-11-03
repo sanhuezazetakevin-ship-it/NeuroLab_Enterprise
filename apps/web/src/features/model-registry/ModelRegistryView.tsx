@@ -9,8 +9,11 @@ import {
   AlertTriangle,
   Loader2,
   FileCheck2,
+  FileText,
+  FlaskConical,
   ArrowRight,
   Lock,
+  X,
 } from 'lucide-react';
 import { useApp } from '../../lib/AppContext';
 import { ApiClient } from '../../lib/api';
@@ -21,7 +24,14 @@ import {
   ProjectRequired,
 } from '../../components/common/ProjectGuard';
 import { formatDateTime, formatMetric, formatPercent, shortId } from '../../lib/format';
-import { ModelLifecycleStatus, ModelMetrics, ModelVersion, UserRole } from '../../types';
+import {
+  ModelInputField,
+  ModelLifecycleStatus,
+  ModelMetrics,
+  ModelVersion,
+  PredictionResult,
+  UserRole,
+} from '../../types';
 
 const APPROVAL_ROLES: string[] = ['ADMIN', 'PROJECT_LEAD'];
 
@@ -59,6 +69,7 @@ function metricHighlights(metrics: ModelMetrics | null): { label: string; value:
   if (accuracy != null) highlights.push({ label: 'Exactitud', value: formatPercent(accuracy) });
   if (loss != null) highlights.push({ label: 'Pérdida', value: formatMetric(loss) });
   if (metrics.f1Score != null) highlights.push({ label: 'F1-Score', value: formatMetric(metrics.f1Score) });
+  if (metrics.rocAuc != null) highlights.push({ label: 'ROC-AUC', value: formatMetric(metrics.rocAuc) });
   if (metrics.r2Score != null) highlights.push({ label: 'R²', value: formatMetric(metrics.r2Score) });
   if (metrics.testRmse != null) highlights.push({ label: 'RMSE', value: formatMetric(metrics.testRmse) });
   return highlights.slice(0, 4);
@@ -74,6 +85,8 @@ export const ModelRegistryView: React.FC = () => {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [cardLoadingId, setCardLoadingId] = useState<string | null>(null);
+  const [testingModelId, setTestingModelId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<'ALL' | ModelLifecycleStatus>('ALL');
 
   const effectiveRole = (activeProject?.effectiveRole as UserRole | string) || currentRole;
@@ -158,6 +171,22 @@ export const ModelRegistryView: React.FC = () => {
       showToast(err instanceof Error ? err.message : 'No fue posible descargar el artefacto', 'error');
     } finally {
       setDownloadingId(null);
+    }
+  };
+
+  const handleOpenCard = async (model: ModelVersion) => {
+    setCardLoadingId(model.id);
+    try {
+      const markdown = await ApiClient.getModelCard(model.id);
+      const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener,noreferrer');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      showToast(`Ficha de la versión ${model.version} abierta`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'La ficha del modelo no está disponible', 'error');
+    } finally {
+      setCardLoadingId(null);
     }
   };
 
@@ -307,6 +336,34 @@ export const ModelRegistryView: React.FC = () => {
                   ))}
 
                   <button
+                    onClick={() => handleOpenCard(model)}
+                    disabled={cardLoadingId === model.id || model.status === 'RETIRED'}
+                    title="Ver la ficha del modelo (model card) generada en el entrenamiento"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl glass-btn-secondary text-[11px] font-medium disabled:opacity-50"
+                  >
+                    {cardLoadingId === model.id ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <FileText className="w-3.5 h-3.5" />
+                    )}
+                    Ficha
+                  </button>
+
+                  <button
+                    onClick={() => setTestingModelId(testingModelId === model.id ? null : model.id)}
+                    disabled={model.status === 'RETIRED' || !model.metricsSummary?.inputSchema?.length}
+                    title={
+                      !model.metricsSummary?.inputSchema?.length
+                        ? 'Reentrene el modelo para generar el esquema de entrada'
+                        : 'Ejecutar una predicción real contra el modelo servido'
+                    }
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl glass-btn-secondary text-[11px] font-medium disabled:opacity-50"
+                  >
+                    <FlaskConical className="w-3.5 h-3.5" />
+                    {testingModelId === model.id ? 'Cerrar prueba' : 'Probar modelo'}
+                  </button>
+
+                  <button
                     onClick={() => handleDownload(model)}
                     disabled={downloadingId === model.id}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl glass-btn-primary text-[11px] font-semibold disabled:opacity-50"
@@ -374,10 +431,247 @@ export const ModelRegistryView: React.FC = () => {
                     : ''}
                 </p>
               )}
+
+              {testingModelId === model.id && (
+                <PredictionPanel model={model} onClose={() => setTestingModelId(null)} />
+              )}
             </div>
           );
         })}
       </div>
+    </div>
+  );
+};
+
+const PredictionPanel: React.FC<{ model: ModelVersion; onClose: () => void }> = ({
+  model,
+  onClose,
+}) => {
+  const schema: ModelInputField[] = model.metricsSummary?.inputSchema || [];
+  const classLabels = model.metricsSummary?.classLabels || [];
+  const isBinary = model.metricsSummary?.task === 'classification' && classLabels.length === 2;
+
+  const [values, setValues] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {};
+    schema.forEach((field) => {
+      if (field.kind === 'numeric') {
+        initial[field.name] = field.median != null ? String(field.median) : '';
+      } else {
+        initial[field.name] = field.values?.[0] ?? '';
+      }
+    });
+    return initial;
+  });
+  const [threshold, setThreshold] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<PredictionResult | null>(null);
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setLoading(true);
+    setError(null);
+    try {
+      const record: Record<string, unknown> = {};
+      schema.forEach((field) => {
+        const raw = values[field.name];
+        if (field.kind === 'numeric') {
+          record[field.name] = raw === '' ? null : Number(raw);
+        } else {
+          record[field.name] = raw;
+        }
+      });
+      const parsedThreshold = threshold === '' ? undefined : Number(threshold);
+      const response = await ApiClient.predictModel(model.id, [record], parsedThreshold);
+      setResult(response);
+    } catch (err) {
+      setResult(null);
+      setError(err instanceof Error ? err.message : 'No fue posible ejecutar la predicción');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-sky-500/25 bg-sky-500/[0.04] p-4 space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-300 flex items-center gap-1.5">
+            <FlaskConical className="w-3.5 h-3.5" /> Inferencia real sobre {model.version}
+          </p>
+          <p className="text-[11px] text-zinc-600 dark:text-white/60 mt-0.5">
+            Los valores se envían al endpoint <code className="font-mono">/predict</code> y se
+            transforman con el mismo preprocesador del entrenamiento.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-zinc-500 hover:text-zinc-900 dark:text-white/50 dark:hover:text-white"
+          aria-label="Cerrar panel de prueba"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {schema.map((field) => (
+          <label key={field.name} className="flex flex-col gap-1 text-[11px]">
+            <span className="font-medium text-zinc-700 dark:text-white/70">
+              {field.name}
+              {field.nullable ? ' (opcional)' : ''}
+            </span>
+            {field.kind === 'numeric' ? (
+              <input
+                type="number"
+                step="any"
+                min={field.min ?? undefined}
+                max={field.max ?? undefined}
+                value={values[field.name] ?? ''}
+                onChange={(event) =>
+                  setValues((prev) => ({ ...prev, [field.name]: event.target.value }))
+                }
+                className="glass-inset rounded-lg border border-black/10 dark:border-white/10 px-2.5 py-1.5 font-mono text-xs text-zinc-900 dark:text-white bg-transparent"
+              />
+            ) : (field.values?.length ?? 0) > 0 && (field.values?.length ?? 0) <= 40 ? (
+              <select
+                value={values[field.name] ?? ''}
+                onChange={(event) =>
+                  setValues((prev) => ({ ...prev, [field.name]: event.target.value }))
+                }
+                className="glass-inset rounded-lg border border-black/10 dark:border-white/10 px-2.5 py-1.5 text-xs text-zinc-900 dark:text-white bg-transparent"
+              >
+                {field.values?.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="text"
+                value={values[field.name] ?? ''}
+                onChange={(event) =>
+                  setValues((prev) => ({ ...prev, [field.name]: event.target.value }))
+                }
+                className="glass-inset rounded-lg border border-black/10 dark:border-white/10 px-2.5 py-1.5 text-xs text-zinc-900 dark:text-white bg-transparent"
+              />
+            )}
+            {field.kind === 'numeric' && (field.min != null || field.max != null) && (
+              <span className="text-[10px] text-zinc-500 dark:text-white/40 font-mono">
+                rango observado {formatMetric(field.min)} – {formatMetric(field.max)}
+              </span>
+            )}
+          </label>
+        ))}
+
+        {isBinary && (
+          <label className="flex flex-col gap-1 text-[11px]">
+            <span className="font-medium text-zinc-700 dark:text-white/70">
+              Umbral de decisión (opcional)
+            </span>
+            <input
+              type="number"
+              step="0.01"
+              min={0}
+              max={1}
+              placeholder={
+                model.metricsSummary?.decisionThreshold != null
+                  ? String(model.metricsSummary.decisionThreshold)
+                  : '0.5'
+              }
+              value={threshold}
+              onChange={(event) => setThreshold(event.target.value)}
+              className="glass-inset rounded-lg border border-black/10 dark:border-white/10 px-2.5 py-1.5 font-mono text-xs text-zinc-900 dark:text-white bg-transparent"
+            />
+            <span className="text-[10px] text-zinc-500 dark:text-white/40">
+              Vacío = umbral ajustado durante la evaluación.
+            </span>
+          </label>
+        )}
+
+        <div className="sm:col-span-2 flex justify-end">
+          <button
+            type="submit"
+            disabled={loading}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl glass-btn-primary text-[11px] font-semibold disabled:opacity-50"
+          >
+            {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FlaskConical className="w-3.5 h-3.5" />}
+            Ejecutar predicción
+          </button>
+        </div>
+      </form>
+
+      {error && (
+        <p className="text-[11px] text-rose-700 dark:text-rose-300 flex items-start gap-1.5">
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" /> {error}
+        </p>
+      )}
+
+      {result && (
+        <div className="rounded-xl glass-inset border border-black/10 dark:border-white/10 p-3 space-y-2">
+          {result.predictions.map((item) => (
+            <div key={item.index} className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-zinc-500 dark:text-white/40">
+                  {result.task === 'regression' ? 'Valor estimado' : 'Clase predicha'}
+                </span>
+                <p className="font-mono font-semibold text-zinc-900 dark:text-white">
+                  {item.label ?? item.prediction}
+                </p>
+              </div>
+              {item.probability != null && (
+                <div className="text-right">
+                  <span className="text-[10px] uppercase font-bold text-zinc-500 dark:text-white/40">
+                    Probabilidad
+                  </span>
+                  <p className="font-mono font-semibold text-zinc-900 dark:text-white">
+                    {formatPercent(item.probability)}
+                  </p>
+                </div>
+              )}
+              {item.threshold != null && (
+                <span className="text-[10px] font-mono text-zinc-500 dark:text-white/40">
+                  umbral {formatMetric(item.threshold)}
+                </span>
+              )}
+            </div>
+          ))}
+
+          {result.predictions[0]?.probabilities && (
+            <div className="space-y-1">
+              {Object.entries(result.predictions[0].probabilities)
+                .sort(([, a], [, b]) => b - a)
+                .map(([label, probability]) => (
+                  <div key={label} className="flex items-center gap-2 text-[10px]">
+                    <span className="w-24 truncate font-mono text-zinc-600 dark:text-white/60">
+                      {label}
+                    </span>
+                    <div className="flex-1 h-1.5 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
+                      <div
+                        className="h-full bg-sky-500"
+                        style={{ width: `${Math.min(100, probability * 100)}%` }}
+                      />
+                    </div>
+                    <span className="w-14 text-right font-mono text-zinc-700 dark:text-white/70">
+                      {formatPercent(probability)}
+                    </span>
+                  </div>
+                ))}
+            </div>
+          )}
+
+          {result.warnings.length > 0 && (
+            <ul className="text-[10px] text-amber-700 dark:text-amber-300 space-y-0.5">
+              {result.warnings.map((warning) => (
+                <li key={warning} className="flex items-start gap-1">
+                  <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" /> {warning}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   );
 };

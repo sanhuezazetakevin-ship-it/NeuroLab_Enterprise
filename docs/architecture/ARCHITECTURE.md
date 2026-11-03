@@ -41,20 +41,21 @@ flowchart TB
     Worker -->|"PUBLISH epoch_end / state"| Queue
     Queue -->|"SUSCRIBE"| API
     API -->|"CSV"| Vol
-    Worker -->|"Lee CSV / escribe artefactos"| Vol
-    API -->|"Descarga .keras"| Vol
+    Worker -->|"Lee CSV / escribe artefactos y ficha"| Vol
+    API -->|"Descarga .keras, ficha y manifiesto"| Vol
+    API -->|"Inferencia opcional: carga .keras + preprocesador"| Vol
 ```
 
 ### Componentes
 
 | Componente | Responsabilidad | No hace |
 |---|---|---|
-| **Web** | UI, navegación, formularios, gráficas, descarga autenticada, reconexión de eventos | No entrena ni calcula métricas del modelo |
-| **API** | Autenticación, RBAC, validación, persistencia, encolado, streaming, auditoría | No importa TensorFlow ni ejecuta `fit()` |
-| **Worker** | Preprocesamiento, construcción Keras, entrenamiento, evaluación, artefactos, telemetría | No atiende HTTP ni aplica reglas de autorización |
+| **Web** | UI, navegación, formularios, gráficas, descarga autenticada, ficha, prueba de inferencia, reconexión de eventos | No entrena ni calcula métricas del modelo |
+| **API** | Autenticación, RBAC, validación, persistencia, encolado, streaming, auditoría, inferencia opcional | No entrena ni ejecuta `fit()`; sólo importa TensorFlow de forma perezosa si se habilita `/predict` |
+| **Worker** | Preprocesamiento, construcción Keras, entrenamiento, evaluación, baselines, artefactos, telemetría | No atiende HTTP ni aplica reglas de autorización |
 | **PostgreSQL** | Estado de jobs, métricas, versiones, usuarios, auditoría | No almacena binarios de modelos |
 | **Redis** | Cola de trabajos, Pub/Sub de eventos, flags de cancelación | No es fuente de verdad |
-| **Volumen** | CSV originales y artefactos del modelo | No se sirve públicamente |
+| **Volumen / bucket** | CSV originales, artefactos del modelo y ficha | No se sirve públicamente |
 
 ---
 
@@ -89,7 +90,7 @@ sequenceDiagram
         A-->>W: event epoch_end
         K->>K: Comprueba cancelación/timeout
     end
-    K->>K: Evalúa en test y guarda artefactos
+    K->>K: Evalúa en test, calcula baselines y guarda artefactos + ficha
     K->>DB: INSERT model_version DRAFT + COMPLETED + auditoría
     K->>Q: PUBLISH state COMPLETED
     A-->>W: event state terminal
@@ -171,7 +172,8 @@ MODEL_DIR/
     ├── model.keras
     ├── scaler.pkl
     ├── preprocessor.pkl
-    └── training_manifest.json
+    ├── training_manifest.json
+    └── model_card.md
 
 DATA_DIR/
 ├── datasets/{project_id}/{dataset_id}.csv
@@ -182,9 +184,11 @@ DATA_DIR/
 ```
 
 - `storage_key` persistido es relativo a la raíz de almacenamiento (`models/...` o `datasets/...`) y se valida contra path traversal antes de leer o descargar.
-- `training_manifest.json` incluye versión de esquema, versión de código, tarea, target, dimensiones, pérdida, etiquetas de clase, columnas, conteos de split, hiperparámetros, checksum del dataset y checksums de cada artefacto.
+- `training_manifest.json` (`schema_version 2`) incluye versión de esquema, versión de código y de modelo, tarea, target, dimensiones, pérdida, etiquetas de clase, columnas, conteos de split, distribución de clases y pesos, hiperparámetros, checksum del dataset, entorno (Python, paquetes, commit de Git), estado de determinismo, generalización, baselines, comparación con baselines, métricas y checksums de cada artefacto.
+- `model_card.md` se genera con el mismo manifiesto: uso previsto, datos, arquitectura, protocolo de evaluación, métricas, comparación con baselines, limitaciones y trazabilidad.
 - El checksum del modelo (`model_versions.checksum`) es SHA-256 del archivo `.keras`.
 - `STORAGE_BACKEND=local` usa `DATA_DIR`/`MODEL_DIR` compartidos. `STORAGE_BACKEND=s3` usa un bucket compatible con S3 (Supabase Storage, MinIO, AWS S3 o R2) y es el modo requerido cuando API y worker corren en hosts distintos. Ambas implementaciones comparten las mismas claves lógicas, por lo que la base de datos no cambia al migrar de local a S3.
+- La API puede leer `model.keras`, `scaler.pkl`, `training_manifest.json` y `model_card.md` para inferencia y trazabilidad. La descarga pública del registro sigue limitada a `model.keras`.
 
 ---
 
@@ -214,7 +218,9 @@ DATA_DIR/
 - CORS restringido a orígenes configurados.
 - Cabeceras `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`.
 - Rate limit de login por IP (en memoria, por proceso).
-- Auditoría de acciones sensibles.
+- Inferencia: esquema de entrada validado contra el entrenamiento; se rechazan campos desconocidos y valores no finitos; el umbral se limita a `[0, 1]`; un modelo `RETIRED` no se sirve y `INFERENCE_REQUIRE_APPROVED` puede exigir `APPROVED`.
+- `scaler.pkl` y `preprocessor.pkl` se deserializan con `pickle`, pero sólo desde claves bajo `models/` que escribe el worker; nunca desde contenido enviado por un cliente.
+- Auditoría de acciones sensibles; la inferencia audita metadatos pero no los datos de entrada.
 
 ### Limitaciones de seguridad del MVP
 
@@ -229,8 +235,8 @@ DATA_DIR/
 ### ADR-01 — Desacoplar TensorFlow de la API
 
 - **Contexto:** `fit()` bloquea el event loop y consume CPU/GPU.
-- **Decisión:** worker independiente; la API sólo valida y encola.
-- **Consecuencia:** escalado separado, aislamiento de fallos y despliegue de imagen más pesada para el worker.
+- **Decisión:** worker independiente; la API sólo valida y encola. La inferencia es una excepción acotada: un módulo opcional importa TensorFlow de forma perezosa, sólo al atender `POST /predict`, y el despliegue base no instala esas dependencias.
+- **Consecuencia:** escalado separado, aislamiento de fallos e imagen base de API ligera. Habilitar inferencia añade cientos de MB al servicio de API y debe decidirse por despliegue (`--build-arg INSTALL_INFERENCE=true` o `pip install -r requirements-inference.txt`).
 
 ### ADR-02 — PostgreSQL como fuente de verdad y Redis como transporte
 
@@ -261,6 +267,12 @@ DATA_DIR/
 - **Contexto:** en Docker Compose, API y worker pueden compartir volúmenes; en Railway/Vercel/Supabase corren en hosts distintos y un disco local no es compartido ni persistente.
 - **Decisión:** una interfaz de almacenamiento con dos implementaciones (`local` y `s3`) sobre las mismas claves `datasets/...` y `models/...`. La API escribe/lee el bucket y el worker descarga el CSV y publica los artefactos.
 - **Consecuencia:** el despliegue local sigue siendo simple; el cloud usa Supabase Storage sin cambiar el esquema de base de datos ni los contratos de la API.
+
+### ADR-07 — Inferencia como módulo opcional en la API
+
+- **Contexto:** el jurado y un usuario real esperan poder usar el modelo, no sólo descargarlo. A la vez, TensorFlow en la API contradice el aislamiento de cómputo y dispara el consumo del plan gratuito.
+- **Decisión:** `POST /models/{id}/predict` vive en la API, pero sus dependencias (`tensorflow`, `scikit-learn`) están separadas en `requirements-inference.txt`. El módulo las importa sólo al usarlas y responde `503` si faltan. `GET /card` y `GET /manifest` no las necesitan.
+- **Consecuencia:** se demuestra inferencia real con el mismo preprocesador del entrenamiento sin cargar TensorFlow en el arranque ni en los despliegues que no lo necesitan. La caché LRU acota la memoria y serializa las llamadas a Keras; no sustituye a un servidor de modelos dedicado.
 
 ---
 
@@ -311,7 +323,7 @@ flowchart LR
 
 - `GET /health`: estado de la base de datos, versión y entorno.
 - `GET /api/v1/admin/system`: base de datos, Redis, backend de cola, límites y uptime.
-- Logs estructurados por proceso (`neurolab.api`, `neurolab.worker`, `neurolab.trainer`).
+- Logs estructurados por proceso (`neurolab.api`, `neurolab.worker`, `neurolab.trainer`, `neurolab.inference`).
 - Auditoría consultable por proyecto y acción.
 - Estados terminales con `error_message` legible y evento `state`.
 

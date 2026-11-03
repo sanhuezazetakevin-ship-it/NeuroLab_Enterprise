@@ -29,6 +29,14 @@ import {
 } from '../../components/common/ProjectGuard';
 import { formatDateTime, formatMetric, formatNumber, formatPercent, shortId } from '../../lib/format';
 import {
+  JOB_STATUS_LABELS,
+  MODEL_STATUS_LABELS,
+  PROJECT_STATUS_LABELS,
+  ROLE_LABELS,
+  SYSTEM_STATUS_LABELS,
+  labelFor,
+} from '../../lib/labels';
+import {
   Architecture,
   AuditEvent,
   Dataset,
@@ -63,7 +71,7 @@ function StatusPill({ status }: { status: JobStatus }) {
       {isActive && <Loader2 className="w-3 h-3 animate-spin" />}
       {status === 'COMPLETED' && <CheckCircle2 className="w-3 h-3" />}
       {status === 'FAILED' && <AlertTriangle className="w-3 h-3" />}
-      {status}
+      {labelFor(JOB_STATUS_LABELS, status)}
     </span>
   );
 }
@@ -125,7 +133,7 @@ export const DashboardView: React.FC<DashboardProps> = ({ onNavigate }) => {
         if (modelResult.status === 'fulfilled') setModels(modelResult.value);
         else failures.push('modelos');
         if (datasetResult.status === 'fulfilled') setDatasets(datasetResult.value);
-        else failures.push('datasets');
+        else failures.push('conjuntos de datos');
         if (archResult.status === 'fulfilled') setArchitectures(archResult.value);
         else failures.push('arquitecturas');
         if (auditResult.status === 'fulfilled') setAuditEvents(auditResult.value);
@@ -211,7 +219,7 @@ export const DashboardView: React.FC<DashboardProps> = ({ onNavigate }) => {
       subtext: 'Diseñadas',
     },
     {
-      label: 'Datasets',
+      label: 'Conjuntos de datos',
       value: formatNumber(datasets.length),
       icon: Database,
       detail: `${formatNumber(datasets.reduce((sum, dataset) => sum + (dataset.metadata.samples || 0), 0))} muestras`,
@@ -251,7 +259,7 @@ export const DashboardView: React.FC<DashboardProps> = ({ onNavigate }) => {
       <div className="space-y-4 animate-in fade-in duration-200">
         <DashboardHeader onRefresh={handleRefresh} refreshing={refreshing} />
         {projectsError && <ErrorBlock message={projectsError} onRetry={handleRefresh} />}
-        <ProjectRequired action="Cree o seleccione un proyecto para ver su estado real de arquitecturas, datasets, entrenamientos y modelos." />
+        <ProjectRequired action="Cree o seleccione un proyecto para ver su estado real de arquitecturas, conjuntos de datos, entrenamientos y modelos." />
         <div className="flex justify-center">
           <button
             onClick={() => onNavigate('projects')}
@@ -272,13 +280,13 @@ export const DashboardView: React.FC<DashboardProps> = ({ onNavigate }) => {
             Proyecto: {activeProject.name}
           </span>
           <span className="text-[10px] uppercase font-mono tracking-wider px-2.5 py-1 rounded-full bg-black/5 dark:bg-white/10 text-zinc-700 dark:text-white/80 border border-black/10 dark:border-white/10">
-            Rol: {activeProject.effectiveRole || currentRole}
+            Rol: {labelFor(ROLE_LABELS, activeProject.effectiveRole || currentRole)}
           </span>
           <span className="text-[10px] uppercase font-mono tracking-wider px-2.5 py-1 rounded-full bg-black/5 dark:bg-white/10 text-zinc-700 dark:text-white/80 border border-black/10 dark:border-white/10">
-            Estado: {activeProject.status}
+            Estado: {labelFor(PROJECT_STATUS_LABELS, activeProject.status)}
           </span>
           <span className="text-[10px] text-zinc-500 dark:text-white/50 font-mono">
-            Semana 11 • Deep Learning
+            Semana 11 • Aprendizaje profundo
           </span>
         </div>
 
@@ -312,7 +320,7 @@ export const DashboardView: React.FC<DashboardProps> = ({ onNavigate }) => {
             onClick={() => onNavigate('datasets')}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl glass-btn-secondary text-xs font-medium"
           >
-            <Database className="w-4 h-4 text-zinc-600 dark:text-white/70" /> Cargar Dataset
+            <Database className="w-4 h-4 text-zinc-600 dark:text-white/70" /> Cargar conjunto de datos
           </button>
           <button
             onClick={() => setWalkthroughOpen(true)}
@@ -376,16 +384,16 @@ export const DashboardView: React.FC<DashboardProps> = ({ onNavigate }) => {
               <EmptyBlock
                 icon={PlayCircle}
                 title="Sin trabajos de entrenamiento"
-                description="Ejecute un entrenamiento real con arquitectura Feedforward y un dataset verificado."
+                description="Ejecute un entrenamiento real con arquitectura Feedforward y un conjunto de datos verificado."
               />
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>
                     <tr className="border-b border-black/10 dark:border-white/10 text-zinc-500 dark:text-white/40">
-                      <th className="pb-2.5 font-medium">Job</th>
+                      <th className="pb-2.5 font-medium">Trabajo</th>
                       <th className="pb-2.5 font-medium">Arquitectura</th>
-                      <th className="pb-2.5 font-medium">Dataset</th>
+                      <th className="pb-2.5 font-medium">Conjunto de datos</th>
                       <th className="pb-2.5 font-medium">Estado</th>
                       <th className="pb-2.5 font-medium">Creado</th>
                     </tr>
@@ -406,7 +414,7 @@ export const DashboardView: React.FC<DashboardProps> = ({ onNavigate }) => {
                             {architecture?.name || 'Arquitectura no disponible'}
                           </td>
                           <td className="py-3 text-zinc-600 dark:text-white/60 max-w-[150px] truncate">
-                            {dataset?.name || 'Dataset no disponible'}
+                            {dataset?.name || 'Conjunto de datos no disponible'}
                           </td>
                           <td className="py-3">
                             <StatusPill status={job.status} />
@@ -459,7 +467,7 @@ export const DashboardView: React.FC<DashboardProps> = ({ onNavigate }) => {
                           {model.version}
                         </span>
                         <span className="text-[10px] font-mono px-2 py-0.5 rounded-full glass-inset border border-black/10 dark:border-white/10 text-zinc-600 dark:text-white/60">
-                          {model.status}
+                          {labelFor(MODEL_STATUS_LABELS, model.status)}
                         </span>
                       </div>
                       <p className="text-[10px] text-zinc-500 dark:text-white/40 mt-1">
@@ -494,7 +502,7 @@ export const DashboardView: React.FC<DashboardProps> = ({ onNavigate }) => {
               </span>
               {system && (
                 <span className="text-[10px] font-mono text-emerald-700 dark:text-emerald-300">
-                  {system.status}
+                  {labelFor(SYSTEM_STATUS_LABELS, system.status)}
                 </span>
               )}
             </div>
@@ -533,7 +541,7 @@ export const DashboardView: React.FC<DashboardProps> = ({ onNavigate }) => {
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-zinc-500 dark:text-white/50">Uptime</span>
+                  <span className="text-zinc-500 dark:text-white/50">Tiempo activo</span>
                   <span className="font-mono text-zinc-800 dark:text-white/80">
                     {uptimeLabel(system.uptimeSeconds)}
                   </span>
@@ -605,7 +613,7 @@ export const DashboardView: React.FC<DashboardProps> = ({ onNavigate }) => {
               <ShieldCheck className="w-3.5 h-3.5 text-zinc-600 dark:text-white/70" /> Flujo MVP verificado
             </span>
             <p className="text-[11px] text-zinc-500 dark:text-white/45 leading-relaxed">
-              Proyecto → arquitectura Feedforward → dataset CSV validado → entrenamiento TF/Keras real →
+              Proyecto → arquitectura Feedforward → conjunto de datos CSV validado → entrenamiento TF/Keras real →
               telemetría en vivo → métricas y versión inmutable con SHA-256.
             </p>
           </div>
@@ -623,10 +631,10 @@ const DashboardHeader: React.FC<{ onRefresh: () => void; refreshing: boolean; di
   <div className="flex items-center justify-between gap-3 pb-2 border-b border-black/10 dark:border-white/10">
     <div>
       <div className="flex items-center gap-2 text-zinc-600 dark:text-white/60 text-xs font-semibold uppercase tracking-wider">
-        <Activity className="w-4 h-4 text-zinc-700 dark:text-white/80" /> Módulo 01 • Dashboard
+        <Activity className="w-4 h-4 text-zinc-700 dark:text-white/80" /> Módulo 01 • Panel
       </div>
       <h1 className="text-xl sm:text-2xl font-semibold text-zinc-900 dark:text-white mt-1">
-        Panel Ejecutivo de Deep Learning
+        Panel ejecutivo de aprendizaje profundo
       </h1>
     </div>
     <button

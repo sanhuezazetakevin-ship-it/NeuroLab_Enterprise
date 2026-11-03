@@ -36,7 +36,7 @@ export const LoginView: React.FC = () => {
                 <p className="text-lg font-semibold text-zinc-900 dark:text-white tracking-tight">
                   NeuroLab <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded-full bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/15">Enterprise</span>
                 </p>
-                <p className="text-[11px] text-zinc-500 dark:text-white/50">Deep Learning • Semana 11</p>
+                <p className="text-[11px] text-zinc-500 dark:text-white/50">Aprendizaje profundo • Semana 11</p>
               </div>
             </div>
 

@@ -31,16 +31,20 @@ Vercel (React/Vite) ─────► Railway API (FastAPI, 1 GB)
                                   │        ├── Supabase Postgres (metadatos)
                                   │        └── Railway Redis (cola + eventos)
                                   │
+                                  ├── Supabase Storage (artefactos, ficha, manifiesto)
+                                  └── (opcional) TensorFlow para POST /predict
                                   ▼
                         Railway Worker (TensorFlow, 1 GB)
                                   │
                                   ├── descarga CSV de Supabase Storage
-                                  └── sube model.keras, scaler.pkl, manifiesto
+                                  └── sube model.keras, scaler.pkl, manifiesto y ficha
 ```
 
-La API **no importa TensorFlow**. El worker es un proceso separado que consume
-la cola y actualiza el estado en PostgreSQL. API y worker no comparten disco:
-por eso **Supabase Storage es obligatorio**, no opcional.
+La API **no importa TensorFlow al arrancar**. El worker es un proceso separado
+que consume la cola y actualiza el estado en PostgreSQL. API y worker no
+comparten disco: por eso **Supabase Storage es obligatorio**, no opcional.
+La única excepción a la regla de TensorFlow es el módulo de inferencia, que se
+instala aparte y sólo se carga al usar `POST /predict`.
 
 ---
 
@@ -143,6 +147,10 @@ python scripts/setup_supabase_db.py --check-only
    - Settings → Networking → **Generate Domain**; puerto objetivo `8000`.
    - Healthcheck Path: `/health`, timeout `300`.
    - No configure un volumen: los archivos viven en Supabase Storage.
+   - **Inferencia opcional:** añada la variable `INSTALL_INFERENCE=true` antes
+     de construir. Railway la pasa como build-arg al `Dockerfile.api`, que
+     instala TensorFlow y scikit-learn. Aumenta el tiempo de build y el consumo
+     de RAM; sin ella, `/predict` responde `503` y el resto funciona igual.
 3. **Servicio Worker**
    - Nombre: `neurolab-worker`.
    - Dockerfile Path: `infra/docker/Dockerfile.worker`.
@@ -180,6 +188,8 @@ Dockerfiles ya copian las rutas del monorepo.
 | `MODEL_DIR` | `/app/data/models` |
 | `RUN_MIGRATIONS` | `true` |
 | `SEED_ADMIN_ON_START` | `true` |
+| `INFERENCE_REQUIRE_APPROVED` | `true` para servir sólo modelos `APPROVED` |
+| `INSTALL_INFERENCE` | `true` sólo si usará `POST /predict` (build-arg) |
 
 `REDIS_URL` con la sintaxis `${{Redis.REDIS_URL}}` es una **referencia de
 variable de Railway**; se resuelve en la plataforma y no debe copiarse a un
@@ -253,6 +263,11 @@ use una URL relativa `/api/v1` en Vercel: no hay proxy Nginx en ese hosting.
 8. Abra **Registro de modelos**, descargue el `.keras` y confirme el checksum.
 9. Reinicie el servicio API en Railway y vuelva a descargar el modelo. Si la
    descarga sigue funcionando, Supabase Storage está bien configurado.
+10. Abra **Ficha** y **Manifiesto**: confirme `schema_version 2`, las métricas
+    ROC-AUC/PR-AUC y la comparación con baselines.
+11. Si compiló con `INSTALL_INFERENCE=true`, use **Probar modelo**, envíe un
+    registro y verifique que devuelve clase y probabilidad. Sin esa variable el
+    panel mostrará un `503` explicativo, que es el comportamiento esperado.
 
 Compruebe la salud de la API:
 
@@ -267,7 +282,10 @@ curl https://<api>.up.railway.app/health
 - **30 días** de Free Trial y **$5** de crédito. API, worker y Redis consumen
   del mismo crédito.
 - **1 GB de RAM por servicio**. TensorFlow puede agotarlo con datasets grandes
-  o modelos profundos. Use CSV pequeños y redes mínimas.
+  o modelos profundos. Use CSV pequeños y redes mínimas. Si habilita inferencia
+  en la API (`INSTALL_INFERENCE=true`), TensorFlow también consume RAM en ese
+  servicio y la caché mantiene hasta 4 modelos cargados: en el trial conviene
+  mantenerla desactivada o usar modelos muy pequeños.
 - El worker se reinicia si falla; un entrenamiento en curso se marca `FAILED` y
   puede reprocesarse manualmente con `python worker.py --job-id <uuid>`.
 - Supabase Free puede **pausar** el proyecto por inactividad. Restáurelo desde
@@ -292,6 +310,8 @@ más RAM) o a un worker en Render con plan pago.
 | Dataset 404 al previsualizar | bucket/claves S3 mal configuradas | Revise `S3_*` y que el bucket sea `neurolab` |
 | Worker no toma jobs | `REDIS_URL` distinto entre API y worker | Use la misma referencia `${{Redis.REDIS_URL}}` |
 | `Killed` durante entrenamiento | RAM > 1 GB | Reduzca filas, capas, batch o features |
+| `/predict` responde 503 | API sin dependencias de inferencia | Recompile con `INSTALL_INFERENCE=true` o instale `requirements-inference.txt` |
+| `/predict` responde 409 | Modelo `RETIRED` o `INFERENCE_REQUIRE_APPROVED=true` sin aprobar | Apruebe el modelo o ajuste la política |
 | Modelo 404 tras reinicio | `STORAGE_BACKEND=local` | Cambie a `s3` con Supabase Storage |
 
 ---

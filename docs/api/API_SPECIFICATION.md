@@ -1,7 +1,7 @@
 # Especificación de API v1 y eventos
 
 - **Prefijo base:** `/api/v1`
-- **Formato:** `application/json` (salvo `multipart/form-data` en la carga de CSV y `text/event-stream` en SSE)
+- **Formato:** `application/json` (salvo `multipart/form-data` en la carga de CSV, `text/event-stream` en SSE y `text/markdown` en la ficha del modelo)
 - **Autenticación:** `Authorization: Bearer <JWT>`
 - **Token:** HS256, expiración por defecto 480 minutos (`expires_in` se expresa en segundos)
 - **OpenAPI:** `GET /api/v1/openapi.json` · **Swagger UI:** `GET /api/v1/docs` · **ReDoc:** `/api/v1/redoc`
@@ -60,7 +60,7 @@ Códigos usados:
 | `413` | Archivo mayor al límite permitido |
 | `422` | Validación de esquema/negocio |
 | `429` | Rate limit de login excedido |
-| `503` | Cola de entrenamientos no disponible |
+| `503` | Cola de entrenamientos no disponible, o inferencia sin dependencias opcionales |
 
 Los endpoints de proyecto devuelven `404` cuando el usuario no es miembro ni propietario, incluso si el proyecto existe.
 
@@ -136,6 +136,7 @@ Lista los proyectos accesibles. `ADMIN` ve todos; el resto ve proyectos propios 
     "description": "Clasificación binaria de transacciones.",
     "owner_id": "c138...",
     "status": "ACTIVE",
+    "network_family": "FEEDFORWARD",
     "created_at": "2026-11-01T15:30:00Z",
     "updated_at": "2026-11-01T15:30:00Z",
     "architectures_count": 2,
@@ -155,11 +156,13 @@ Roles permitidos: `ADMIN`, `PROJECT_LEAD`, `AI_ENGINEER`.
 ```json
 {
   "name": "Detección de Fraude",
-  "description": "Clasificación binaria de transacciones."
+  "description": "Clasificación binaria de transacciones.",
+  "network_family": "FEEDFORWARD"
 }
 ```
 
 - `name`: 3–200 caracteres; `description`: hasta 4000.
+- `network_family`: `FEEDFORWARD` (default), `RNN`, `CNN` o `GAN`. Define la familia inicial del diseñador.
 - `201 Created` → `ProjectResponse`.
 - El creador queda como `owner_id`; su rol efectivo es `PROJECT_LEAD`.
 
@@ -300,6 +303,20 @@ Activaciones: `relu`, `sigmoid`, `tanh`, `softmax`, `linear`, `leaky_relu`, `elu
     "features_count": 3,
     "target_column": "abandono",
     "task": "classification",
+    "neurons": {
+      "available": true,
+      "input_neurons": 9,
+      "output_neurons": 1,
+      "output_activation": "sigmoid",
+      "loss": "binary_crossentropy",
+      "class_labels": ["0", "1"],
+      "class_count": 2,
+      "features": [
+        { "name": "edad", "kind": "numeric", "neurons": 1 },
+        { "name": "ciudad", "kind": "one_hot", "neurons": 3, "values": ["Arequipa", "Cusco", "Lima"] }
+      ],
+      "truncated": false
+    },
     "columns": [
       { "name": "edad", "dtype": "int64", "null_count": 0, "unique": 40 }
     ],
@@ -337,6 +354,8 @@ Reglas de validación:
 - Al menos 2 columnas y entre 10 y 500.000 filas.
 - El target debe existir y tener al menos 2 valores distintos.
 - La tarea se infiere: columnas categóricas o pocos valores únicos → `classification`; en otro caso → `regression`.
+- `metadata_json.neurons` calcula la forma real del modelo con las mismas reglas del worker: columna numérica → 1 neurona; categórica con ≤30 valores → one-hot (una neurona por valor); resto → ordinal (1 neurona). La salida es 1 + `sigmoid` para binaria, N + `softmax` para multiclase y 1 + `linear` para regresión.
+- Antes de encolar un entrenamiento, la API rechaza con `422` si `input_shape[0]` no coincide con `metadata_json.neurons.input_neurons`.
 
 ### `GET /projects/{project_id}/datasets/{dataset_id}`
 
@@ -392,7 +411,11 @@ Roles de escritura. Requiere arquitectura y dataset del mismo proyecto, dataset 
     "loss": null,
     "metrics": ["accuracy"],
     "random_seed": 42,
-    "validation_split": 0.15
+    "validation_split": 0.15,
+    "deterministic": true,
+    "early_stopping": true,
+    "early_stopping_patience": 5,
+    "reduce_lr_on_plateau": true
   }
 }
 ```
@@ -409,6 +432,10 @@ Campos de hiperparámetros:
 | `metrics` | lista de nombres Keras | `["accuracy"]` |
 | `random_seed` | 0–2³¹−1 | `42` |
 | `validation_split` | `> 0` y `< 0.5` | `0.15` |
+| `deterministic` | booleano; activa `enable_op_determinism` | `false` |
+| `early_stopping` | booleano | `true` |
+| `early_stopping_patience` | 1–50 | `5` |
+| `reduce_lr_on_plateau` | booleano | `true` |
 
 La API añade al job `target_column`, `task`, `dataset_checksum`, `dataset_version` y `code_version` para reproducibilidad.
 
@@ -613,6 +640,10 @@ En modo `QUEUE_BACKEND=filesystem` la cancelación usa `DATA_DIR/cancellations/{
     "precision": 0.94,
     "recall": 0.94,
     "f1_score": 0.94,
+    "roc_auc": 0.9918,
+    "pr_auc": 0.9731,
+    "balanced_accuracy": 0.93,
+    "decision_threshold": 0.55,
     "confusion_matrix": [[10, 1], [0, 19]],
     "class_labels": ["0", "1"],
     "samples_test": 30,
@@ -621,11 +652,57 @@ En modo `QUEUE_BACKEND=filesystem` la cancelación usa `DATA_DIR/cancellations/{
     "dataset_checksum": "e3b0...",
     "dataset_version": "v1.0",
     "code_version": "1.0.0",
+    "class_weights": { "0": 0.672, "1": 1.9535 },
+    "baseline_comparison": {
+      "available": true,
+      "metric": "f1_score",
+      "model_score": 0.94,
+      "best_baseline": "logistic_regression",
+      "best_baseline_score": 0.857,
+      "delta": 0.083,
+      "beats_baseline": true
+    },
+    "training": {
+      "epochs_completed": 50,
+      "early_stopped": false,
+      "best_epoch": 48,
+      "duration_seconds": 41.2
+    },
+    "reproducibility": {
+      "random_seed": 42,
+      "deterministic_ops": true,
+      "python_hash_seed": null
+    },
+    "environment": {
+      "python": "3.13.6",
+      "packages": { "tensorflow": "2.21.0", "scikit-learn": "1.9.0" },
+      "git_commit": "5131244"
+    },
+    "input_schema": [
+      {
+        "name": "edad",
+        "kind": "numeric",
+        "nullable": false,
+        "min": 18,
+        "max": 80,
+        "median": 41
+      },
+      {
+        "name": "ciudad",
+        "kind": "categorical",
+        "nullable": false,
+        "values": ["Lima", "Cusco"],
+        "truncated": false
+      }
+    ],
+    "feature_columns": ["edad", "ingreso", "ciudad"],
+    "model_card": "model_card.md",
     "artifacts": {
       "model": { "path": "models/.../model.keras", "sha256": "..." },
       "scaler": { "path": "models/.../scaler.pkl", "sha256": "..." },
       "preprocessor": { "path": "models/.../preprocessor.pkl", "sha256": "..." },
-      "manifest": { "path": "models/.../training_manifest.json", "sha256": "..." }
+      "manifest": { "path": "models/.../training_manifest.json", "sha256": "..." },
+      "model_card": { "path": "models/.../model_card.md", "sha256": "..." }
     }
   },
   "created_at": "2026-11-01T15:45:00Z"
@@ -633,6 +710,10 @@ En modo `QUEUE_BACKEND=filesystem` la cancelación usa `DATA_DIR/cancellations/{
 ```
 
 Para regresión, `metrics_summary` incluye `test_loss`, `test_mse`, `test_rmse`, `test_mae` y `r2_score`.
+
+El detalle completo —baselines, brecha de generalización, descripción del
+dataset y checksums— está en el manifiesto (`GET /models/{id}/manifest`) y en la
+ficha (`GET /models/{id}/card`).
 
 ### `GET /models/{model_id}`
 
@@ -666,6 +747,87 @@ RETIRED   → (ninguna)
 - `404` si el artefacto no existe en el nodo de almacenamiento.
 - `400` si la ruta almacenada escapa de `MODEL_DIR`.
 
+### `POST /models/{model_id}/predict`
+
+Inferencia real sobre el modelo entrenado. Requiere acceso al proyecto y que la
+API tenga instaladas las dependencias opcionales (`requirements-inference.txt`).
+Carga `model.keras` y `scaler.pkl` del almacenamiento y aplica el mismo
+preprocesador del entrenamiento.
+
+```json
+{
+  "records": [
+    { "edad": 30, "ingreso": 40000, "ciudad": "Lima" },
+    { "edad": 55, "ingreso": 90000, "ciudad": "Cusco" }
+  ],
+  "threshold": 0.55
+}
+```
+
+| Campo | Tipo | Requerido | Descripción |
+|---|---|---|---|
+| `records` | array de objetos | Sí | 1–1000 registros con las columnas del entrenamiento |
+| `threshold` | número 0–1 | No | Sólo clasificación binaria; por defecto usa el umbral ajustado |
+
+`200 OK`:
+
+```json
+{
+  "model_id": "a1b2...",
+  "model_version": "v1.0",
+  "model_status": "APPROVED",
+  "task": "classification",
+  "target_column": "abandono",
+  "class_labels": ["0", "1"],
+  "decision_threshold": 0.55,
+  "predictions": [
+    {
+      "index": 0,
+      "prediction": "1",
+      "label": "1",
+      "probability": 0.88,
+      "probabilities": { "0": 0.12, "1": 0.88 },
+      "threshold": 0.55
+    }
+  ],
+  "warnings": []
+}
+```
+
+- Clasificación multiclase: `probabilities` incluye todas las clases y
+  `threshold` es `null`.
+- Regresión: `prediction` es un número, `label` y `probability` pueden ser
+  `null`.
+- `warnings` incluye categorías no observadas durante el entrenamiento. No es
+  un error: el codificador las trata como categoría nueva.
+
+Errores específicos:
+
+| Código | Causa |
+|---|---|
+| `404` | Modelo inexistente, sin acceso al proyecto o artefactos no disponibles |
+| `409` | Modelo `RETIRED`; o modelo no `APPROVED` con `INFERENCE_REQUIRE_APPROVED=true` |
+| `422` | Campos desconocidos o faltantes, valor no numérico/no finito, umbral en multiclase/regresión |
+| `503` | Faltan TensorFlow o scikit-learn en la API |
+
+Cada predicción audita `MODEL_PREDICTED` con `model_id`, `version`, número de
+registros, tarea y umbral. **No** se persisten los datos de entrada.
+
+### `GET /models/{model_id}/card`
+
+- Requiere acceso al proyecto.
+- `200 OK` → `text/markdown; charset=utf-8` con la ficha del modelo.
+- `404` si la versión no tiene `model_card.md`.
+- No requiere TensorFlow.
+
+### `GET /models/{model_id}/manifest`
+
+- Requiere acceso al proyecto.
+- `200 OK` → manifiesto JSON (`schema_version 2`) con entorno, dataset,
+  baselines, métricas, hiperparámetros y checksums.
+- `404` si la versión no tiene `training_manifest.json`.
+- No requiere TensorFlow.
+
 ---
 
 ## 9. Auditoría (`/projects/{project_id}/audit-events`)
@@ -697,7 +859,7 @@ RETIRED   → (ninguna)
 ]
 ```
 
-Acciones registradas incluyen: `USER_LOGIN`, `USER_PASSWORD_CHANGED`, `PROJECT_CREATED`, `PROJECT_UPDATED`, `PROJECT_MEMBER_UPSERTED`, `PROJECT_MEMBER_REMOVED`, `DATASET_UPLOADED`, `DATASET_DELETED`, `ARCHITECTURE_CREATED`, `TRAINING_JOB_QUEUED`, `TRAINING_JOB_ENQUEUE_FAILED`, `TRAINING_JOB_CANCEL_REQUESTED`, `TRAINING_JOB_CANCELLED`, `TRAINING_JOB_COMPLETED`, `TRAINING_JOB_FAILED`, `MODEL_REVIEWED`, `MODEL_APPROVED`, `MODEL_RETIRED`, `USER_CREATED`, `USER_UPDATED`.
+Acciones registradas incluyen: `USER_LOGIN`, `USER_PASSWORD_CHANGED`, `PROJECT_CREATED`, `PROJECT_UPDATED`, `PROJECT_MEMBER_UPSERTED`, `PROJECT_MEMBER_REMOVED`, `DATASET_UPLOADED`, `DATASET_DELETED`, `ARCHITECTURE_CREATED`, `TRAINING_JOB_QUEUED`, `TRAINING_JOB_ENQUEUE_FAILED`, `TRAINING_JOB_CANCEL_REQUESTED`, `TRAINING_JOB_CANCELLED`, `TRAINING_JOB_COMPLETED`, `TRAINING_JOB_FAILED`, `MODEL_REVIEWED`, `MODEL_APPROVED`, `MODEL_RETIRED`, `MODEL_PREDICTED`, `USER_CREATED`, `USER_UPDATED`.
 
 ---
 

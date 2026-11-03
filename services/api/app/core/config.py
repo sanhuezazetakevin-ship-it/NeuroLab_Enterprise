@@ -1,9 +1,10 @@
+import json
 from functools import lru_cache
 from pathlib import Path
-from typing import List
+from typing import Annotated, List
 
 from pydantic import field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parents[2]  # services/api (o /app en Docker)
 ROOT_DIR = BASE_DIR.parents[1] if len(BASE_DIR.parents) > 1 else BASE_DIR
@@ -44,12 +45,19 @@ class Settings(BaseSettings):
     REDIS_PORT: int = 6379
     REDIS_URL: str = f"redis://{REDIS_HOST}:{REDIS_PORT}/0"
     TRAINING_QUEUE: str = "neurolab:training:queue"
+    # "filesystem" escribe descriptores en DATA_DIR/queue y no requiere Redis.
+    # Debe coincidir con QUEUE_BACKEND del worker para que consuma los jobs.
+    QUEUE_BACKEND: str = "redis"
+    QUEUE_POLL_SECONDS: float = 2.0
 
     DATA_DIR: str = str(BASE_DIR / "data" / "uploads")
     MODEL_DIR: str = str(BASE_DIR / "data" / "models")
     MAX_UPLOAD_MB: int = 50
     MAX_CSV_ROWS: int = 500_000
     MAX_CSV_COLUMNS: int = 500
+
+    # Gobierno de inferencia: en producción conviene exigir modelos aprobados.
+    INFERENCE_REQUIRE_APPROVED: bool = False
 
     # Object storage. "local" usa DATA_DIR/MODEL_DIR; "s3" usa un bucket
     # compatible con S3 (Supabase Storage, MinIO, AWS S3, R2, etc.).
@@ -66,7 +74,10 @@ class Settings(BaseSettings):
     SEED_ADMIN_PASSWORD: str = "Admin123!"
     SEED_ADMIN_NAME: str = "Administrador NeuroLab"
 
-    CORS_ORIGINS: List[str] = [
+    # NoDecode evita que pydantic-settings intente interpretar el valor como
+    # JSON antes de nuestro validador. Así se aceptan tanto listas separadas
+    # por comas (formato histórico del .env y Docker Compose) como JSON.
+    CORS_ORIGINS: Annotated[List[str], NoDecode] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://localhost:3000",
@@ -77,7 +88,19 @@ class Settings(BaseSettings):
     @classmethod
     def _split_origins(cls, value):
         if isinstance(value, str):
-            return [item.strip() for item in value.split(",") if item.strip()]
+            text = value.strip()
+            if not text:
+                return []
+            if text.startswith("["):
+                try:
+                    parsed = json.loads(text)
+                except json.JSONDecodeError:
+                    parsed = None
+                if isinstance(parsed, list):
+                    return [
+                        str(item).strip() for item in parsed if str(item).strip()
+                    ]
+            return [item.strip() for item in text.split(",") if item.strip()]
         return value
 
     @field_validator("DATABASE_URL", mode="before")

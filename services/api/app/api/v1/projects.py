@@ -60,6 +60,7 @@ async def _to_response(db: AsyncSession, project: ProjectModel, effective_role: 
         description=project.description,
         owner_id=project.owner_id,
         status=project.status,
+        network_family=project.network_family or "FEEDFORWARD",
         created_at=project.created_at,
         updated_at=project.updated_at,
         architectures_count=architectures,
@@ -111,6 +112,7 @@ async def create_project(
         description=payload.description,
         owner_id=user.id,
         status="ACTIVE",
+        network_family=payload.network_family,
     )
     db.add(project)
     await db.flush()
@@ -119,7 +121,7 @@ async def create_project(
         actor_id=user.id,
         action="PROJECT_CREATED",
         project_id=project.id,
-        metadata={"name": project.name},
+        metadata={"name": project.name, "network_family": project.network_family},
     )
     await db.commit()
     await db.refresh(project)

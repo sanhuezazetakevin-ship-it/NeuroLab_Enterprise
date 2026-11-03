@@ -6,16 +6,20 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.user import Role
 
+NetworkFamily = Literal["FEEDFORWARD", "RNN", "CNN", "GAN"]
+
 
 class ProjectCreate(BaseModel):
     name: str = Field(min_length=3, max_length=200)
     description: Optional[str] = Field(default=None, max_length=4000)
+    network_family: NetworkFamily = "FEEDFORWARD"
 
 
 class ProjectUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=3, max_length=200)
     description: Optional[str] = Field(default=None, max_length=4000)
     status: Optional[Literal["ACTIVE", "ARCHIVED"]] = None
+    network_family: Optional[NetworkFamily] = None
 
 
 class ProjectResponse(BaseModel):
@@ -26,6 +30,7 @@ class ProjectResponse(BaseModel):
     description: Optional[str] = None
     owner_id: UUID
     status: str
+    network_family: str = "FEEDFORWARD"
     created_at: datetime
     updated_at: datetime
     architectures_count: int = 0

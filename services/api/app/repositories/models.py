@@ -47,6 +47,11 @@ class ProjectModel(Base):
     description = Column(Text, nullable=True)
     owner_id = Column(Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     status = Column(String(50), nullable=False, default="ACTIVE")
+    # Tipo de red elegido al crear el proyecto. Actúa como valor por defecto
+    # del diseñador; un proyecto puede contener arquitecturas de otras familias.
+    network_family = Column(
+        String(50), nullable=False, default="FEEDFORWARD", server_default="FEEDFORWARD"
+    )
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
 

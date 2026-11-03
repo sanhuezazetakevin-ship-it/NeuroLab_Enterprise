@@ -65,16 +65,33 @@ class PreparedDataset:
     samples_train: int = 0
     samples_val: int = 0
     samples_test: int = 0
+    # --- Trazabilidad y control de sesgo (Nivel A) ---
+    class_weights: Dict[int, float] = field(default_factory=dict)
+    train_class_distribution: Dict[str, int] = field(default_factory=dict)
+    input_schema: List[Dict[str, Any]] = field(default_factory=list)
+    duplicate_rows: int = 0
+    val_split: float = 0.15
+    test_split: float = 0.15
+    stratified: bool = False
 
     def scaler_bundle(self) -> Dict[str, Any]:
         return {
-            "version": 1,
+            "version": 2,
             "task": self.task,
             "target_column": self.target_column,
             "feature_names": self.feature_names,
             "numeric_columns": self.numeric_columns,
             "categorical_columns": self.categorical_columns,
+            "categorical_values": {
+                item["name"]: item.get("values", [])
+                for item in self.input_schema
+                if item.get("kind") == "categorical"
+            },
+            "input_schema": self.input_schema,
             "class_labels": self.class_labels,
+            "output_units": self.output_units,
+            "output_activation": self.output_activation,
+            "loss": self.loss,
             "preprocessor": self.preprocessor,
             "numeric_scaler": self.numeric_scaler,
             "label_encoder": self.label_encoder,
@@ -125,9 +142,18 @@ def _split(
     val_split: float,
     test_split: float,
     random_state: int,
-) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, np.ndarray, np.ndarray, np.ndarray]:
+) -> Tuple[
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    bool,
+]:
     holdout = max(0.05, min(0.8, val_split + test_split))
     stratify = None
+    stratified = False
     if task == "classification":
         counts = np.bincount(y.astype(int))
         if len(counts) > 1 and counts[counts > 0].min() >= 2:
@@ -140,10 +166,12 @@ def _split(
             random_state=random_state,
             stratify=stratify,
         )
+        stratified = stratify is not None
     except ValueError:
         X_train, X_hold, y_train, y_hold = train_test_split(
             X, y, test_size=holdout, random_state=random_state
         )
+        stratified = False
 
     relative_test = test_split / holdout if holdout > 0 else 0.5
     relative_test = max(0.05, min(0.95, relative_test))
@@ -160,7 +188,74 @@ def _split(
         X_val, X_test, y_val, y_test = train_test_split(
             X_hold, y_hold, test_size=relative_test, random_state=random_state
         )
-    return X_train, X_val, X_test, y_train, y_val, y_test
+        stratified = False
+    return X_train, X_val, X_test, y_train, y_val, y_test, stratified
+
+
+def _build_input_schema(
+    frame: pd.DataFrame,
+    numeric_columns: List[str],
+    categorical_columns: List[str],
+) -> List[Dict[str, Any]]:
+    """Describe las columnas originales para poder construir formularios de inferencia.
+
+    Se incluyen estadísticos de los numéricos y, para las categóricas con pocas
+    categorías, la lista de valores observados (de modo que la interfaz pueda
+    ofrecer un selector en lugar de un campo libre).
+    """
+    schema: List[Dict[str, Any]] = []
+    for column in numeric_columns:
+        series = pd.to_numeric(frame[column], errors="coerce")
+        minimum = series.min()
+        maximum = series.max()
+        median = series.median()
+        schema.append(
+            {
+                "name": str(column),
+                "kind": "numeric",
+                "nullable": bool(frame[column].isna().any()),
+                "min": float(minimum) if pd.notna(minimum) else None,
+                "max": float(maximum) if pd.notna(maximum) else None,
+                "median": float(median) if pd.notna(median) else None,
+            }
+        )
+    for column in categorical_columns:
+        unique_values = [str(value) for value in frame[column].dropna().unique()]
+        schema.append(
+            {
+                "name": str(column),
+                "kind": "categorical",
+                "nullable": bool(frame[column].isna().any()),
+                "values": unique_values[: ONE_HOT_MAX_CATEGORIES + 1],
+                "truncated": len(unique_values) > ONE_HOT_MAX_CATEGORIES + 1,
+            }
+        )
+    return schema
+
+
+def _compute_class_weights(
+    y_train: np.ndarray, class_labels: List[str]
+) -> Tuple[Dict[int, float], Dict[str, int]]:
+    """Pesos balanceados por clase, calculados solo con el conjunto de entrenamiento.
+
+    Calcularlos sobre el dataset completo filtraría la distribución del test al
+    entrenamiento. La fórmula es la de ``class_weight="balanced"`` de
+    scikit-learn: ``n_muestras / (n_clases * frecuencia_clase)``.
+    """
+    from sklearn.utils.class_weight import compute_class_weight
+
+    classes = np.unique(y_train)
+    distribution = {
+        (class_labels[int(index)] if int(index) < len(class_labels) else str(int(index))): int(count)
+        for index, count in zip(*np.unique(y_train, return_counts=True))
+    }
+    try:
+        weights = compute_class_weight(
+            class_weight="balanced", classes=classes, y=y_train
+        )
+        return {int(label): float(weight) for label, weight in zip(classes, weights)}, distribution
+    except ValueError:
+        return {}, distribution
 
 
 def prepare_dataset(
@@ -190,6 +285,8 @@ def prepare_dataset(
     frame = frame.dropna(subset=[target_column])
     if len(frame) < 10:
         raise DataPreparationError("Se requieren al menos 10 filas con la columna objetivo informada")
+
+    duplicate_rows = int(frame.duplicated().sum())
 
     resolved_task = task if task in {"classification", "regression"} else _infer_task(
         frame[target_column], len(frame)
@@ -242,6 +339,8 @@ def prepare_dataset(
 
     # Evita que SimpleImputer elimine columnas completamente vacías.
     numeric_columns = [c for c in numeric_columns if X_raw[c].notna().any()]
+
+    input_schema = _build_input_schema(X_raw, numeric_columns, categorical_columns)
 
     for column in categorical_columns:
         X_raw[column] = X_raw[column].where(X_raw[column].notna(), "missing").astype(str)
@@ -296,7 +395,7 @@ def prepare_dataset(
 
     preprocessor = ColumnTransformer(transformers=transformers, remainder="drop")
 
-    X_train_raw, X_val_raw, X_test_raw, y_train, y_val, y_test = _split(
+    X_train_raw, X_val_raw, X_test_raw, y_train, y_val, y_test, stratified = _split(
         X_raw,
         y,
         task=resolved_task,
@@ -337,6 +436,13 @@ def prepare_dataset(
         if numeric_pipeline is not None:
             numeric_scaler = numeric_pipeline.named_steps.get("scaler")
 
+    class_weights: Dict[int, float] = {}
+    train_class_distribution: Dict[str, int] = {}
+    if resolved_task == "classification":
+        class_weights, train_class_distribution = _compute_class_weights(
+            y_train, class_labels
+        )
+
     return PreparedDataset(
         X_train=X_train,
         X_val=X_val,
@@ -362,6 +468,13 @@ def prepare_dataset(
         samples_train=int(len(y_train)),
         samples_val=int(len(y_val)),
         samples_test=int(len(y_test)),
+        class_weights=class_weights,
+        train_class_distribution=train_class_distribution,
+        input_schema=input_schema,
+        duplicate_rows=duplicate_rows,
+        val_split=float(val_split),
+        test_split=float(test_split),
+        stratified=stratified,
     )
 
 

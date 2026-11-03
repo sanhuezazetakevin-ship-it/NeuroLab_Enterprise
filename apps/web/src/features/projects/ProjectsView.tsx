@@ -14,8 +14,54 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../lib/AppContext';
 import { ApiClient } from '../../lib/api';
-import { Project } from '../../types';
+import { NetworkFamily, Project } from '../../types';
 import { formatDate } from '../../lib/format';
+
+const FAMILY_OPTIONS: {
+  id: NetworkFamily;
+  label: string;
+  description: string;
+  trainable: boolean;
+}[] = [
+  {
+    id: 'FEEDFORWARD',
+    label: 'Feedforward (FNN)',
+    description: 'Red densa para datos tabulares (CSV). Entrena con este proyecto.',
+    trainable: true,
+  },
+  {
+    id: 'RNN',
+    label: 'Recurrente (RNN / LSTM)',
+    description: 'Secuencias y series de tiempo. Diseño disponible; entrenamiento pendiente.',
+    trainable: false,
+  },
+  {
+    id: 'CNN',
+    label: 'Convolucional (CNN)',
+    description: 'Imágenes y señales 2D. Diseño disponible; entrenamiento pendiente.',
+    trainable: false,
+  },
+  {
+    id: 'GAN',
+    label: 'Generativa (GAN)',
+    description: 'Generación de datos. Diseño disponible; entrenamiento pendiente.',
+    trainable: false,
+  },
+];
+
+const FAMILY_SHORT: Record<NetworkFamily, string> = {
+  FEEDFORWARD: 'FNN',
+  RNN: 'RNN',
+  CNN: 'CNN',
+  GAN: 'GAN',
+};
+
+const FAMILY_NAMES: Record<NetworkFamily, string> = {
+  FEEDFORWARD: 'Feedforward',
+  RNN: 'Recurrente (RNN/LSTM)',
+  CNN: 'Convolucional',
+  GAN: 'Generativa (GAN)',
+};
 
 export const ProjectsView: React.FC = () => {
   const {
@@ -33,6 +79,7 @@ export const ProjectsView: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [networkFamily, setNetworkFamily] = useState<NetworkFamily>('FEEDFORWARD');
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -63,14 +110,22 @@ export const ProjectsView: React.FC = () => {
     setCreating(true);
     setCreateError(null);
     try {
-      const created = await ApiClient.createProject(name.trim(), description.trim() || undefined);
+      const created = await ApiClient.createProject(
+        name.trim(),
+        description.trim() || undefined,
+        networkFamily,
+      );
       const list = await refreshProjects();
       const resolved = list.find((project) => project.id === created.id) || created;
       setActiveProject(resolved as Project);
       setShowCreateModal(false);
       setName('');
       setDescription('');
-      showToast(`Proyecto "${resolved.name}" creado`, 'success');
+      setNetworkFamily('FEEDFORWARD');
+      showToast(
+        `Proyecto "${resolved.name}" creado (${FAMILY_NAMES[networkFamily]}). Suba el CSV en Datasets.`,
+        'success',
+      );
     } catch (error) {
       setCreateError(error instanceof Error ? error.message : 'No fue posible crear el proyecto');
     } finally {
@@ -184,9 +239,17 @@ export const ProjectsView: React.FC = () => {
             >
               <div>
                 <div className="flex items-center justify-between mb-2 gap-2">
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full glass-inset text-zinc-700 dark:text-white/70 border border-black/10 dark:border-white/10">
-                    {project.effectiveRole || project.status}
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full glass-inset text-zinc-700 dark:text-white/70 border border-black/10 dark:border-white/10">
+                      {project.effectiveRole || project.status}
+                    </span>
+                    <span
+                      className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-700 dark:text-violet-300 border border-violet-500/25"
+                      title={FAMILY_NAMES[project.networkFamily] || project.networkFamily}
+                    >
+                      {FAMILY_SHORT[project.networkFamily] || project.networkFamily}
+                    </span>
+                  </div>
                   {isActive ? (
                     <span className="text-xs text-zinc-900 dark:text-white font-medium flex items-center gap-1">
                       <CheckCircle2 className="w-3.5 h-3.5" /> Activo
@@ -255,6 +318,51 @@ export const ProjectsView: React.FC = () => {
                 onChange={(event) => setDescription(event.target.value)}
                 className="w-full glass-input rounded-xl px-3 py-2 text-xs"
               />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-zinc-600 dark:text-white/60 mb-1.5">
+                Tipo de red neuronal
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                {FAMILY_OPTIONS.map((option) => {
+                  const selected = networkFamily === option.id;
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => setNetworkFamily(option.id)}
+                      className={`text-left p-2.5 rounded-xl border transition-colors ${
+                        selected
+                          ? 'border-zinc-900/40 dark:border-white/40 bg-black/5 dark:bg-white/10 ring-1 ring-zinc-900/20 dark:ring-white/20'
+                          : 'border-black/10 dark:border-white/10 glass-inset hover:border-black/25 dark:hover:border-white/25'
+                      }`}
+                    >
+                      <span className="flex items-center justify-between gap-1">
+                        <span className="text-[11px] font-semibold text-zinc-900 dark:text-white">
+                          {option.label}
+                        </span>
+                        <span
+                          className={`text-[9px] font-mono px-1.5 py-0.5 rounded-full border ${
+                            option.trainable
+                              ? 'text-emerald-700 dark:text-emerald-300 border-emerald-500/30 bg-emerald-500/10'
+                              : 'text-amber-700 dark:text-amber-300 border-amber-500/30 bg-amber-500/10'
+                          }`}
+                        >
+                          {option.trainable ? 'Entrena' : 'Solo diseño'}
+                        </span>
+                      </span>
+                      <span className="block text-[10px] text-zinc-500 dark:text-white/45 mt-0.5 leading-snug">
+                        {option.description}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[10px] text-zinc-500 dark:text-white/40 mt-1.5">
+                El proyecto queda asociado a esta familia. El diseñador la usará por defecto y podrá
+                cambiarla si necesita otra topología.
+              </p>
             </div>
 
             {createError && (

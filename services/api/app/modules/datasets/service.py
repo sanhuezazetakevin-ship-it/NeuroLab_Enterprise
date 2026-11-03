@@ -56,6 +56,89 @@ def infer_task(series: pd.Series, total_rows: int) -> str:
     return "regression"
 
 
+# Debe coincidir con workers/training/preprocessing.py. El diseñador usa este
+# cálculo para mostrar las neuronas de entrada reales del modelo.
+ONE_HOT_MAX_CATEGORIES = 30
+MAX_FEATURES_FOR_BREAKDOWN = 200
+
+
+def _is_numeric_like(series: pd.Series) -> bool:
+    """Misma regla que el worker: numérica, o ≥95% convertible a número."""
+    if pd.api.types.is_numeric_dtype(series):
+        return True
+    if pd.api.types.is_bool_dtype(series):
+        return False
+    converted = pd.to_numeric(series, errors="coerce")
+    non_null = series.notna().sum()
+    return bool(non_null > 0 and (converted.notna().sum() / non_null) >= 0.95)
+
+
+def summarize_features(
+    frame: pd.DataFrame, target_column: Optional[str], task: Optional[str]
+) -> Dict[str, Any]:
+    """Calcula las neuronas de entrada/salida que tendrá el modelo.
+
+    Replica las reglas del worker: cada columna numérica aporta una neurona,
+    cada categórica con ≤30 valores se expande a one-hot (una neurona por
+    valor) y el resto se codifica de forma ordinal (una neurona).
+    """
+    if not target_column or target_column not in frame.columns:
+        return {"available": False, "reason": "El dataset no tiene columna objetivo"}
+
+    features = frame.drop(columns=[target_column])
+    breakdown: list[dict[str, Any]] = []
+    input_neurons = 0
+    for column in features.columns:
+        series = features[column]
+        if series.notna().sum() == 0:
+            continue  # El worker descarta columnas completamente vacías.
+        entry: dict[str, Any] = {"name": str(column)}
+        if _is_numeric_like(series):
+            entry.update({"kind": "numeric", "neurons": 1})
+            input_neurons += 1
+        else:
+            filled = series.where(series.notna(), "missing").astype(str)
+            values = sorted(filled.unique().tolist())
+            if len(values) <= ONE_HOT_MAX_CATEGORIES:
+                entry.update(
+                    {
+                        "kind": "one_hot",
+                        "neurons": len(values),
+                        "values": values[: ONE_HOT_MAX_CATEGORIES + 1],
+                    }
+                )
+                input_neurons += len(values)
+            else:
+                entry.update({"kind": "ordinal", "neurons": 1})
+                input_neurons += 1
+        breakdown.append(entry)
+
+    if task == "classification":
+        labels = sorted(frame[target_column].dropna().astype(str).unique().tolist())
+        n_classes = max(2, len(labels))
+        output_neurons = 1 if n_classes == 2 else n_classes
+        activation = "sigmoid" if n_classes == 2 else "softmax"
+        loss = "binary_crossentropy" if n_classes == 2 else "sparse_categorical_crossentropy"
+    else:
+        labels = []
+        n_classes = 0
+        output_neurons = 1
+        activation = "linear"
+        loss = "mse"
+
+    return {
+        "available": True,
+        "input_neurons": input_neurons,
+        "output_neurons": output_neurons,
+        "output_activation": activation,
+        "loss": loss,
+        "class_labels": labels[:50],
+        "class_count": n_classes,
+        "features": breakdown[:MAX_FEATURES_FOR_BREAKDOWN],
+        "truncated": len(breakdown) > MAX_FEATURES_FOR_BREAKDOWN,
+    }
+
+
 def inspect_csv(content: bytes, target_column: Optional[str]) -> Dict[str, Any]:
     if not content:
         raise DatasetValidationError("El archivo CSV está vacío")
@@ -117,6 +200,8 @@ def inspect_csv(content: bytes, target_column: Optional[str]) -> Dict[str, Any]:
         "features_count": max(0, frame.shape[1] - (1 if target else 0)),
         "target_column": target,
         "task": task,
+        # Neuronas de entrada/salida que tendrá el modelo con este CSV.
+        "neurons": summarize_features(frame, target, task),
         "columns": columns,
         "null_counts": null_counts,
         "dtypes": {str(col): str(frame[col].dtype) for col in frame.columns},

@@ -42,6 +42,16 @@ def test_supabase_database_url_is_normalized_for_asyncpg():
     assert "sslmode=" not in settings.DATABASE_URL
 
 
+def test_cors_origins_accepts_comma_separated_values():
+    settings = Settings(_env_file=None, CORS_ORIGINS="http://a.test,http://b.test")
+    assert settings.CORS_ORIGINS == ["http://a.test", "http://b.test"]
+
+
+def test_cors_origins_accepts_json_list():
+    settings = Settings(_env_file=None, CORS_ORIGINS='["http://a.test", "http://b.test"]')
+    assert settings.CORS_ORIGINS == ["http://a.test", "http://b.test"]
+
+
 def test_supabase_transaction_pooler_disables_prepared_statements():
     settings = Settings(
         _env_file=None,
@@ -51,3 +61,17 @@ def test_supabase_transaction_pooler_disables_prepared_statements():
         ),
     )
     assert "prepared_statement_cache_size=0" in settings.DATABASE_URL
+
+
+def test_queue_backend_comes_from_settings_not_raw_environment():
+    """Regresión: el .env de pydantic debe gobernar la cola de la API.
+
+    Antes ``queue.py`` usaba ``os.getenv`` y, al no existir la variable en el
+    proceso, caía en Redis aunque el .env dijera ``QUEUE_BACKEND=filesystem``.
+    """
+    from app.core.config import Settings, settings
+    from app.modules.training.queue import training_queue
+
+    assert Settings(_env_file=None, QUEUE_BACKEND="filesystem").QUEUE_BACKEND == "filesystem"
+    assert training_queue.backend == (settings.QUEUE_BACKEND or "redis").strip().lower()
+    assert training_queue.backend == "filesystem"

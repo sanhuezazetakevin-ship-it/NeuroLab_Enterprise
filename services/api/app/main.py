@@ -12,6 +12,7 @@ from app.api.v1.audit_events import router as audit_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.datasets import router as datasets_router
 from app.api.v1.fundamentals import router as fundamentals_router
+from app.api.v1.inference import router as inference_router
 from app.api.v1.models import router as models_router
 from app.api.v1.projects import router as projects_router
 from app.api.v1.training_jobs import router as training_jobs_router
@@ -76,6 +77,7 @@ app.include_router(architectures_router, prefix=api_v1)
 app.include_router(datasets_router, prefix=api_v1)
 app.include_router(training_jobs_router, prefix=api_v1)
 app.include_router(models_router, prefix=api_v1)
+app.include_router(inference_router, prefix=api_v1)
 app.include_router(fundamentals_router, prefix=api_v1)
 app.include_router(audit_router, prefix=api_v1)
 

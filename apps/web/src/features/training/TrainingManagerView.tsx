@@ -36,6 +36,12 @@ import {
   shortId,
 } from '../../lib/format';
 import {
+  FAMILY_LABELS,
+  JOB_STATUS_LABELS,
+  ROLE_LABELS,
+  labelFor,
+} from '../../lib/labels';
+import {
   Architecture,
   Dataset,
   JobStatus,
@@ -67,7 +73,7 @@ function StatusPill({ status }: { status: JobStatus }) {
       {isActive && <Loader2 className="w-3 h-3 animate-spin" />}
       {isDone && <CheckCircle2 className="w-3 h-3" />}
       {isError && <AlertTriangle className="w-3 h-3" />}
-      {status}
+      {labelFor(JOB_STATUS_LABELS, status)}
     </span>
   );
 }
@@ -392,11 +398,11 @@ export const TrainingManagerView: React.FC = () => {
       return;
     }
     if (!datasetId) {
-      setFormError('Seleccione un dataset verificado');
+      setFormError('Seleccione un conjunto de datos verificado');
       return;
     }
     if (!targetColumn.trim()) {
-      setFormError('Indique la columna objetivo del dataset');
+      setFormError('Indique la columna objetivo del conjunto de datos');
       return;
     }
     setStarting(true);
@@ -450,21 +456,23 @@ export const TrainingManagerView: React.FC = () => {
     const lines: string[] = [];
     if (!selectedJob) return lines;
     lines.push(
-      `[${formatDateTime(selectedJob.createdAt)}] Job ${shortId(selectedJob.id)} registrado con estado ${selectedJob.status}.`,
+      `[${formatDateTime(selectedJob.createdAt)}] Trabajo ${shortId(selectedJob.id)} registrado con estado ${labelFor(JOB_STATUS_LABELS, selectedJob.status)}.`,
     );
     if (selectedJob.startedAt) {
-      lines.push(`[${formatDateTime(selectedJob.startedAt)}] Worker inició la ejecución.`);
+      lines.push(`[${formatDateTime(selectedJob.startedAt)}] El worker inició la ejecución.`);
     }
     metrics.forEach((point) => {
-      const parts = [`epoch ${point.epoch}/${totalEpochs}`];
-      if (point.loss != null) parts.push(`loss=${formatMetric(point.loss)}`);
-      if (point.accuracy != null) parts.push(`acc=${formatPercent(point.accuracy)}`);
-      if (point.valLoss != null) parts.push(`val_loss=${formatMetric(point.valLoss)}`);
-      if (point.valAccuracy != null) parts.push(`val_acc=${formatPercent(point.valAccuracy)}`);
+      const parts = [`época ${point.epoch}/${totalEpochs}`];
+      if (point.loss != null) parts.push(`pérdida=${formatMetric(point.loss)}`);
+      if (point.accuracy != null) parts.push(`exactitud=${formatPercent(point.accuracy)}`);
+      if (point.valLoss != null) parts.push(`pérdida_val=${formatMetric(point.valLoss)}`);
+      if (point.valAccuracy != null) parts.push(`exactitud_val=${formatPercent(point.valAccuracy)}`);
       lines.push(parts.join(' · '));
     });
     if (selectedJob.endedAt) {
-      lines.push(`[${formatDateTime(selectedJob.endedAt)}] Job finalizó como ${effectiveStatus}.`);
+      lines.push(
+        `[${formatDateTime(selectedJob.endedAt)}] El trabajo finalizó como ${labelFor(JOB_STATUS_LABELS, effectiveStatus)}.`,
+      );
     }
     if (telemetry.errorMessage) {
       lines.push(`[ERROR] ${telemetry.errorMessage}`);
@@ -507,7 +515,7 @@ export const TrainingManagerView: React.FC = () => {
               disabled={cancelling || !canWrite}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-500/15 hover:bg-red-500/25 text-red-600 dark:text-red-300 border border-red-500/30 text-xs font-medium transition-colors disabled:opacity-50"
             >
-              <StopCircle className="w-4 h-4" /> {cancelling ? 'Solicitando…' : 'Cancelar Job'}
+              <StopCircle className="w-4 h-4" /> {cancelling ? 'Solicitando…' : 'Cancelar trabajo'}
             </button>
           ) : (
             <button
@@ -522,12 +530,12 @@ export const TrainingManagerView: React.FC = () => {
       </div>
 
       {error && <ErrorBlock message={error} onRetry={loadAll} />}
-      {loading && <LoadingBlock label="Cargando arquitecturas, datasets y trabajos…" />}
+      {loading && <LoadingBlock label="Cargando arquitecturas, conjuntos de datos y trabajos…" />}
 
       {!canWrite && (
         <div className="glass-card p-3 rounded-2xl border border-amber-500/25 text-[11px] text-amber-700 dark:text-amber-300 flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 shrink-0" />
-          Su rol ({currentRole}) permite consultar trabajos y métricas, pero no iniciar ni cancelar
+          Su rol ({labelFor(ROLE_LABELS, currentRole)}) permite consultar trabajos y métricas, pero no iniciar ni cancelar
           entrenamientos.
         </div>
       )}
@@ -594,10 +602,10 @@ export const TrainingManagerView: React.FC = () => {
           {/* Quick metrics */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: 'Loss', value: formatMetric(latestMetric?.loss), tone: '' },
-              { label: 'Accuracy', value: formatPercent(latestMetric?.accuracy), tone: '' },
-              { label: 'Val Loss', value: formatMetric(latestMetric?.valLoss), tone: 'muted' },
-              { label: 'Val Accuracy', value: formatPercent(latestMetric?.valAccuracy), tone: 'muted' },
+              { label: 'Pérdida', value: formatMetric(latestMetric?.loss), tone: '' },
+              { label: 'Exactitud', value: formatPercent(latestMetric?.accuracy), tone: '' },
+              { label: 'Pérdida de validación', value: formatMetric(latestMetric?.valLoss), tone: 'muted' },
+              { label: 'Exactitud de validación', value: formatPercent(latestMetric?.valAccuracy), tone: 'muted' },
             ].map((item) => (
               <div key={item.label} className="glass-card p-4 rounded-2xl">
                 <span className="text-[11px] text-zinc-500 dark:text-white/50 font-medium">
@@ -624,7 +632,7 @@ export const TrainingManagerView: React.FC = () => {
                 nuevo trabajo
               </span>
               <span className="text-[10px] text-zinc-500 dark:text-white/45 font-mono">
-                Seed determinista · split 70/15/15
+                Semilla determinista · partición 70/15/15
               </span>
             </div>
 
@@ -641,7 +649,7 @@ export const TrainingManagerView: React.FC = () => {
                   <option value="">Seleccione…</option>
                   {architectures.map((architecture) => (
                     <option key={architecture.id} value={architecture.id}>
-                      {architecture.name} · {architecture.family} · v{architecture.version}
+                      {architecture.name} · {labelFor(FAMILY_LABELS, architecture.family)} · v{architecture.version}
                     </option>
                   ))}
                 </select>
@@ -654,7 +662,7 @@ export const TrainingManagerView: React.FC = () => {
 
               <div>
                 <label className="block text-zinc-600 dark:text-white/50 text-[10px] uppercase font-bold mb-1.5">
-                  Dataset
+                  Conjunto de datos
                 </label>
                 <select
                   value={datasetId}
@@ -670,7 +678,7 @@ export const TrainingManagerView: React.FC = () => {
                 </select>
                 {datasets.length === 0 && (
                   <p className="text-[10px] text-amber-600 dark:text-amber-300 mt-1">
-                    Suba un CSV validado en el módulo Datasets.
+                    Suba un CSV validado en el módulo Conjuntos de datos.
                   </p>
                 )}
               </div>
@@ -705,7 +713,7 @@ export const TrainingManagerView: React.FC = () => {
                   }
                   className="w-full glass-input rounded-xl px-3 py-1.5"
                 >
-                  <option value="">Detectar desde el dataset</option>
+                  <option value="">Detectar desde el conjunto de datos</option>
                   <option value="classification">Clasificación</option>
                   <option value="regression">Regresión</option>
                 </select>
@@ -727,7 +735,7 @@ export const TrainingManagerView: React.FC = () => {
 
               <div>
                 <label className="block text-zinc-600 dark:text-white/50 text-[10px] uppercase font-bold mb-1.5">
-                  Batch Size
+                  Tamaño de lote
                 </label>
                 <select
                   value={batchSize}
@@ -761,7 +769,7 @@ export const TrainingManagerView: React.FC = () => {
 
               <div>
                 <label className="block text-zinc-600 dark:text-white/50 text-[10px] uppercase font-bold mb-1.5">
-                  Learning Rate
+                  Tasa de aprendizaje
                 </label>
                 <input
                   type="number"
@@ -799,7 +807,7 @@ export const TrainingManagerView: React.FC = () => {
             {jobs.length === 0 && !loading ? (
               <EmptyBlock
                 title="Sin trabajos de entrenamiento"
-                description="Configure arquitectura, dataset e hiperparámetros para encolar el primer job."
+                description="Configure arquitectura, conjunto de datos e hiperparámetros para encolar el primer trabajo."
                 icon={PlayCircle}
               />
             ) : (
@@ -807,9 +815,9 @@ export const TrainingManagerView: React.FC = () => {
                 <table className="w-full text-left text-xs">
                   <thead>
                     <tr className="border-b border-black/10 dark:border-white/10 text-zinc-500 dark:text-white/40">
-                      <th className="pb-2.5 font-medium">Job</th>
+                      <th className="pb-2.5 font-medium">Trabajo</th>
                       <th className="pb-2.5 font-medium">Arquitectura</th>
-                      <th className="pb-2.5 font-medium">Dataset</th>
+                      <th className="pb-2.5 font-medium">Conjunto de datos</th>
                       <th className="pb-2.5 font-medium">Estado</th>
                       <th className="pb-2.5 font-medium">Épocas</th>
                       <th className="pb-2.5 font-medium">Creado</th>
@@ -875,7 +883,7 @@ export const TrainingManagerView: React.FC = () => {
                 logs.map((log, index) => (
                   <div key={index} className="leading-tight">
                     <span className="text-zinc-500 mr-2">&gt;</span>
-                    <span className={log.includes('acc=') ? 'text-emerald-400' : 'text-zinc-300'}>
+                    <span className={log.includes('exactitud=') ? 'text-emerald-400' : 'text-zinc-300'}>
                       {log}
                     </span>
                   </div>
@@ -912,7 +920,7 @@ export const TrainingManagerView: React.FC = () => {
               <MetricChart metrics={metrics} metric="loss" totalEpochs={totalEpochs} />
             </div>
             <div className="flex justify-between items-center text-[10px] text-zinc-500 dark:text-white/40 px-0.5">
-              <span>Train vs Val Loss</span>
+              <span>Pérdida: entrenamiento vs validación</span>
               <span className="text-zinc-800 dark:text-white/70 font-medium">Ampliar →</span>
             </div>
           </div>
@@ -945,7 +953,7 @@ export const TrainingManagerView: React.FC = () => {
               )}
             </div>
             <div className="flex justify-between items-center text-[10px] text-zinc-500 dark:text-white/40 px-0.5">
-              <span>Train vs Val Accuracy</span>
+              <span>Exactitud: entrenamiento vs validación</span>
               <span className="text-zinc-800 dark:text-white/70 font-medium">
                 {hasAccuracy ? 'Ampliar →' : '—'}
               </span>
@@ -966,7 +974,7 @@ export const TrainingManagerView: React.FC = () => {
             </div>
             <div className="flex justify-between gap-2">
               <span className="flex items-center gap-1 shrink-0">
-                <Database className="w-3 h-3" /> Dataset
+                <Database className="w-3 h-3" /> Conjunto de datos
               </span>
               <span className="font-medium text-zinc-900 dark:text-white truncate max-w-[150px]">
                 {selectedDataset?.name || (selectedJob ? shortId(selectedJob.datasetId) : '—')}
@@ -993,13 +1001,13 @@ export const TrainingManagerView: React.FC = () => {
               </span>
             </div>
             <div className="flex justify-between">
-              <span>Learning rate</span>
+              <span>Tasa de aprendizaje</span>
               <span className="font-mono font-medium text-zinc-900 dark:text-white">
                 {selectedJob?.hyperparameters.learningRate ?? '—'}
               </span>
             </div>
             <div className="flex justify-between">
-              <span>Batch size</span>
+              <span>Tamaño de lote</span>
               <span className="font-mono font-medium text-zinc-900 dark:text-white">
                 {selectedJob?.hyperparameters.batchSize ?? '—'}
               </span>
@@ -1022,15 +1030,15 @@ export const TrainingManagerView: React.FC = () => {
         onClose={() => setEnlargedModal(null)}
         title={
           enlargedModal === 'loss'
-            ? 'Curva de Pérdida (Loss Convergence)'
-            : 'Curva de Exactitud (Accuracy Progression)'
+            ? 'Curva de pérdida (convergencia)'
+            : 'Curva de exactitud (progreso)'
         }
         subtitle={
           enlargedModal === 'loss'
             ? 'Valores reales persistidos por época en entrenamiento y validación'
             : 'Evolución real de la exactitud sobre el conjunto de entrenamiento y validación'
         }
-        badge={selectedJob ? `Job: ${shortId(selectedJob.id)}` : 'Sin job'}
+        badge={selectedJob ? `Trabajo: ${shortId(selectedJob.id)}` : 'Sin trabajo'}
       >
         <div className="space-y-4">
           <div className="p-4 glass-inset rounded-2xl border border-black/10 dark:border-white/10">
@@ -1055,7 +1063,7 @@ export const TrainingManagerView: React.FC = () => {
             </div>
             <div className="p-3.5 rounded-2xl glass-inset border border-black/10 dark:border-white/10">
               <span className="text-zinc-500 dark:text-white/50 text-[10px] uppercase font-bold tracking-wider">
-                Último train
+                Último entrenamiento
               </span>
               <div className="text-base font-bold font-mono text-zinc-900 dark:text-white mt-1">
                 {enlargedModal === 'loss'
@@ -1065,7 +1073,7 @@ export const TrainingManagerView: React.FC = () => {
             </div>
             <div className="p-3.5 rounded-2xl glass-inset border border-black/10 dark:border-white/10">
               <span className="text-zinc-500 dark:text-white/50 text-[10px] uppercase font-bold tracking-wider">
-                Último val
+                Última validación
               </span>
               <div className="text-base font-bold font-mono text-zinc-700 dark:text-white/80 mt-1">
                 {enlargedModal === 'loss'
@@ -1078,7 +1086,7 @@ export const TrainingManagerView: React.FC = () => {
                 Estado
               </span>
               <div className="text-base font-bold font-mono text-zinc-900 dark:text-white mt-1">
-                {effectiveStatus || '—'}
+                {effectiveStatus ? labelFor(JOB_STATUS_LABELS, effectiveStatus) : '—'}
               </div>
             </div>
           </div>

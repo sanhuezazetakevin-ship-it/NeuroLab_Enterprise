@@ -19,15 +19,22 @@ Este repositorio es una implementación funcional, no una maqueta. La interfaz R
 | Entrenamiento real con TensorFlow/Keras en worker aislado | ✅ Implementado para **FEEDFORWARD** tabular |
 | Telemetría por época en vivo (SSE/WebSocket) con recuperación | ✅ Implementado |
 | Cancelación cooperativa al final de época | ✅ Implementado |
-| Artefactos `.keras` + scaler + preprocesador + manifiesto | ✅ Implementado |
+| Rigor ML: semilla, determinismo opcional, baselines, pesos de clase | ✅ Implementado |
+| Métricas completas: ROC-AUC, PR-AUC, balanced accuracy, umbral ajustado | ✅ Implementado |
+| Artefactos `.keras` + scaler + preprocesador + manifiesto + ficha | ✅ Implementado |
+| Manifiesto auditable (`schema_version 2`) y model card en Markdown | ✅ Implementado |
 | Registro inmutable de modelos con SHA-256 y ciclo de vida | ✅ Implementado |
+| Inferencia en línea (`POST /models/{id}/predict`) | ✅ Implementado como **extra opcional** (requiere `requirements-inference.txt`) |
+| Descarga de la ficha (`/card`) y del manifiesto (`/manifest`) | ✅ Implementado (no requiere TensorFlow) |
 | Reportes y exportaciones con datos persistidos | ✅ Implementado |
 | Administración de usuarios y estado del sistema | ✅ Implementado |
 | RNN / CNN / GAN | ⚠️ Se diseñan, validan y guardan; el entrenamiento devuelve `422` con la razón. Habilitación progresiva según el documento del MVP. |
-| Object storage S3/MinIO | ❌ No usado. Los artefactos se guardan en un volumen local compartido (`DATA_DIR` / `MODEL_DIR`). |
+| Object storage S3/MinIO | ✅ Implementado (`STORAGE_BACKEND=s3`). Por defecto se usa un volumen local compartido (`DATA_DIR` / `MODEL_DIR`). |
 | Redis | ✅ Backend de cola por defecto. Para desarrollo local también existe `QUEUE_BACKEND=filesystem`. |
 
 No hay rutas `MOCK_*`, datasets de demostración ni métricas inventadas en el frontend.
+La inferencia es real: carga los artefactos del modelo entrenado y aplica el
+mismo preprocesador, no una respuesta simulada.
 
 ---
 
@@ -44,17 +51,19 @@ flowchart LR
     W -->|Métricas por época| DB
     W -->|Eventos| Q
     Q -->|Stream| API
-    W -->|.keras, scaler.pkl, manifiesto| FS[(Volumen MODEL_DIR)]
+    W -->|.keras, scaler.pkl, preprocesador, manifiesto, ficha| FS[(Almacenamiento<br/>volumen local o S3)]
     API -->|Descarga autenticada| FS
-    API -->|CSV| DS[(Volumen DATA_DIR)]
+    API -->|CSV| DS[(Almacenamiento datasets)]
+    API -->|"Inferencia opcional: carga artefactos"| FS
 ```
 
 Principios aplicados:
 
-- **TensorFlow nunca se importa dentro de FastAPI.** La API sólo valida, persiste y encola; el worker es un proceso independiente.
+- **TensorFlow no se importa al arrancar FastAPI.** La API sólo valida, persiste y encola; el worker es un proceso independiente. La inferencia es la única excepción: importa TensorFlow de forma perezosa, sólo al atender `POST /predict`, y es una dependencia opcional. Sin ella el endpoint responde `503` y el resto de la plataforma sigue funcionando.
 - **PostgreSQL es la fuente de verdad.** Redis transporta trabajos y eventos, pero el estado y las métricas se recuperan de la base de datos tras una reconexión.
 - **Máquina de estados estricta:** `QUEUED → PREPARING → RUNNING → COMPLETED | FAILED | CANCELLED`.
 - **Artefactos inmutables:** cada modelo exitoso genera una versión nueva con checksum SHA-256; nunca se sobreescribe.
+- **Reproducibilidad declarada, no supuesta.** El manifiesto registra semilla, estado real del determinismo, versiones de Python/paquetes y commit de Git; el umbral ajustado se documenta como limitación.
 - **Sin datos simulados:** los reportes, KPIs y métricas provienen de la base de datos y de artefactos reales.
 
 ---
@@ -68,6 +77,7 @@ Principios aplicados:
 | Base de datos | PostgreSQL 16 (SQLite async para desarrollo y pruebas) |
 | Cola / eventos | Redis 7 (`QUEUE_BACKEND=redis`) o filesystem (`QUEUE_BACKEND=filesystem`) |
 | ML | TensorFlow 2.x, Keras 3, scikit-learn, pandas, numpy |
+| Inferencia (opcional) | TensorFlow + scikit-learn en la API (`requirements-inference.txt`) |
 | Seguridad | bcrypt, JWT HS256, RBAC por rol global y por proyecto |
 | Almacenamiento | Volumen local o bucket S3 (Supabase Storage) |
 | Infraestructura | Docker Compose/Nginx local; Vercel + Railway + Supabase en cloud |
@@ -88,18 +98,24 @@ Neurolab_Enterprise/
 │   ├── app/
 │   │   ├── api/v1/              # Routers por dominio
 │   │   ├── core/                # Config, DB, seguridad, deps, bootstrap
-│   │   ├── modules/             # Validación, datasets, cola, eventos, auditoría
+│   │   ├── modules/             # Validación, datasets, cola, eventos, inferencia, auditoría
 │   │   ├── repositories/        # Modelos ORM (fuente del esquema)
 │   │   └── schemas/             # Contratos Pydantic
 │   ├── alembic/                 # Migraciones
-│   └── tests/                   # Suite de integración
+│   └── tests/                   # Suite de integración (incluye inferencia)
 ├── workers/training/            # Worker aislado de TensorFlow/Keras
 │   ├── worker.py                # Consumidor y máquina de estados
-│   ├── preprocessing.py         # Imputación, encoding, split y escalado
-│   ├── builder.py               # Construcción del modelo Keras
-│   ├── trainer.py               # Callback de telemetría y cancelación
-│   ├── evaluator.py             # Evaluación final sobre test
-│   └── storage.py               # Artefactos, manifiesto y SHA-256
+│   ├── preprocessing.py         # Imputación, encoding, split, pesos de clase y esquema
+│   ├── builder.py               # Construcción del modelo Keras con semilla
+│   ├── trainer.py               # Callbacks de telemetría, early stopping y cancelación
+│   ├── evaluator.py             # Métricas finales sobre test
+│   ├── metrics.py               # ROC-AUC, PR-AUC, umbral ajustado y comparación
+│   ├── baselines.py             # Baselines Dummy / Logistic / Linear
+│   ├── reproducibility.py       # Semillas y determinismo de operadores
+│   ├── environment.py           # Versiones de Python/paquetes y commit de Git
+│   ├── manifest.py              # Manifiesto auditable y model card
+│   ├── storage.py               # Artefactos, manifiesto y SHA-256
+│   └── tests/                   # Suite unitaria del núcleo ML (sin TensorFlow)
 ├── infra/
 │   ├── docker/                  # Dockerfiles y Nginx
 │   └── migrations/              # DDL PostgreSQL generado (referencia)
@@ -217,6 +233,16 @@ pip install -r requirements.txt
 python -m uvicorn app.main:app --reload --port 8000
 ```
 
+Opcionalmente, para habilitar `POST /predict` en la API:
+
+```bash
+pip install -r requirements-inference.txt
+```
+
+Sin ese archivo la API arranca igual; sólo `/predict` responde `503`. Para
+exigir que únicamente se sirvan modelos aprobados, defina
+`INFERENCE_REQUIRE_APPROVED=true` en el `.env`.
+
 En desarrollo (`ENVIRONMENT=development`) la API crea el esquema automáticamente y siembra el administrador si no hay usuarios.
 
 ### 6.3 Worker de entrenamiento
@@ -260,7 +286,7 @@ VITE_API_URL=http://localhost:8000/api/v1
 1. El usuario inicia sesión y crea o abre un proyecto con rol de escritura.
 2. Sube un CSV. La API valida encabezados, tamaño, filas, columnas, target y detecta la tarea (`classification` o `regression`).
 3. Diseña una red **FEEDFORWARD** y la guarda. La validación dimensional se ejecuta en el servidor y se repite al encolar.
-4. Inicia el entrenamiento con hiperparámetros (`epochs`, `batch_size`, `optimizer`, `learning_rate`, `random_seed`, `validation_split`).
+4. Inicia el entrenamiento con hiperparámetros (`epochs`, `batch_size`, `optimizer`, `learning_rate`, `random_seed`, `validation_split`) y las opciones de rigor (`deterministic`, `early_stopping`, `early_stopping_patience`, `reduce_lr_on_plateau`).
 5. La API persiste el job en `QUEUED` y escribe el descriptor en Redis (o en la cola de archivos).
 6. El worker lo reclama: `QUEUED → PREPARING → RUNNING`.
 7. En cada época el worker:
@@ -268,11 +294,21 @@ VITE_API_URL=http://localhost:8000/api/v1
    - actualiza `progress` y publica un evento en Redis Pub/Sub;
    - comprueba cancelación y timeout de forma cooperativa.
 8. Al finalizar:
-   - evalúa sobre el conjunto de prueba reservado;
-   - guarda `model.keras`, `scaler.pkl`, `preprocessor.pkl` y `training_manifest.json`;
+   - evalúa sobre el conjunto de prueba reservado y calcula baselines sobre las mismas filas;
+   - ajusta el umbral de decisión y calcula ROC-AUC, PR-AUC, balanced accuracy y reporte por clase;
+   - guarda `model.keras`, `scaler.pkl`, `preprocessor.pkl`, `training_manifest.json` y `model_card.md`;
    - crea una versión de modelo `DRAFT` con checksum SHA-256;
    - marca el job como `COMPLETED`, `FAILED` o `CANCELLED`.
 9. La UI actualiza métricas y estado sin recargar. Al reconectar recibe un `snapshot` desde la base de datos y continúa con los eventos en vivo.
+
+### Rigor metodológico del entrenamiento
+
+- **Semilla aplicada en todo el flujo:** Python, NumPy, Keras y el orden de las capas se siembran antes de construir el modelo. `deterministic=true` activa `tf.config.experimental.enable_op_determinism`, que es irreversible por proceso y queda reportado con su estado real.
+- **Pesos de clase:** las clases desbalanceadas se compensan con `class_weight` calculado sobre el conjunto de entrenamiento. La distribución y los pesos quedan en el manifiesto y en la ficha.
+- **Baselines obligatorios:** se entrenan `DummyClassifier`/`DummyRegressor` y una regresión logística/lineal sobre las mismas características. La comparación usa el F1 ajustado (clasificación) o el RMSE (regresión) y marca `beats_baseline: true/false`. Un empate **no** cuenta como mejora.
+- **Métricas completas:** además de accuracy/loss, se registran precisión, recall, F1, ROC-AUC, PR-AUC, balanced accuracy, matriz de confusión, reporte por clase, umbral ajustado y brecha train-test.
+- **Manifiesto auditable (`schema_version 2`):** dataset y checksum, particiones, distribución de clases, hiperparámetros, arquitectura, métricas, baselines, entorno (Python y paquetes), commit de Git, estado de determinismo y checksums de artefactos.
+- **Model card:** documento Markdown con uso previsto, datos, arquitectura, protocolo de evaluación, métricas, comparación con baselines, limitaciones y trazabilidad.
 
 ### Preprocesamiento real
 
@@ -282,8 +318,10 @@ VITE_API_URL=http://localhost:8000/api/v1
 - Imputación: mediana para numéricas, moda para categóricas.
 - `StandardScaler` para numéricas; one-hot hasta 30 categorías; ordinal para el resto.
 - Split estratificado 70/15/15 cuando la tarea es clasificación.
+- Pesos de clase balanceados calculados sólo sobre entrenamiento.
 - Ajuste automático de la capa de salida: sigmoide/binaria, softmax/multiclase o lineal/regresión.
 - Límite de 5.000 características tras codificar.
+- El paquete `scaler.pkl` (versión 2) guarda además `input_schema`, `categorical_values`, columnas, unidades/activación de salida y función de pérdida. Es lo que permite que `/predict` valide la entrada y reutilice exactamente la misma transformación.
 
 ### Validación de CSV
 
@@ -347,7 +385,7 @@ Reglas adicionales:
 | **M05 Datasets** | Carga CSV, validación, metadatos, preview y eliminación con control de trazabilidad. |
 | **M06 Entrenamiento** | Lanzamiento, monitor en vivo, historial de épocas y cancelación. |
 | **M07 Evaluación** | Curvas reales por época y comparación de jobs; métricas finales persistidas. |
-| **M08 Registro de modelos** | Versiones inmutables, checksum, descarga `.keras` y transiciones `DRAFT → REVIEWED → APPROVED → RETIRED`. |
+| **M08 Registro de modelos** | Versiones inmutables, checksum, descarga `.keras`, ficha, manifiesto, prueba de inferencia y transiciones `DRAFT → REVIEWED → APPROVED → RETIRED`. |
 | **M09 Reportes** | Fichas y exportaciones CSV/JSON construidas sólo con datos persistidos. |
 | **M10 Administración** | Usuarios, roles, estados, estado de BD/Redis/cola y auditoría. |
 
@@ -360,6 +398,24 @@ DRAFT ──▶ REVIEWED ──▶ APPROVED ──▶ RETIRED
 ```
 
 `APPROVED` y `RETIRED` requieren `ADMIN` o `PROJECT_LEAD`. Cada transición queda auditada con actor, versión, estado anterior y motivo.
+
+### Inferencia en línea (opcional)
+
+La API puede servir predicciones reales con `POST /api/v1/models/{model_id}/predict`.
+Es un **extra opcional**: la imagen base de la API no incluye TensorFlow.
+
+```bash
+cd services/api
+pip install -r requirements-inference.txt
+```
+
+- Carga `model.keras` y `scaler.pkl` del almacenamiento, aplica el mismo preprocesador del entrenamiento y devuelve clase, probabilidad y umbral.
+- Valida el esquema (`input_schema`): rechaza campos desconocidos (`422`), campos obligatorios ausentes (`422`) y valores no numéricos (`422`). Una categoría no vista genera una **advertencia**, no un error.
+- Para clasificación binaria usa el umbral ajustado en la evaluación salvo que el cliente envíe `threshold` (0–1). El umbral en multiclase o regresión devuelve `422`.
+- Un modelo `RETIRED` devuelve `409`. Con `INFERENCE_REQUIRE_APPROVED=true`, cualquier modelo que no esté `APPROVED` devuelve `409`.
+- Sin las dependencias opcionales el endpoint responde `503` con un mensaje explícito; `/card`, `/manifest` y la descarga siguen funcionando.
+- Cada predicción audita `MODEL_PREDICTED` (modelo, versión, número de registros, tarea y umbral), **sin** guardar los datos de entrada.
+- `GET /models/{id}/card` devuelve la ficha en Markdown y `GET /models/{id}/manifest` el manifiesto JSON. Ambos requieren acceso al proyecto.
 
 ---
 
@@ -375,6 +431,7 @@ Prefijo: `/api/v1`. Autenticación: `Authorization: Bearer <JWT>`.
 | Datasets | `GET /projects/{id}/datasets`, `POST .../upload`, `GET .../{id}`, `GET .../{id}/preview`, `DELETE .../{id}` |
 | Entrenamiento | `GET/POST /projects/{id}/training-jobs`, `GET /training-jobs/{id}`, `GET .../metrics`, `POST .../cancel`, SSE/WS |
 | Modelos | `GET /projects/{id}/models`, `GET/PATCH /models/{id}`, `PATCH /models/{id}/status`, `GET /models/{id}/download` |
+| Inferencia | `POST /models/{id}/predict`, `GET /models/{id}/card`, `GET /models/{id}/manifest` |
 | Auditoría | `GET /projects/{id}/audit-events?action=&limit=` |
 | Administración | `GET/POST /admin/users`, `PATCH /admin/users/{id}`, `GET /admin/system` |
 | Fundamentos | `GET /fundamentals` |
@@ -386,12 +443,21 @@ La especificación detallada, incluidos códigos de error y eventos, está en [`
 
 ## 12. Pruebas
 
+API (integración, incluye inferencia con modelo simulado y camino `503`):
+
 ```bash
 cd services/api
 python -m pytest -q
 ```
 
-La suite usa SQLite async temporal, cola filesystem y directorios aislados. Cubre autenticación, RBAC, proyectos, validación de datasets, flujo de entrenamiento (incluida cancelación y contrato SSE) y ciclo de vida/auditoría de modelos.
+Núcleo ML del worker (sin TensorFlow: métricas, baselines, split, manifiesto,
+ficha, preprocesamiento y determinismo):
+
+```bash
+python -m pytest workers/training/tests -q
+```
+
+La suite de API usa SQLite async temporal, cola filesystem y directorios aislados. Cubre autenticación, RBAC, proyectos, validación de datasets, flujo de entrenamiento (incluida cancelación y contrato SSE), ciclo de vida/auditoría de modelos e inferencia (`200`, `404`, `409`, `422`, `503`).
 
 Frontend:
 
@@ -412,6 +478,31 @@ Con la API y el worker apuntando a la misma base de datos y a los mismos directo
 4. Lance un job con pocas épocas (por ejemplo, 5).
 5. Ejecute el worker (`python worker.py --once` o daemon) y observe el estado en la UI.
 6. Al completar, descargue el `.keras` desde el registro de modelos.
+7. Abra **Ficha**, revise las métricas y la comparación con baselines y el manifiesto.
+8. En **Probar modelo**, envíe un registro y confirme que la probabilidad y la clase provienen del modelo real.
+
+Verificación automatizada usada durante el desarrollo (fuera del repositorio):
+entrena un dataset sintético con desbalance y una columna categórica, comprueba
+los cinco artefactos, el manifiesto `schema_version 2`, la comparación con
+baselines y una inferencia real con una categoría no vista. Se ejecutó con
+`STORAGE_BACKEND=local`, `QUEUE_BACKEND=filesystem` y SQLite.
+
+Corrida real contra Supabase (PostgreSQL 17.11) con el CSV
+`data_prueba_clientes.csv` (600 filas, target `abandono`, 9 neuronas de entrada):
+
+- Proyecto `Clientes Abandono (Feedforward)`; arquitectura `MLP 9-16-8-1`
+  (305 parámetros, salida `1/sigmoid`, `binary_crossentropy`).
+- Job `8e7e21ae-41a1-42b5-af82-e2f3cbb45613`: `COMPLETED`, 25/25 épocas,
+  100 filas en `training_metrics`.
+- Modelo `v1.1` (`8b223445-57bb-4018-b532-7ebaaa603016`): accuracy de prueba
+  0.8778, F1 0.8070, ROC-AUC 0.8886, umbral 0.5598.
+- Artefactos `model.keras`, `scaler.pkl`, `preprocessor.pkl`,
+  `training_manifest.json` y `model_card.md` con SHA-256 verificado contra el
+  disco; `/predict` respondió `200` con probabilidades reales.
+
+> Si la API responde `503` al encolar, revise `QUEUE_BACKEND` en el `.env`
+> compartido: la API y el worker deben usar el mismo backend (`filesystem` o
+> `redis`). La API lo lee desde `Settings`, igual que el worker.
 
 ---
 
@@ -442,11 +533,16 @@ alembic revision --autogenerate -m "descripcion"
 ## 14. Limitaciones conocidas (MVP)
 
 - Entrenamiento real habilitado sólo para **FEEDFORWARD** sobre CSV tabular. RNN/CNN/GAN se validan y persisten, pero el worker rechaza su entrenamiento con un mensaje explícito.
-- La descarga de modelos expone únicamente `model.keras`; scaler, preprocesador y manifiesto quedan junto al artefacto en el volumen para trazabilidad y reutilización.
+- La descarga directa expone únicamente `model.keras`; scaler, preprocesador, manifiesto y ficha viven junto al artefacto y se consultan por `/card` y `/manifest` o desde el volumen.
+- **Inferencia opcional y síncrona:** requiere instalar `requirements-inference.txt` en el servicio de API; mantiene hasta 4 modelos en memoria (LRU) y serializa las llamadas a Keras. No hay cola de inferencia por lotes ni autoescalado por carga.
+- El umbral de decisión se ajusta sobre el conjunto de prueba. Es una decisión documentada en la ficha y en el manifiesto, pero para producción estricta convendría un conjunto de calibración independiente.
+- `deterministic=true` activa `enable_op_determinism`, que es global al proceso y puede reducir el rendimiento. Su estado real se reporta en el manifiesto; no se puede desactivar sin reiniciar el worker.
+- No se implementa validación cruzada k-fold ni un informe de calidad del dataset (Nivel C, fuera del alcance actual).
+- `scaler.pkl` y `preprocessor.pkl` se deserializan con `pickle`. Sólo se aceptan claves bajo `models/`, que únicamente escribe el worker; nunca se deserializa contenido enviado por un cliente.
 - El rate limit de login es en memoria por proceso. En un despliegue con varias réplicas debe moverse a Redis.
 - El almacenamiento local (`STORAGE_BACKEND=local`) exige que API y worker compartan volumen. Para hosts separados use `STORAGE_BACKEND=s3` (Supabase Storage, MinIO, S3 o R2); el despliegue cloud documentado usa Supabase Storage.
-- No se implementa despliegue de modelos ni inferencia en línea; el alcance termina en registro, aprobación y descarga del artefacto.
 - Las notificaciones en tiempo real requieren Redis; en modo filesystem el frontend usa el sondeo de respaldo de la API.
+- SQLite async se usa para desarrollo y pruebas; el despliegue real debe usar PostgreSQL.
 
 ---
 

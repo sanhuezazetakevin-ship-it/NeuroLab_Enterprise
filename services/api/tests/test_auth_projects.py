@@ -27,10 +27,51 @@ async def test_authenticated_user_can_create_project(client: AsyncClient, admin_
     project = response.json()
     assert project["name"] == "Proyecto de prueba"
     assert project["effective_role"] == "ADMIN"
+    assert project["network_family"] == "FEEDFORWARD"
 
     listing = await client.get("/api/v1/projects", headers=admin_headers)
     assert listing.status_code == 200
     assert any(item["id"] == project["id"] for item in listing.json())
+
+
+async def test_project_network_family_can_be_selected_and_updated(
+    client: AsyncClient, admin_headers: dict
+):
+    created_ids = []
+    for family in ("FEEDFORWARD", "RNN", "CNN", "GAN"):
+        response = await client.post(
+            "/api/v1/projects",
+            headers=admin_headers,
+            json={"name": f"Proyecto {family}", "network_family": family},
+        )
+        assert response.status_code == 201, response.text
+        body = response.json()
+        assert body["network_family"] == family
+        created_ids.append(body["id"])
+
+    project_id = created_ids[0]
+    updated = await client.patch(
+        f"/api/v1/projects/{project_id}",
+        headers=admin_headers,
+        json={"network_family": "CNN"},
+    )
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["network_family"] == "CNN"
+
+    fetched = await client.get(f"/api/v1/projects/{project_id}", headers=admin_headers)
+    assert fetched.status_code == 200
+    assert fetched.json()["network_family"] == "CNN"
+
+
+async def test_project_rejects_unknown_network_family(
+    client: AsyncClient, admin_headers: dict
+):
+    response = await client.post(
+        "/api/v1/projects",
+        headers=admin_headers,
+        json={"name": "Familia inválida", "network_family": "TRANSFORMER"},
+    )
+    assert response.status_code == 422
 
 
 async def test_project_isolation_between_users(client, admin_headers, create_user, login):

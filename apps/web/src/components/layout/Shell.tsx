@@ -26,7 +26,12 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../lib/AppContext';
 import { useAuth } from '../../lib/AuthContext';
-import { Project, UserRole } from '../../types';
+import {
+  PROJECT_STATUS_LABELS,
+  ROLE_LABELS,
+  labelFor,
+} from '../../lib/labels';
+import { Project } from '../../types';
 
 export type NavTab =
   | 'dashboard'
@@ -45,14 +50,6 @@ interface ShellProps {
   onSelectTab: (tab: NavTab) => void;
   children: React.ReactNode;
 }
-
-const ROLE_LABELS: Record<UserRole, string> = {
-  ADMIN: 'Administrador',
-  PROJECT_LEAD: 'Responsable de Proyecto',
-  AI_ENGINEER: 'Ingeniero de IA',
-  REVIEWER: 'Revisor / Auditor',
-  VIEWER: 'Lector',
-};
 
 export const Shell: React.FC<ShellProps> = ({ currentTab, onSelectTab, children }) => {
   const {
@@ -75,11 +72,11 @@ export const Shell: React.FC<ShellProps> = ({ currentTab, onSelectTab, children 
   const [refreshing, setRefreshing] = useState(false);
 
   const navItems: { id: NavTab; label: string; icon: React.ElementType; badge?: string; adminOnly?: boolean }[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'dashboard', label: 'Panel', icon: LayoutDashboard },
     { id: 'projects', label: 'Proyectos', icon: FolderGit2 },
     { id: 'fundamentals', label: 'Fundamentos', icon: BookOpen, badge: 'S11' },
     { id: 'architectures', label: 'Diseñador de Redes', icon: Cpu },
-    { id: 'datasets', label: 'Datasets', icon: Database },
+    { id: 'datasets', label: 'Conjuntos de datos', icon: Database },
     { id: 'training', label: 'Entrenamientos', icon: PlayCircle },
     { id: 'evaluation', label: 'Evaluación & Métricas', icon: LineChart },
     { id: 'model-registry', label: 'Registro de Modelos', icon: Box },
@@ -122,7 +119,7 @@ export const Shell: React.FC<ShellProps> = ({ currentTab, onSelectTab, children 
                   </span>
                 </span>
                 <p className="text-[10px] text-zinc-500 dark:text-white/50 font-medium">
-                  Deep Learning • Semana 11
+                  Aprendizaje profundo • Semana 11
                 </p>
               </div>
             </div>
@@ -261,7 +258,9 @@ export const Shell: React.FC<ShellProps> = ({ currentTab, onSelectTab, children 
                     >
                       <span className="truncate">{project.name}</span>
                       <span className="text-[9px] font-mono text-zinc-500 dark:text-white/40 shrink-0">
-                        {project.effectiveRole || project.status}
+                        {project.effectiveRole
+                          ? labelFor(ROLE_LABELS, project.effectiveRole)
+                          : labelFor(PROJECT_STATUS_LABELS, project.status)}
                       </span>
                       {project.id === activeProject?.id && (
                         <CheckCircle2 className="w-3.5 h-3.5 text-zinc-900 dark:text-white shrink-0" />
@@ -318,7 +317,9 @@ export const Shell: React.FC<ShellProps> = ({ currentTab, onSelectTab, children 
                 title="Cuenta autenticada"
               >
                 <UserCheck className="w-3.5 h-3.5 text-zinc-600 dark:text-white/60" />
-                <span className="font-mono text-[11px] font-semibold">{currentRole}</span>
+                <span className="font-mono text-[11px] font-semibold">
+                  {labelFor(ROLE_LABELS, currentRole)}
+                </span>
                 <ChevronRight className="w-3 h-3 text-zinc-400 dark:text-white/50 rotate-90 ml-0.5" />
               </button>
 

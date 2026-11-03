@@ -152,6 +152,20 @@ async def start_training_job(
     if not task:
         raise HTTPException(status_code=422, detail="No fue posible determinar el tipo de tarea")
 
+    # Verificación temprana: la entrada de la arquitectura debe coincidir con
+    # las neuronas que produce el CSV tras el preprocesamiento.
+    expected_input = (metadata.get("neurons") or {}).get("input_neurons")
+    if isinstance(expected_input, int) and expected_input > 0 and topology.input_shape:
+        if topology.input_shape[0] != expected_input:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"La arquitectura espera {topology.input_shape[0]} neuronas de entrada, "
+                    f"pero el dataset produce {expected_input} tras codificar sus columnas. "
+                    "Ajuste el Input Shape al número de características codificadas del CSV."
+                ),
+            )
+
     hyperparameters = payload.hyperparameters.model_dump()
     hyperparameters.update(
         {
@@ -207,8 +221,13 @@ async def start_training_job(
             },
             dataset={
                 "id": str(dataset.id),
+                "name": dataset.name,
+                "version": dataset.version,
+                "original_filename": dataset.original_filename,
                 "storage_key": dataset.storage_key,
                 "checksum": dataset.checksum,
+                "size_bytes": dataset.size_bytes,
+                "target_column": dataset.target_column,
                 "metadata_json": metadata,
             },
             target_column=target,

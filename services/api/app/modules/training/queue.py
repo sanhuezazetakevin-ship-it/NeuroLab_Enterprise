@@ -1,9 +1,7 @@
 import asyncio
 import json
-import os
 import time
 from pathlib import Path
-from typing import Optional
 
 from app.core.config import settings
 
@@ -26,7 +24,10 @@ class TrainingQueue:
     """
 
     def __init__(self) -> None:
-        self.backend = os.getenv("QUEUE_BACKEND", "redis").lower()
+        # Se lee de settings para que el .env de pydantic cuente igual que las
+        # variables de entorno del contenedor. Antes os.getenv ignoraba el .env
+        # y la API caía siempre en Redis aunque QUEUE_BACKEND=filesystem.
+        self.backend = (settings.QUEUE_BACKEND or "redis").strip().lower()
         self.queue_dir = Path(settings.DATA_DIR) / "queue"
         self.cancel_dir = Path(settings.DATA_DIR) / "cancellations"
         self.queue_dir.mkdir(parents=True, exist_ok=True)

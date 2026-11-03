@@ -58,11 +58,13 @@ Valores válidos de `status`: `ACTIVE`, `INACTIVE`, `SUSPENDED`.
 | `description` | TEXT | NULL |
 | `owner_id` | UUID | FK → `users.id` `ON DELETE CASCADE`, NOT NULL |
 | `status` | VARCHAR(50) | NOT NULL, default `ACTIVE` |
+| `network_family` | VARCHAR(50) | NOT NULL, default `FEEDFORWARD` |
 | `created_at` | TIMESTAMPTZ | NOT NULL |
 | `updated_at` | TIMESTAMPTZ | NOT NULL, `onupdate` |
 
 Índice: `idx_projects_owner (owner_id)`.
 `status`: `ACTIVE` o `ARCHIVED`.
+`network_family`: `FEEDFORWARD`, `RNN`, `CNN` o `GAN`. Es la familia por defecto del diseñador; el proyecto puede contener arquitecturas de otras familias. Sólo `FEEDFORWARD` está habilitada para entrenamiento con CSV tabular.
 
 ### 2.3 `project_members`
 
@@ -214,9 +216,11 @@ La versión se calcula por proyecto (`v1.0`, `v1.1`, …). El artefacto es inmut
 
 `metrics_summary` incluye según la tarea:
 
-- **Clasificación:** `test_loss`, `test_accuracy`, `accuracy`, `precision`, `recall`, `f1_score`, `confusion_matrix`, `class_labels`, `samples_test`.
+- **Clasificación:** `test_loss`, `test_accuracy`, `accuracy`, `precision`, `recall`, `f1_score`, `roc_auc`, `pr_auc`, `balanced_accuracy`, `decision_threshold`, `confusion_matrix`, `class_labels`, `samples_test`.
 - **Regresión:** `test_loss`, `test_mse`, `test_rmse`, `test_mae`, `r2_score`, `samples_test`.
-- **Comunes:** `task`, `epochs_completed`, `dataset_checksum`, `dataset_version`, `code_version`, `artifacts` (rutas y SHA-256 de modelo, scaler, preprocesador y manifiesto).
+- **Comunes:** `task`, `epochs_completed`, `dataset_checksum`, `dataset_version`, `code_version`, `artifacts` (rutas y SHA-256 de modelo, scaler, preprocesador, manifiesto y ficha), `class_weights`, `baselines`, `baseline_comparison`, `generalization`, `dataset`, `training`, `reproducibility`, `environment`, `input_schema`, `feature_columns` y `model_card`.
+
+El detalle completo y auditable vive en `training_manifest.json`; `metrics_summary` es el subconjunto que consume la UI. El esquema del manifiesto es `schema_version 2` y se documenta en [`ARCHITECTURE.md`](./ARCHITECTURE.md#6-almacenamiento-de-artefactos).
 
 ### 2.9 `audit_events`
 
