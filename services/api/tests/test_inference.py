@@ -8,6 +8,7 @@ despliegue donde no se instaló ``requirements-inference.txt``.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from uuid import UUID, uuid4
@@ -147,7 +148,7 @@ def test_build_frame_imputes_optional_categorical():
 
 def test_binary_prediction_uses_tuned_threshold(monkeypatch):
     loaded = _loaded([[0.9], [0.2]])
-    monkeypatch.setattr(inference._model_cache, "get", lambda key: loaded)
+    monkeypatch.setattr(inference._model_cache, "get", lambda key, **_: loaded)
 
     result = inference.predict(
         storage_key="models/p/j/model.keras",
@@ -167,7 +168,7 @@ def test_binary_prediction_uses_tuned_threshold(monkeypatch):
 
 def test_explicit_threshold_overrides_metrics(monkeypatch):
     loaded = _loaded([[0.55]])
-    monkeypatch.setattr(inference._model_cache, "get", lambda key: loaded)
+    monkeypatch.setattr(inference._model_cache, "get", lambda key, **_: loaded)
 
     result = inference.predict(
         storage_key="models/p/j/model.keras",
@@ -185,7 +186,7 @@ def test_multiclass_prediction_returns_all_probabilities(monkeypatch):
         [[0.1, 0.7, 0.2]],
         bundle=_bundle(task="classification", class_labels=["bajo", "medio", "alto"], output_units=3),
     )
-    monkeypatch.setattr(inference._model_cache, "get", lambda key: loaded)
+    monkeypatch.setattr(inference._model_cache, "get", lambda key, **_: loaded)
 
     result = inference.predict(
         storage_key="models/p/j/model.keras",
@@ -201,7 +202,7 @@ def test_regression_prediction_returns_value(monkeypatch):
     bundle = _bundle(task="regression", class_labels=[], output_units=1)
     bundle["target_column"] = "precio"
     loaded = _loaded([[123.456]], bundle=bundle)
-    monkeypatch.setattr(inference._model_cache, "get", lambda key: loaded)
+    monkeypatch.setattr(inference._model_cache, "get", lambda key, **_: loaded)
 
     result = inference.predict(
         storage_key="models/p/j/model.keras",
@@ -215,7 +216,7 @@ def test_regression_prediction_returns_value(monkeypatch):
 def test_regression_rejects_threshold(monkeypatch):
     bundle = _bundle(task="regression", class_labels=[], output_units=1)
     loaded = _loaded([[1.0]], bundle=bundle)
-    monkeypatch.setattr(inference._model_cache, "get", lambda key: loaded)
+    monkeypatch.setattr(inference._model_cache, "get", lambda key, **_: loaded)
 
     with pytest.raises(inference.PredictionInputError, match="solo aplica"):
         inference.predict(
@@ -223,6 +224,75 @@ def test_regression_rejects_threshold(monkeypatch):
             records=[{"edad": 42, "ingreso": 3500, "ciudad": "Lima"}],
             threshold=0.3,
         )
+
+
+def test_predict_forwards_checksums_with_artifact_filenames(monkeypatch):
+    """Los hashes registrados por el worker usan claves lógicas.
+
+    La verificación de integridad debe recibirlos con el nombre real del
+    archivo; de lo contrario nunca se comparan.
+    """
+    loaded = _loaded([[0.9]])
+    captured: dict = {}
+
+    def fake_get(storage_key, expected_checksums=None):
+        captured["storage_key"] = storage_key
+        captured["expected_checksums"] = expected_checksums
+        return loaded
+
+    monkeypatch.setattr(inference._model_cache, "get", fake_get)
+
+    inference.predict(
+        storage_key="models/p/j/model.keras",
+        records=[{"edad": 42, "ingreso": 3500, "ciudad": "Lima"}],
+        metrics_summary={
+            "artifacts": {
+                "model": {"path": "model.keras", "sha256": "a" * 64},
+                "scaler": {"path": "scaler.pkl", "sha256": "b" * 64},
+                "preprocessor": {"path": "preprocessor.pkl", "sha256": "c" * 64},
+                "manifest": {"path": "training_manifest.json", "sha256": "d" * 64},
+            }
+        },
+    )
+
+    assert captured["expected_checksums"] == {
+        "model.keras": "a" * 64,
+        "scaler.pkl": "b" * 64,
+        "preprocessor.pkl": "c" * 64,
+        "training_manifest.json": "d" * 64,
+    }
+
+
+def test_verify_artifact_detects_tampering():
+    content = b"contenido del artefacto"
+
+    inference._verify_artifact(
+        "model.keras", content, {"model.keras": hashlib.sha256(content).hexdigest()}
+    )
+
+    with pytest.raises(inference.InferenceError, match="Integridad violada"):
+        inference._verify_artifact("model.keras", content, {"model.keras": "0" * 64})
+
+
+def test_verify_artifact_skips_when_no_checksum_registered():
+    inference._verify_artifact("model.keras", b"contenido", {})
+    inference._verify_artifact("model.keras", b"contenido", None)
+
+
+def test_model_cache_reloads_when_checksum_changes(monkeypatch):
+    loads: list = []
+
+    def fake_load(storage_key, expected_checksums=None):
+        loads.append(expected_checksums)
+        return _loaded([[0.5]])
+
+    monkeypatch.setattr(inference, "_load_model", fake_load)
+
+    inference._model_cache.get("models/p/j/model.keras", {"model.keras": "a" * 64})
+    inference._model_cache.get("models/p/j/model.keras", {"model.keras": "a" * 64})
+    inference._model_cache.get("models/p/j/model.keras", {"model.keras": "b" * 64})
+
+    assert [entry["model.keras"] for entry in loads] == ["a" * 64, "b" * 64]
 
 
 # ---------------------------------------------------------------------------
