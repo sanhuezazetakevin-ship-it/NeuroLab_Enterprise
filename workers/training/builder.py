@@ -41,11 +41,22 @@ class KerasModelBuilder:
             ) from exc
 
         family_upper = (family or "FEEDFORWARD").upper()
-        if family_upper not in {"FEEDFORWARD", "RNN", "CNN"}:
+        if family_upper != "FEEDFORWARD":
             raise ModelBuildError(
-                f"La familia {family_upper or 'desconocida'} no está habilitada para entrenamiento. "
-                "Familias soportadas: FEEDFORWARD, RNN, CNN."
+                f"La familia {family_upper or 'desconocida'} no está habilitada para entrenamiento con datos tabulares. "
+                "Familia soportada: FEEDFORWARD."
             )
+
+        configured_shape = config.get("input_shape")
+        if configured_shape is not None:
+            try:
+                normalized_shape = tuple(int(dimension) for dimension in configured_shape)
+            except (TypeError, ValueError) as exc:
+                raise ModelBuildError("La forma de entrada configurada no es válida") from exc
+            if normalized_shape != (int(input_dim),):
+                raise ModelBuildError(
+                    f"La forma de entrada configurada {normalized_shape} no coincide con input_dim={input_dim}"
+                )
 
         raw_seed = hyperparameters.get("random_seed")
         seed = 42 if raw_seed is None else int(raw_seed)
@@ -58,12 +69,6 @@ class KerasModelBuilder:
         model_name = f"neurolab_{family_upper.lower()}"
         model = models.Sequential(name=model_name)
         model.add(layers.Input(shape=(input_dim,), name="features"))
-
-        # Adaptadores para secuencias y convoluciones en datos tabulares
-        if family_upper == "RNN":
-            model.add(layers.Reshape((input_dim, 1), name="tabular_sequence_adapter"))
-        elif family_upper == "CNN":
-            model.add(layers.Reshape((input_dim, 1), name="tabular_conv_adapter"))
 
         last_index = len(raw_layers) - 1
         output_defined = False
@@ -85,28 +90,10 @@ class KerasModelBuilder:
                 if is_last:
                     output_defined = True
 
-            elif layer_type in {"LSTM", "GRU", "SimpleRNN"}:
-                units = int(layer_config.get("units") or 32)
-                return_seq = bool(layer_config.get("return_sequences") or layer_config.get("returnSequences", False))
-                # Si es la última capa antes de la salida, aplanamos para alimentar Dense
-                if is_last or (index == last_index - 1 and raw_layers[-1].get("type") == "Dense"):
-                    return_seq = False
-                rnn_cls = getattr(layers, layer_type)
-                model.add(rnn_cls(units=units, return_sequences=return_seq, name=f"{layer_type.lower()}_{index}"))
-
-            elif layer_type in {"Conv1D", "Conv2D"}:
-                filters = int(layer_config.get("filters") or 32)
-                k_size = layer_config.get("kernel_size") or layer_config.get("kernelSize") or 3
-                if isinstance(k_size, list):
-                    k_size = k_size[0]
-                k_size = max(1, min(int(k_size), input_dim))
-                model.add(layers.Conv1D(filters=filters, kernel_size=k_size, activation=activation, padding="same", name=f"conv1d_{index}"))
-
-            elif layer_type in {"MaxPooling1D", "MaxPooling2D"}:
-                pool_size = layer_config.get("pool_size") or layer_config.get("poolSize") or 2
-                if isinstance(pool_size, list):
-                    pool_size = pool_size[0]
-                model.add(layers.MaxPooling1D(pool_size=int(pool_size), padding="same", name=f"maxpool_{index}"))
+            elif layer_type in {"Conv1D", "Conv2D", "MaxPooling1D", "MaxPooling2D", "LSTM", "GRU", "SimpleRNN"}:
+                raise ModelBuildError(
+                    f"Capa {index}: {layer_type} no es compatible con el entrenamiento de datos tabulares"
+                )
 
             elif layer_type == "Flatten":
                 model.add(layers.Flatten(name=f"flatten_{index}"))
