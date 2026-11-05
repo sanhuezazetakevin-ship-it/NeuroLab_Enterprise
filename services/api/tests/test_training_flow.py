@@ -36,6 +36,14 @@ async def _architecture(client: AsyncClient, headers: dict, project_id: str, fam
                 {"type": "Dense", "units": 1, "activation": "sigmoid"},
             ],
         }
+    elif family == "GAN":
+        config = {
+            "input_shape": [3],
+            "layers": [
+                {"type": "Dense", "units": 8, "activation": "relu"},
+                {"type": "Dense", "units": 1, "activation": "sigmoid"},
+            ],
+        }
     else:
         config = {
             "input_shape": [3, 1],
@@ -150,7 +158,7 @@ async def test_training_job_is_queued_and_cancel_is_persisted(
     assert len(listing.json()) == 1
 
 
-async def test_non_feedforward_training_is_rejected_with_reason(
+async def test_rnn_training_job_is_accepted(
     client: AsyncClient, admin_headers: dict, dataset_csv: bytes
 ):
     project_id = await _project(client, admin_headers)
@@ -167,8 +175,29 @@ async def test_non_feedforward_training_is_rejected_with_reason(
             "hyperparameters": {"epochs": 1, "batch_size": 8},
         },
     )
+    assert response.status_code == 202, response.text
+    assert response.json()["status"] == "QUEUED"
+
+
+async def test_gan_training_is_rejected_with_reason(
+    client: AsyncClient, admin_headers: dict, dataset_csv: bytes
+):
+    project_id = await _project(client, admin_headers)
+    dataset = await _dataset(client, admin_headers, project_id, dataset_csv)
+    architecture = await _architecture(client, admin_headers, project_id, family="GAN")
+
+    response = await client.post(
+        f"/api/v1/projects/{project_id}/training-jobs",
+        headers=admin_headers,
+        json={
+            "architecture_id": architecture["id"],
+            "dataset_id": dataset["id"],
+            "target_column": "abandono",
+            "hyperparameters": {"epochs": 1, "batch_size": 8},
+        },
+    )
     assert response.status_code == 422
-    assert "RNN" in response.text or "secuenciales" in response.text
+    assert "GAN" in response.text
 
 
 async def test_training_rejects_architecture_from_another_project(

@@ -84,6 +84,11 @@ class ArchitectureValidator:
             )
 
         current_shape = list(topology.input_shape)
+        # El worker adapta los datos tabulares a (features, 1) antes de las capas
+        # recurrentes/convolucionales; reflejamos esa forma para no contar
+        # parámetros con dimensiones que el modelo real no tendrá.
+        if family in {"RNN", "CNN"}:
+            current_shape = [current_shape[0], 1]
         total_params = 0
         trainable_params = 0
         has_recurrent = False
@@ -96,6 +101,13 @@ class ArchitectureValidator:
             if l_type not in FAMILY_LAYERS[family]:
                 errors.append(
                     f"Capa {idx} ({l_type}): incompatible con la familia {family}."
+                )
+                continue
+
+            if family == "CNN" and l_type in {"Conv2D", "MaxPooling2D"}:
+                errors.append(
+                    f"Capa {idx} ({l_type}): las capas 2D no aplican a datos tabulares; "
+                    "use Conv1D/MaxPooling1D."
                 )
                 continue
 
@@ -120,6 +132,48 @@ class ArchitectureValidator:
                 rate = layer.rate if layer.rate is not None else 0.5
                 if not (0.0 <= rate < 1.0):
                     errors.append(f"Capa {idx} (Dropout): la tasa debe estar en [0, 1).")
+
+            elif l_type == "Conv1D":
+                if len(current_shape) not in {1, 2}:
+                    errors.append(
+                        f"Capa {idx} (Conv1D): requiere [features] o [steps, channels]. "
+                        f"Actual: {current_shape}."
+                    )
+                    continue
+                filters = layer.filters or 32
+                if filters <= 0:
+                    errors.append(f"Capa {idx} (Conv1D): filters debe ser > 0.")
+                    continue
+                raw_kernel = layer.kernel_size or [3]
+                if not isinstance(raw_kernel, list):
+                    raw_kernel = [raw_kernel]
+                if len(raw_kernel) != 1 or int(raw_kernel[0]) <= 0:
+                    errors.append(f"Capa {idx} (Conv1D): kernel_size inválido.")
+                    continue
+                kernel = int(raw_kernel[0])
+                steps = int(current_shape[0])
+                in_channels = int(current_shape[-1]) if len(current_shape) == 2 else 1
+                conv_params = (kernel * in_channels + 1) * filters
+                total_params += conv_params
+                trainable_params += conv_params
+                # El worker usa padding="same": la longitud de la secuencia no cambia.
+                current_shape = [steps, filters]
+
+            elif l_type == "MaxPooling1D":
+                if len(current_shape) not in {1, 2}:
+                    errors.append(
+                        f"Capa {idx} (MaxPooling1D): requiere [features] o [steps, channels]. "
+                        f"Actual: {current_shape}."
+                    )
+                    continue
+                raw_pool = layer.pool_size or [2]
+                if not isinstance(raw_pool, list):
+                    raw_pool = [raw_pool]
+                if len(raw_pool) != 1 or int(raw_pool[0]) <= 0:
+                    errors.append(f"Capa {idx} (MaxPooling1D): pool_size inválido.")
+                    continue
+                channels = int(current_shape[-1]) if len(current_shape) == 2 else 1
+                current_shape = [int(current_shape[0]), channels]
 
             elif l_type == "Conv2D":
                 if len(current_shape) != 3:
@@ -168,13 +222,13 @@ class ArchitectureValidator:
                     prod *= int(dim)
                 current_shape = [prod]
 
-            elif l_type in {"LSTM", "GRU"}:
+            elif l_type in {"LSTM", "GRU", "SimpleRNN"}:
                 units = layer.units or 64
                 if units <= 0:
                     errors.append(f"Capa {idx} ({l_type}): units debe ser > 0.")
                     continue
                 in_dim = current_shape[-1]
-                factor = 4 if l_type == "LSTM" else 3
+                factor = {"LSTM": 4, "GRU": 3, "SimpleRNN": 1}[l_type]
                 rec_params = factor * ((in_dim + units) * units + units)
                 total_params += rec_params
                 trainable_params += rec_params

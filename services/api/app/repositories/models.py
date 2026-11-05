@@ -131,6 +131,8 @@ class TrainingJobModel(Base):
     started_at = Column(DateTime(timezone=True), nullable=True)
     ended_at = Column(DateTime(timezone=True), nullable=True)
     error_message = Column(Text, nullable=True)
+    worker_id = Column(String(150), nullable=True)
+    heartbeat_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
 
     __table_args__ = (
