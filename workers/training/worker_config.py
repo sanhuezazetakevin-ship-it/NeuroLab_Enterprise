@@ -43,6 +43,8 @@ def _sync_database_url(raw: str) -> str:
         url = url.replace("postgresql+asyncpg://", "postgresql+psycopg2://", 1)
     elif url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql+psycopg2://", 1)
+    elif url.startswith("postgresql://"):
+        url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
     if url.startswith("postgresql+psycopg2://"):
         # La API normaliza a ``ssl=require`` para asyncpg; psycopg2 espera
         # el parámetro libpq ``sslmode``.
