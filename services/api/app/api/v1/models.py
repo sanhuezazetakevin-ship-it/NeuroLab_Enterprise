@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
 
 from app.core.database import get_db
-from app.core.deps import APPROVAL_ROLES, WRITE_ROLES, ensure_project_role, get_current_user, project_access
+from app.core.deps import APPROVAL_ROLES, MODEL_STATUS_ROLES, WRITE_ROLES, ensure_project_role, get_current_user, project_access
 from app.core.storage import StorageError, storage
 from app.modules.audit.service import record_audit
 from app.repositories.models import ModelVersionModel, UserModel
@@ -64,7 +64,7 @@ async def update_model_status(
     if not model:
         raise HTTPException(status_code=404, detail="Versión de modelo no encontrada")
     _, role = await project_access(db, model.project_id, user)
-    ensure_project_role(role, WRITE_ROLES, "cambiar el estado de un modelo")
+    ensure_project_role(role, MODEL_STATUS_ROLES, "cambiar el estado de un modelo")
 
     if payload.status == model.status:
         return model

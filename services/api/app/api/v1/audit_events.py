@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.deps import get_current_user, project_access
+from app.core.deps import AUDIT_ROLES, ensure_project_role, get_current_user, project_access
 from app.repositories.models import AuditEventModel, UserModel
 from app.schemas.audit import AuditEventResponse
 
@@ -21,7 +21,8 @@ async def list_audit_events(
     user: UserModel = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await project_access(db, project_id, user)
+    _, role = await project_access(db, project_id, user)
+    ensure_project_role(role, AUDIT_ROLES, "consultar los eventos de auditoría del proyecto")
     stmt = (
         select(AuditEventModel, UserModel)
         .outerjoin(UserModel, UserModel.id == AuditEventModel.actor_id)

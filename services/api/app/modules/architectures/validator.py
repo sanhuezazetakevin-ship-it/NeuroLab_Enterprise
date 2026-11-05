@@ -6,21 +6,21 @@ FAMILIES = {"FEEDFORWARD", "RNN", "CNN", "GAN"}
 LAYER_TYPES = {
     "Dense",
     "Dropout",
+    "Conv1D",
     "Conv2D",
+    "MaxPooling1D",
     "MaxPooling2D",
     "Flatten",
     "LSTM",
     "GRU",
+    "SimpleRNN",
     "BatchNormalization",
 }
 FAMILY_LAYERS = {
     "FEEDFORWARD": {"Dense", "Dropout", "BatchNormalization"},
-    "RNN": {"Dense", "Dropout", "BatchNormalization", "LSTM", "GRU"},
-    "CNN": {"Dense", "Dropout", "BatchNormalization", "Conv2D", "MaxPooling2D", "Flatten"},
-    # El generador de una GAN usa capas densas/convolucionales; el par
-    # generador-discriminador se documenta pero su entrenamiento se habilita
-    # progresivamente (ver criterio de finalización del MVP).
-    "GAN": {"Dense", "Dropout", "BatchNormalization", "Conv2D", "MaxPooling2D", "Flatten"},
+    "RNN": {"Dense", "Dropout", "BatchNormalization", "LSTM", "GRU", "SimpleRNN"},
+    "CNN": {"Dense", "Dropout", "BatchNormalization", "Conv1D", "Conv2D", "MaxPooling1D", "MaxPooling2D", "Flatten"},
+    "GAN": {"Dense", "Dropout", "BatchNormalization", "Conv1D", "Conv2D", "MaxPooling1D", "MaxPooling2D", "Flatten"},
 }
 
 
@@ -72,15 +72,15 @@ class ArchitectureValidator:
 
         if family == "FEEDFORWARD" and len(topology.input_shape) != 1:
             errors.append(
-                f"FEEDFORWARD espera un vector 1D de características. Recibido: {topology.input_shape}."
+                f"FEEDFORWARD espera un vector 1D de características [features]. Recibido: {topology.input_shape}."
             )
-        if family == "RNN" and len(topology.input_shape) != 2:
+        if family == "RNN" and len(topology.input_shape) not in {1, 2}:
             errors.append(
-                f"RNN espera [timesteps, features]. Recibido: {topology.input_shape}."
+                f"RNN espera [features] o [timesteps, features]. Recibido: {topology.input_shape}."
             )
-        if family == "CNN" and len(topology.input_shape) != 3:
+        if family == "CNN" and len(topology.input_shape) not in {1, 2, 3}:
             errors.append(
-                f"CNN espera [alto, ancho, canales]. Recibido: {topology.input_shape}."
+                f"CNN espera [features], [timesteps, features] o [alto, ancho, canales]. Recibido: {topology.input_shape}."
             )
 
         current_shape = list(topology.input_shape)
@@ -212,12 +212,14 @@ class ArchitectureValidator:
                             "La capa de salida debería usar sigmoid/softmax (clasificación) "
                             "o linear (regresión)."
                         )
-        if family == "RNN" and not has_recurrent:
-            errors.append("La familia RNN requiere al menos una capa LSTM/GRU.")
-        if family == "CNN" and not any(
-            layer.type.strip() in {"Conv2D", "MaxPooling2D"} for layer in topology.layers
+        if family == "RNN" and not any(
+            layer.type.strip() in {"LSTM", "GRU", "SimpleRNN"} for layer in topology.layers
         ):
-            errors.append("La familia CNN requiere al menos una capa Conv2D o MaxPooling2D.")
+            errors.append("La familia RNN requiere al menos una capa LSTM, GRU o SimpleRNN.")
+        if family == "CNN" and not any(
+            layer.type.strip() in {"Conv1D", "Conv2D", "MaxPooling1D", "MaxPooling2D"} for layer in topology.layers
+        ):
+            errors.append("La familia CNN requiere al menos una capa convolucional (Conv1D/Conv2D) o de pooling.")
 
         is_valid = len(errors) == 0
         trainable = is_valid
@@ -225,21 +227,12 @@ class ArchitectureValidator:
         if family == "GAN":
             trainable = False
             trainable_reason = (
-                "GAN documentada en el catálogo; su entrenamiento adversarial se habilitará "
-                "en una fase posterior (MVP: Feedforward)."
+                "GAN es una arquitectura generativa no supervisada (diseño conceptual disponible en el catálogo). "
+                "Para problemas supervisados de clasificación o regresión con target, utilice FEEDFORWARD, RNN o CNN."
             )
-        elif family == "CNN":
-            trainable = False
-            trainable_reason = (
-                "CNN requiere datasets de imagen/volumen; la ingesta CSV tabular del MVP "
-                "sólo admite Feedforward."
-            )
-        elif family == "RNN":
-            trainable = False
-            trainable_reason = (
-                "RNN requiere datasets secuenciales; la ingesta CSV tabular del MVP "
-                "sólo admite Feedforward."
-            )
+        elif family in {"FEEDFORWARD", "RNN", "CNN"}:
+            trainable = is_valid
+            trainable_reason = None
 
         return ArchitectureValidationResult(
             valid=is_valid,

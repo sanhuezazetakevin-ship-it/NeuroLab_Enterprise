@@ -174,7 +174,10 @@ class ModelVersionModel(Base):
     metrics_summary = Column(JSONType, nullable=True, default=dict)
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
 
-    __table_args__ = (Index("idx_model_versions_project", "project_id"),)
+    __table_args__ = (
+        Index("idx_model_versions_project", "project_id"),
+        UniqueConstraint("project_id", "version", name="uq_model_versions_project_version"),
+    )
 
 
 class AuditEventModel(Base):

@@ -108,13 +108,13 @@ export const Shell: React.FC<ShellProps> = ({ currentTab, onSelectTab, children 
         <div className="h-16 flex items-center justify-between px-4 border-b border-black/10 dark:border-white/10">
           {!collapsed && (
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-black/5 dark:bg-white/10 flex items-center justify-center text-zinc-900 dark:text-white border border-black/10 dark:border-white/20 shadow-glass-sm">
-                <Network className="w-4 h-4" />
+              <div className="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-500/20 flex items-center justify-center text-rose-600 dark:text-rose-500 border border-rose-200 dark:border-rose-500/30 shadow-sm dark:shadow-[0_0_12px_rgba(225,29,72,0.3)]">
+                <Network className="w-4 h-4 text-rose-600 dark:text-rose-500 drop-shadow-sm dark:drop-shadow-[0_0_6px_rgba(244,63,94,0.8)]" />
               </div>
               <div>
                 <span className="font-semibold tracking-tight text-zinc-900 dark:text-white flex items-center gap-1.5 text-sm">
                   NeuroLab{' '}
-                  <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-black/5 dark:bg-white/10 text-zinc-700 dark:text-white/80 border border-black/10 dark:border-white/15 font-mono">
+                  <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-500/15 dark:text-rose-400 dark:border-rose-500/30 font-mono">
                     ENTERPRISE
                   </span>
                 </span>
@@ -125,8 +125,8 @@ export const Shell: React.FC<ShellProps> = ({ currentTab, onSelectTab, children 
             </div>
           )}
           {collapsed && (
-            <div className="w-8 h-8 mx-auto rounded-xl bg-black/5 dark:bg-white/10 flex items-center justify-center text-zinc-900 dark:text-white border border-black/10 dark:border-white/20 shadow-glass-sm">
-              <Network className="w-4 h-4" />
+            <div className="w-8 h-8 mx-auto rounded-xl bg-rose-50 dark:bg-rose-500/20 flex items-center justify-center text-rose-600 dark:text-rose-500 border border-rose-200 dark:border-rose-500/30 shadow-sm dark:shadow-[0_0_12px_rgba(225,29,72,0.3)]">
+              <Network className="w-4 h-4 text-rose-600 dark:text-rose-500" />
             </div>
           )}
           <button
@@ -148,19 +148,23 @@ export const Shell: React.FC<ShellProps> = ({ currentTab, onSelectTab, children 
                 onClick={() => onSelectTab(item.id)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 ${
                   isActive
-                    ? 'bg-black/10 dark:bg-white/15 text-zinc-900 dark:text-white border border-black/10 dark:border-white/20 shadow-glass-sm font-semibold'
-                    : 'text-zinc-600 dark:text-white/60 hover:text-zinc-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/[0.06]'
+                    ? 'bg-rose-50 text-rose-700 border border-rose-200 shadow-sm dark:bg-gradient-to-r dark:from-rose-950/70 dark:via-rose-900/40 dark:to-rose-950/20 dark:text-white dark:border-rose-500/40 dark:shadow-[0_0_15px_rgba(225,29,72,0.25)] font-semibold'
+                    : 'text-zinc-600 dark:text-white/60 hover:text-zinc-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-rose-950/20'
                 } ${collapsed ? 'justify-center px-0' : ''}`}
                 title={collapsed ? item.label : undefined}
               >
                 <Icon
-                  className={`w-4 h-4 shrink-0 ${
-                    isActive ? 'text-zinc-900 dark:text-white' : 'text-zinc-500 dark:text-white/50'
+                  className={`w-4 h-4 shrink-0 transition-transform duration-200 ${
+                    isActive ? 'text-rose-600 dark:text-rose-400 drop-shadow-sm dark:drop-shadow-[0_0_8px_rgba(244,63,94,0.7)] scale-105' : 'text-zinc-500 dark:text-white/50'
                   }`}
                 />
                 {!collapsed && <span className="flex-1 text-left truncate">{item.label}</span>}
                 {!collapsed && item.badge && (
-                  <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-black/5 dark:bg-white/10 text-zinc-600 dark:text-white/70 font-mono border border-black/10 dark:border-white/10">
+                  <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-mono border ${
+                    isActive
+                      ? 'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-500/25 dark:text-rose-300 dark:border-rose-500/40'
+                      : 'bg-black/5 dark:bg-white/10 text-zinc-600 dark:text-white/70 border-black/10 dark:border-white/10'
+                  }`}>
                     {item.badge}
                   </span>
                 )}
@@ -173,9 +177,9 @@ export const Shell: React.FC<ShellProps> = ({ currentTab, onSelectTab, children 
           <div className="px-3 pb-2">
             <button
               onClick={() => setWalkthroughOpen(true)}
-              className="w-full p-2.5 rounded-xl glass-inset hover:border-black/20 dark:hover:border-white/20 flex items-center gap-2.5 transition-all text-left group"
+              className="w-full p-2.5 rounded-xl glass-inset hover:border-rose-500/30 flex items-center gap-2.5 transition-all text-left group"
             >
-              <div className="p-1 rounded-lg bg-black/5 dark:bg-white/10 text-zinc-700 dark:text-white/80">
+              <div className="p-1 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20">
                 <HelpCircle className="w-3.5 h-3.5" />
               </div>
               <div className="flex-1 min-w-0">
@@ -189,21 +193,25 @@ export const Shell: React.FC<ShellProps> = ({ currentTab, onSelectTab, children 
 
         <div className="p-3 border-t border-black/10 dark:border-white/10">
           {!collapsed ? (
-            <div className="p-2.5 rounded-xl glass-inset flex items-center justify-between text-xs">
+            <div className="p-2.5 rounded-xl glass-inset flex items-center justify-between text-xs border border-rose-500/15">
               <div className="flex items-center gap-2">
-                <span className="relative flex h-2 w-2">
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-zinc-500 dark:bg-white/60" />
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600 shadow-[0_0_10px_#f43f5e]" />
                 </span>
                 <div>
                   <p className="font-medium text-zinc-900 dark:text-white/90 leading-none">Worker Keras</p>
-                  <p className="text-[10px] text-zinc-500 dark:text-white/50 mt-0.5">Procesamiento asíncrono</p>
+                  <p className="text-[10px] text-zinc-500 dark:text-white/50 mt-0.5">Telemetría asíncrona</p>
                 </div>
               </div>
-              <Activity className="w-3.5 h-3.5 text-zinc-600 dark:text-white/60" />
+              <Activity className="w-3.5 h-3.5 text-rose-500/80 animate-pulse" />
             </div>
           ) : (
             <div className="flex justify-center" title="Worker de entrenamiento asíncrono">
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-zinc-500 dark:bg-white/60" />
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600 shadow-[0_0_10px_#f43f5e]" />
+              </span>
             </div>
           )}
         </div>
@@ -226,60 +234,72 @@ export const Shell: React.FC<ShellProps> = ({ currentTab, onSelectTab, children 
               </button>
 
               {showProjectMenu && (
-                <div className="absolute left-0 mt-2 w-80 glass-panel rounded-2xl p-2 z-50 shadow-glass animate-in fade-in zoom-in-95 border border-black/10 dark:border-white/10">
-                  <div className="flex items-center justify-between px-3 py-1.5">
-                    <span className="text-[10px] font-semibold text-zinc-500 dark:text-white/40 uppercase tracking-wider">
-                      Proyecto activo
-                    </span>
-                    <button
-                      onClick={handleRefresh}
-                      className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-zinc-500 dark:text-white/50"
-                      title="Actualizar lista de proyectos"
-                    >
-                      <RefreshCw className={`w-3 h-3 ${refreshing ? 'animate-spin' : ''}`} />
-                    </button>
-                  </div>
-
-                  {projects.length === 0 && (
-                    <p className="px-3 py-2 text-[11px] text-zinc-500 dark:text-white/50">
-                      No tiene proyectos asignados todavía.
-                    </p>
-                  )}
-
-                  {projects.map((project) => (
-                    <button
-                      key={project.id}
-                      onClick={() => handleSelectProject(project)}
-                      className={`w-full text-left px-3 py-2 rounded-xl text-xs transition-colors flex items-center justify-between gap-2 ${
-                        project.id === activeProject?.id
-                          ? 'bg-black/10 dark:bg-white/15 text-zinc-900 dark:text-white font-medium border border-black/10 dark:border-white/20'
-                          : 'text-zinc-700 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/[0.08] hover:text-zinc-900 dark:hover:text-white'
-                      }`}
-                    >
-                      <span className="truncate">{project.name}</span>
-                      <span className="text-[9px] font-mono text-zinc-500 dark:text-white/40 shrink-0">
-                        {project.effectiveRole
-                          ? labelFor(ROLE_LABELS, project.effectiveRole)
-                          : labelFor(PROJECT_STATUS_LABELS, project.status)}
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowProjectMenu(false)}
+                  />
+                  <div className="absolute left-0 mt-2 w-88 sm:w-96 bg-white dark:bg-[#0c0d14] rounded-2xl p-2.5 z-50 shadow-2xl border border-zinc-200 dark:border-rose-500/30 animate-in fade-in zoom-in-95">
+                    <div className="flex items-center justify-between px-3 py-1.5 border-b border-zinc-100 dark:border-white/10 mb-1">
+                      <span className="text-[10px] font-bold text-zinc-500 dark:text-white/50 uppercase tracking-wider">
+                        Proyecto activo
                       </span>
-                      {project.id === activeProject?.id && (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-zinc-900 dark:text-white shrink-0" />
-                      )}
-                    </button>
-                  ))}
+                      <button
+                        onClick={handleRefresh}
+                        className="p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-white/10 text-zinc-500 dark:text-white/50 transition-colors"
+                        title="Actualizar lista de proyectos"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+                      </button>
+                    </div>
 
-                  <div className="border-t border-black/10 dark:border-white/10 mt-1.5 pt-1.5">
-                    <button
-                      onClick={() => {
-                        setShowProjectMenu(false);
-                        onSelectTab('projects');
-                      }}
-                      className="w-full text-left px-3 py-2 rounded-xl text-[11px] text-zinc-700 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/[0.08] transition-colors"
-                    >
-                      Gestionar proyectos →
-                    </button>
+                    {projects.length === 0 && (
+                      <p className="px-3 py-3 text-xs text-zinc-500 dark:text-white/50">
+                        No tiene proyectos asignados todavía.
+                      </p>
+                    )}
+
+                    <div className="max-h-64 overflow-y-auto space-y-1 py-1">
+                      {projects.map((project) => {
+                        const isSelected = project.id === activeProject?.id;
+                        return (
+                          <button
+                            key={project.id}
+                            onClick={() => handleSelectProject(project)}
+                            className={`w-full text-left px-3 py-2 rounded-xl text-xs transition-all flex items-center justify-between gap-2.5 ${
+                              isSelected
+                                ? 'bg-rose-500/10 text-zinc-900 dark:text-rose-200 font-semibold border border-rose-500/30 shadow-sm'
+                                : 'text-zinc-700 dark:text-white/70 hover:bg-zinc-100 dark:hover:bg-white/[0.08] hover:text-zinc-900 dark:hover:text-white'
+                            }`}
+                          >
+                            <span className="truncate flex-1 font-medium">{project.name}</span>
+                            <span className="text-[9px] font-mono px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-white/60 shrink-0 border border-zinc-200/60 dark:border-white/10">
+                              {project.effectiveRole
+                                ? labelFor(ROLE_LABELS, project.effectiveRole)
+                                : labelFor(PROJECT_STATUS_LABELS, project.status)}
+                            </span>
+                            {isSelected && (
+                              <CheckCircle2 className="w-3.5 h-3.5 text-rose-500 drop-shadow-[0_0_6px_rgba(244,63,94,0.6)] shrink-0" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="border-t border-zinc-100 dark:border-white/10 mt-1.5 pt-1.5">
+                      <button
+                        onClick={() => {
+                          setShowProjectMenu(false);
+                          onSelectTab('projects');
+                        }}
+                        className="w-full text-left px-3 py-2 rounded-xl text-xs font-medium text-zinc-700 dark:text-white/70 hover:bg-zinc-100 dark:hover:bg-white/[0.08] hover:text-rose-600 dark:hover:text-rose-400 transition-colors flex items-center justify-between"
+                      >
+                        <span>Gestionar proyectos</span>
+                        <span>→</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
+                </>
               )}
             </div>
 
@@ -324,34 +344,40 @@ export const Shell: React.FC<ShellProps> = ({ currentTab, onSelectTab, children 
               </button>
 
               {showUserMenu && user && (
-                <div className="absolute right-0 mt-2 w-72 glass-panel rounded-2xl p-3 z-50 shadow-glass animate-in fade-in zoom-in-95 border border-black/10 dark:border-white/10 space-y-2">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-xl glass-inset flex items-center justify-center text-zinc-700 dark:text-white/80">
-                      <UserCircle2 className="w-5 h-5" />
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowUserMenu(false)}
+                  />
+                  <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-[#0c0d14] rounded-2xl p-3 z-50 shadow-2xl border border-zinc-200 dark:border-rose-500/30 animate-in fade-in zoom-in-95 space-y-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-white/10 flex items-center justify-center text-zinc-700 dark:text-white/80 border border-zinc-200 dark:border-white/10">
+                        <UserCircle2 className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-zinc-900 dark:text-white truncate">
+                          {user.displayName}
+                        </p>
+                        <p className="text-[10px] text-zinc-500 dark:text-white/50 truncate">{user.email}</p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold text-zinc-900 dark:text-white truncate">
-                        {user.displayName}
-                      </p>
-                      <p className="text-[10px] text-zinc-500 dark:text-white/50 truncate">{user.email}</p>
+                    <div className="p-2.5 rounded-xl bg-zinc-50 dark:bg-black/30 border border-zinc-200/80 dark:border-white/10 text-[10px] text-zinc-600 dark:text-white/60 flex items-center justify-between">
+                      <span>Rol efectivo</span>
+                      <span className="font-mono font-semibold text-zinc-900 dark:text-white">
+                        {ROLE_LABELS[user.role] || user.role}
+                      </span>
                     </div>
+                    <button
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        logout();
+                      }}
+                      className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl glass-btn-secondary text-xs font-medium"
+                    >
+                      <LogOut className="w-3.5 h-3.5" /> Cerrar sesión
+                    </button>
                   </div>
-                  <div className="p-2.5 rounded-xl glass-inset text-[10px] text-zinc-600 dark:text-white/60 flex items-center justify-between">
-                    <span>Rol efectivo</span>
-                    <span className="font-mono font-semibold text-zinc-900 dark:text-white">
-                      {ROLE_LABELS[user.role] || user.role}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setShowUserMenu(false);
-                      logout();
-                    }}
-                    className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl glass-btn-secondary text-xs font-medium"
-                  >
-                    <LogOut className="w-3.5 h-3.5" /> Cerrar sesión
-                  </button>
-                </div>
+                </>
               )}
             </div>
           </div>

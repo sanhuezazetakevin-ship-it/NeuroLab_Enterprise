@@ -40,33 +40,30 @@ class KerasModelBuilder:
                 "TensorFlow/Keras no está disponible en el worker. Instale las dependencias de entrenamiento."
             ) from exc
 
-        family_upper = (family or "").upper()
-        if family_upper != "FEEDFORWARD":
+        family_upper = (family or "FEEDFORWARD").upper()
+        if family_upper not in {"FEEDFORWARD", "RNN", "CNN"}:
             raise ModelBuildError(
-                f"La familia {family_upper or 'desconocida'} no está habilitada para entrenamiento "
-                "con datasets CSV tabulares en este MVP. Use FEEDFORWARD."
+                f"La familia {family_upper or 'desconocida'} no está habilitada para entrenamiento. "
+                "Familias soportadas: FEEDFORWARD, RNN, CNN."
             )
 
-        input_shape = [int(dim) for dim in config.get("input_shape", [])]
-        if len(input_shape) != 1:
-            raise ModelBuildError(
-                f"FEEDFORWARD requiere input_shape 1D, por ejemplo [n_features]. Recibido: {input_shape}"
-            )
-        if input_shape[0] != int(input_dim):
-            raise ModelBuildError(
-                "La forma de entrada de la arquitectura no coincide con las características del dataset: "
-                f"arquitectura={input_shape[0]}, dataset={input_dim}. Ajuste input_shape en el diseñador."
-            )
+        raw_seed = hyperparameters.get("random_seed")
+        seed = 42 if raw_seed is None else int(raw_seed)
+        tf.keras.utils.set_random_seed(seed)
 
         raw_layers = config.get("layers", [])
         if not raw_layers:
             raise ModelBuildError("La arquitectura no contiene capas")
 
-        seed = int(hyperparameters.get("random_seed", 42) or 42)
-        tf.keras.utils.set_random_seed(seed)
-
-        model = models.Sequential(name="neurolab_feedforward")
+        model_name = f"neurolab_{family_upper.lower()}"
+        model = models.Sequential(name=model_name)
         model.add(layers.Input(shape=(input_dim,), name="features"))
+
+        # Adaptadores para secuencias y convoluciones en datos tabulares
+        if family_upper == "RNN":
+            model.add(layers.Reshape((input_dim, 1), name="tabular_sequence_adapter"))
+        elif family_upper == "CNN":
+            model.add(layers.Reshape((input_dim, 1), name="tabular_conv_adapter"))
 
         last_index = len(raw_layers) - 1
         output_defined = False
@@ -88,6 +85,32 @@ class KerasModelBuilder:
                 if is_last:
                     output_defined = True
 
+            elif layer_type in {"LSTM", "GRU", "SimpleRNN"}:
+                units = int(layer_config.get("units") or 32)
+                return_seq = bool(layer_config.get("return_sequences") or layer_config.get("returnSequences", False))
+                # Si es la última capa antes de la salida, aplanamos para alimentar Dense
+                if is_last or (index == last_index - 1 and raw_layers[-1].get("type") == "Dense"):
+                    return_seq = False
+                rnn_cls = getattr(layers, layer_type)
+                model.add(rnn_cls(units=units, return_sequences=return_seq, name=f"{layer_type.lower()}_{index}"))
+
+            elif layer_type in {"Conv1D", "Conv2D"}:
+                filters = int(layer_config.get("filters") or 32)
+                k_size = layer_config.get("kernel_size") or layer_config.get("kernelSize") or 3
+                if isinstance(k_size, list):
+                    k_size = k_size[0]
+                k_size = max(1, min(int(k_size), input_dim))
+                model.add(layers.Conv1D(filters=filters, kernel_size=k_size, activation=activation, padding="same", name=f"conv1d_{index}"))
+
+            elif layer_type in {"MaxPooling1D", "MaxPooling2D"}:
+                pool_size = layer_config.get("pool_size") or layer_config.get("poolSize") or 2
+                if isinstance(pool_size, list):
+                    pool_size = pool_size[0]
+                model.add(layers.MaxPooling1D(pool_size=int(pool_size), padding="same", name=f"maxpool_{index}"))
+
+            elif layer_type == "Flatten":
+                model.add(layers.Flatten(name=f"flatten_{index}"))
+
             elif layer_type == "Dropout":
                 rate = float(layer_config.get("rate", 0.2) or 0.2)
                 if not 0.0 <= rate < 1.0:
@@ -99,7 +122,7 @@ class KerasModelBuilder:
 
             else:
                 raise ModelBuildError(
-                    f"Capa {index}: '{layer_type}' no es compatible con FEEDFORWARD tabular"
+                    f"Capa {index}: tipo de capa '{layer_type}' no soportado para la familia {family_upper}"
                 )
 
         if not output_defined:

@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from sqlalchemy import text
 
 from app.api.v1.admin import router as admin_router
@@ -57,6 +57,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
+    expose_headers=["Content-Disposition"],
 )
 
 
@@ -109,3 +110,12 @@ async def root():
         "version": settings.VERSION,
         "docs": f"{settings.API_V1_STR}/docs",
     }
+
+
+@app.get("/metrics", tags=["Monitoreo"])
+def prometheus_metrics():
+    try:
+        from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+        return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
+    except Exception as exc:
+        return Response(content=f"# prometheus metrics error: {exc}\n", media_type="text/plain")

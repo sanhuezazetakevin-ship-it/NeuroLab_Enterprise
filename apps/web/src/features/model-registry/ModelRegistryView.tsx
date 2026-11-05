@@ -14,6 +14,11 @@ import {
   ArrowRight,
   Lock,
   X,
+  FileSpreadsheet,
+  Code2,
+  Terminal,
+  UploadCloud,
+  CheckCircle2,
 } from 'lucide-react';
 import { useApp } from '../../lib/AppContext';
 import { ApiClient } from '../../lib/api';
@@ -451,6 +456,9 @@ const PredictionPanel: React.FC<{ model: ModelVersion; onClose: () => void }> = 
   const classLabels = model.metricsSummary?.classLabels || [];
   const isBinary = model.metricsSummary?.task === 'classification' && classLabels.length === 2;
 
+  const [activeTab, setActiveTab] = useState<'single' | 'batch' | 'code'>('single');
+
+  // Estado para inferencia individual
   const [values, setValues] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
     schema.forEach((field) => {
@@ -466,6 +474,17 @@ const PredictionPanel: React.FC<{ model: ModelVersion; onClose: () => void }> = 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<PredictionResult | null>(null);
+
+  // Estado para inferencia por lotes (CSV)
+  const [batchFile, setBatchFile] = useState<File | null>(null);
+  const [batchRecords, setBatchRecords] = useState<Record<string, unknown>[]>([]);
+  const [batchLoading, setBatchLoading] = useState(false);
+  const [batchError, setBatchError] = useState<string | null>(null);
+  const [batchResult, setBatchResult] = useState<PredictionResult | null>(null);
+
+  // Estado para snippets de código
+  const [codeLang, setCodeLang] = useState<'curl' | 'python' | 'javascript'>('curl');
+  const [codeCopied, setCodeCopied] = useState(false);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -492,123 +511,477 @@ const PredictionPanel: React.FC<{ model: ModelVersion; onClose: () => void }> = 
     }
   };
 
+  // Parser simple y robusto de CSV en navegador
+  const handleCSVUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setBatchFile(file);
+    setBatchResult(null);
+    setBatchError(null);
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string;
+        const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+        if (lines.length < 2) {
+          throw new Error('El archivo CSV debe contener encabezados y al menos una fila de datos');
+        }
+
+        const parseLine = (line: string): string[] => {
+          const res: string[] = [];
+          let cur = '';
+          let inQ = false;
+          for (let i = 0; i < line.length; i++) {
+            const ch = line[i];
+            if (ch === '"') {
+              inQ = !inQ;
+            } else if (ch === ',' && !inQ) {
+              res.push(cur.trim().replace(/^"|"$/g, ''));
+              cur = '';
+            } else {
+              cur += ch;
+            }
+          }
+          res.push(cur.trim().replace(/^"|"$/g, ''));
+          return res;
+        };
+
+        const headers = parseLine(lines[0]);
+        const records = lines.slice(1).map((line) => {
+          const rowVals = parseLine(line);
+          const row: Record<string, unknown> = {};
+          headers.forEach((h, i) => {
+            const v = rowVals[i];
+            if (v === undefined || v === '') {
+              row[h] = null;
+            } else if (!isNaN(Number(v))) {
+              row[h] = Number(v);
+            } else {
+              row[h] = v;
+            }
+          });
+          return row;
+        });
+
+        setBatchRecords(records);
+      } catch (err) {
+        setBatchError(err instanceof Error ? err.message : 'Error al procesar el archivo CSV');
+        setBatchRecords([]);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleRunBatch = async () => {
+    if (!batchRecords.length) return;
+    setBatchLoading(true);
+    setBatchError(null);
+    try {
+      // Mandar hasta 1000 registros
+      const recordsToSend = batchRecords.slice(0, 1000);
+      const response = await ApiClient.predictModel(model.id, recordsToSend);
+      setBatchResult(response);
+    } catch (err) {
+      setBatchError(err instanceof Error ? err.message : 'Fallo en la inferencia por lotes');
+    } finally {
+      setBatchLoading(false);
+    }
+  };
+
+  const handleDownloadEnrichedCSV = () => {
+    if (!batchRecords.length || !batchResult) return;
+    const headers = Object.keys(batchRecords[0]);
+    const isRegression = batchResult.task === 'regression';
+    const extraHeaders = isRegression ? ['valor_estimado'] : ['clase_predicha', 'probabilidad'];
+    const allHeaders = [...headers, ...extraHeaders];
+
+    const rows = batchRecords.slice(0, batchResult.predictions.length).map((rec, i) => {
+      const pred = batchResult.predictions[i] || {};
+      const extraVals = isRegression
+        ? [pred.prediction != null ? String(pred.prediction) : '']
+        : [
+            pred.label ?? pred.prediction ?? '',
+            pred.probability != null ? `${(pred.probability * 100).toFixed(2)}%` : '',
+          ];
+      const origVals = headers.map((h) => {
+        const val = rec[h];
+        return val == null ? '' : String(val).replace(/"/g, '""');
+      });
+      return [...origVals, ...extraVals].map((v) => `"${v}"`).join(',');
+    });
+
+    const csvContent = [allHeaders.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `predicciones_${batchFile?.name.replace(/\.[^/.]+$/, '') || 'lote'}_${model.version}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // Muestra de datos para código
+  const samplePayloadRecord = useMemo(() => {
+    const rec: Record<string, unknown> = {};
+    schema.forEach((f) => {
+      if (f.kind === 'numeric') {
+        rec[f.name] = f.median != null ? f.median : 0;
+      } else {
+        rec[f.name] = f.values?.[0] || 'categoria_ejemplo';
+      }
+    });
+    return rec;
+  }, [schema]);
+
+  const apiBaseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1').replace(/\/$/, '');
+  const endpointUrl = `${apiBaseUrl}/models/${model.id}/predict`;
+
+  const getCodeSnippet = () => {
+    const jsonStr = JSON.stringify({ records: [samplePayloadRecord] }, null, 2);
+    if (codeLang === 'curl') {
+      return `curl -X POST "${endpointUrl}" \\
+  -H "Authorization: Bearer <TU_JWT_TOKEN>" \\
+  -H "Content-Type: application/json" \\
+  -d '${jsonStr}'`;
+    }
+    if (codeLang === 'python') {
+      return `import requests
+
+url = "${endpointUrl}"
+headers = {
+    "Authorization": "Bearer <TU_JWT_TOKEN>",
+    "Content-Type": "application/json"
+}
+payload = ${JSON.stringify({ records: [samplePayloadRecord] }, null, 4)}
+
+response = requests.post(url, json=payload, headers=headers)
+print("Código HTTP:", response.status_code)
+print("Predicciones:", response.json())`;
+    }
+    return `// Node.js (v18+) o navegador
+const response = await fetch("${endpointUrl}", {
+  method: "POST",
+  headers: {
+    "Authorization": "Bearer <TU_JWT_TOKEN>",
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify(${JSON.stringify({ records: [samplePayloadRecord] }, null, 2)})
+});
+
+const data = await response.json();
+console.log("Resultado:", data.predictions);`;
+  };
+
+  const copyCode = () => {
+    navigator.clipboard.writeText(getCodeSnippet());
+    setCodeCopied(true);
+    setTimeout(() => setCodeCopied(false), 2000);
+  };
+
   return (
-    <div className="rounded-2xl border border-sky-500/25 bg-sky-500/[0.04] p-4 space-y-3">
-      <div className="flex items-start justify-between gap-3">
+    <div className="rounded-2xl border border-sky-500/25 bg-sky-500/[0.04] p-4 space-y-4">
+      {/* Cabecera del Panel */}
+      <div className="flex items-start justify-between gap-3 border-b border-black/10 dark:border-white/10 pb-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-300 flex items-center gap-1.5">
-            <FlaskConical className="w-3.5 h-3.5" /> Inferencia real sobre {model.version}
-          </p>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-300 flex items-center gap-1.5">
+              <FlaskConical className="w-3.5 h-3.5" /> Inferencia &amp; Consumo Empresarial ({model.version})
+            </span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-700 dark:text-sky-300 font-mono">
+              {model.metricsSummary?.task || 'MLP'}
+            </span>
+          </div>
           <p className="text-[11px] text-zinc-600 dark:text-white/60 mt-0.5">
-            Los valores se envían al endpoint <code className="font-mono">/predict</code> y se
-            transforman con el mismo preprocesador del entrenamiento.
+            Preprocesamiento idéntico al entrenamiento (escaler v2) con control de umbral y trazabilidad.
           </p>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="text-zinc-500 hover:text-zinc-900 dark:text-white/50 dark:hover:text-white"
+          className="text-zinc-500 hover:text-zinc-900 dark:text-white/50 dark:hover:text-white p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/5"
           aria-label="Cerrar panel de prueba"
         >
           <X className="w-4 h-4" />
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {schema.map((field) => (
-          <label key={field.name} className="flex flex-col gap-1 text-[11px]">
-            <span className="font-medium text-zinc-700 dark:text-white/70">
-              {field.name}
-              {field.nullable ? ' (opcional)' : ''}
-            </span>
-            {field.kind === 'numeric' ? (
+      {/* Pestañas de Modo */}
+      <div className="flex items-center gap-1.5 bg-black/5 dark:bg-white/5 p-1 rounded-xl">
+        <button
+          type="button"
+          onClick={() => setActiveTab('single')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+            activeTab === 'single'
+              ? 'bg-rose-500/15 text-rose-300 border border-rose-500/30 shadow-[0_0_12px_rgba(225,29,72,0.25)] font-semibold'
+              : 'text-zinc-600 dark:text-white/60 hover:text-zinc-900 dark:hover:text-white'
+          }`}
+        >
+          <FlaskConical className="w-3.5 h-3.5" /> Individual (Formulario)
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('batch')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+            activeTab === 'batch'
+              ? 'bg-rose-500/15 text-rose-300 border border-rose-500/30 shadow-[0_0_12px_rgba(225,29,72,0.25)] font-semibold'
+              : 'text-zinc-600 dark:text-white/60 hover:text-zinc-900 dark:hover:text-white'
+          }`}
+        >
+          <FileSpreadsheet className="w-3.5 h-3.5" /> Lote CSV (Batch)
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('code')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+            activeTab === 'code'
+              ? 'bg-rose-500/15 text-rose-300 border border-rose-500/30 shadow-[0_0_12px_rgba(225,29,72,0.25)] font-semibold'
+              : 'text-zinc-600 dark:text-white/60 hover:text-zinc-900 dark:hover:text-white'
+          }`}
+        >
+          <Code2 className="w-3.5 h-3.5" /> Integración API (cURL / Python / JS)
+        </button>
+      </div>
+
+      {/* 1. MODO INDIVIDUAL */}
+      {activeTab === 'single' && (
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {schema.map((field) => (
+            <label key={field.name} className="flex flex-col gap-1 text-[11px]">
+              <span className="font-medium text-zinc-700 dark:text-white/70">
+                {field.name}
+                {field.nullable ? ' (opcional)' : ''}
+              </span>
+              {field.kind === 'numeric' ? (
+                <input
+                  type="number"
+                  step="any"
+                  min={field.min ?? undefined}
+                  max={field.max ?? undefined}
+                  value={values[field.name] ?? ''}
+                  onChange={(event) =>
+                    setValues((prev) => ({ ...prev, [field.name]: event.target.value }))
+                  }
+                  className="glass-inset rounded-lg border border-black/10 dark:border-white/10 px-2.5 py-1.5 font-mono text-xs text-zinc-900 dark:text-white bg-transparent"
+                />
+              ) : (field.values?.length ?? 0) > 0 && (field.values?.length ?? 0) <= 40 ? (
+                <select
+                  value={values[field.name] ?? ''}
+                  onChange={(event) =>
+                    setValues((prev) => ({ ...prev, [field.name]: event.target.value }))
+                  }
+                  className="glass-inset rounded-lg border border-black/10 dark:border-white/10 px-2.5 py-1.5 text-xs text-zinc-900 dark:text-white bg-transparent"
+                >
+                  {field.values?.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={values[field.name] ?? ''}
+                  onChange={(event) =>
+                    setValues((prev) => ({ ...prev, [field.name]: event.target.value }))
+                  }
+                  className="glass-inset rounded-lg border border-black/10 dark:border-white/10 px-2.5 py-1.5 text-xs text-zinc-900 dark:text-white bg-transparent"
+                />
+              )}
+              {field.kind === 'numeric' && (field.min != null || field.max != null) && (
+                <span className="text-[10px] text-zinc-500 dark:text-white/40 font-mono">
+                  rango {formatMetric(field.min)} – {formatMetric(field.max)}
+                </span>
+              )}
+            </label>
+          ))}
+
+          {isBinary && (
+            <label className="flex flex-col gap-1 text-[11px]">
+              <span className="font-medium text-zinc-700 dark:text-white/70">
+                Umbral de decisión (opcional)
+              </span>
               <input
                 type="number"
-                step="any"
-                min={field.min ?? undefined}
-                max={field.max ?? undefined}
-                value={values[field.name] ?? ''}
-                onChange={(event) =>
-                  setValues((prev) => ({ ...prev, [field.name]: event.target.value }))
+                step="0.01"
+                min={0}
+                max={1}
+                placeholder={
+                  model.metricsSummary?.decisionThreshold != null
+                    ? String(model.metricsSummary.decisionThreshold)
+                    : '0.5'
                 }
+                value={threshold}
+                onChange={(event) => setThreshold(event.target.value)}
                 className="glass-inset rounded-lg border border-black/10 dark:border-white/10 px-2.5 py-1.5 font-mono text-xs text-zinc-900 dark:text-white bg-transparent"
               />
-            ) : (field.values?.length ?? 0) > 0 && (field.values?.length ?? 0) <= 40 ? (
-              <select
-                value={values[field.name] ?? ''}
-                onChange={(event) =>
-                  setValues((prev) => ({ ...prev, [field.name]: event.target.value }))
-                }
-                className="glass-inset rounded-lg border border-black/10 dark:border-white/10 px-2.5 py-1.5 text-xs text-zinc-900 dark:text-white bg-transparent"
-              >
-                {field.values?.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <input
-                type="text"
-                value={values[field.name] ?? ''}
-                onChange={(event) =>
-                  setValues((prev) => ({ ...prev, [field.name]: event.target.value }))
-                }
-                className="glass-inset rounded-lg border border-black/10 dark:border-white/10 px-2.5 py-1.5 text-xs text-zinc-900 dark:text-white bg-transparent"
-              />
-            )}
-            {field.kind === 'numeric' && (field.min != null || field.max != null) && (
-              <span className="text-[10px] text-zinc-500 dark:text-white/40 font-mono">
-                rango observado {formatMetric(field.min)} – {formatMetric(field.max)}
+              <span className="text-[10px] text-zinc-500 dark:text-white/40">
+                Vacío = umbral óptimo calculado en la evaluación.
               </span>
-            )}
-          </label>
-        ))}
+            </label>
+          )}
 
-        {isBinary && (
-          <label className="flex flex-col gap-1 text-[11px]">
-            <span className="font-medium text-zinc-700 dark:text-white/70">
-              Umbral de decisión (opcional)
-            </span>
-            <input
-              type="number"
-              step="0.01"
-              min={0}
-              max={1}
-              placeholder={
-                model.metricsSummary?.decisionThreshold != null
-                  ? String(model.metricsSummary.decisionThreshold)
-                  : '0.5'
-              }
-              value={threshold}
-              onChange={(event) => setThreshold(event.target.value)}
-              className="glass-inset rounded-lg border border-black/10 dark:border-white/10 px-2.5 py-1.5 font-mono text-xs text-zinc-900 dark:text-white bg-transparent"
-            />
-            <span className="text-[10px] text-zinc-500 dark:text-white/40">
-              Vacío = umbral ajustado durante la evaluación.
-            </span>
-          </label>
-        )}
-
-        <div className="sm:col-span-2 flex justify-end">
-          <button
-            type="submit"
-            disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl glass-btn-primary text-[11px] font-semibold disabled:opacity-50"
-          >
-            {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FlaskConical className="w-3.5 h-3.5" />}
-            Ejecutar predicción
-          </button>
-        </div>
-      </form>
-
-      {error && (
-        <p className="text-[11px] text-rose-700 dark:text-rose-300 flex items-start gap-1.5">
-          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" /> {error}
-        </p>
+          <div className="sm:col-span-2 flex justify-end">
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl glass-btn-primary text-[11px] font-semibold disabled:opacity-50"
+            >
+              {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FlaskConical className="w-3.5 h-3.5" />}
+              Ejecutar predicción
+            </button>
+          </div>
+        </form>
       )}
 
-      {result && (
+      {/* 2. MODO LOTE CSV */}
+      {activeTab === 'batch' && (
+        <div className="space-y-3">
+          <div className="rounded-xl border border-dashed border-rose-500/30 bg-rose-500/[0.02] p-4 text-center">
+            <UploadCloud className="w-8 h-8 mx-auto text-rose-500 drop-shadow-[0_0_8px_rgba(244,63,94,0.6)] mb-2" />
+            <p className="text-xs font-semibold text-zinc-900 dark:text-white">
+              Sube un archivo CSV para predecir en lote
+            </p>
+            <p className="text-[11px] text-zinc-500 dark:text-white/50 mt-0.5">
+              El archivo debe contener las mismas columnas que el esquema del modelo.
+            </p>
+            <input
+              type="file"
+              accept=".csv"
+              onChange={handleCSVUpload}
+              className="mt-3 block w-full text-xs text-zinc-500 dark:text-white/50 file:mr-4 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:glass-btn-primary cursor-pointer"
+            />
+          </div>
+
+          {batchFile && batchRecords.length > 0 && (
+            <div className="rounded-xl glass-inset p-3 space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="font-medium text-zinc-800 dark:text-white/80 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" /> {batchFile.name}
+                </span>
+                <span className="font-mono text-zinc-500 dark:text-white/50">
+                  {batchRecords.length} registros detectados
+                </span>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={handleRunBatch}
+                  disabled={batchLoading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl glass-btn-primary text-xs font-semibold disabled:opacity-50"
+                >
+                  {batchLoading ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <FlaskConical className="w-3.5 h-3.5" />
+                  )}
+                  Procesar lote ({batchRecords.length} filas)
+                </button>
+              </div>
+            </div>
+          )}
+
+          {batchError && (
+            <p className="text-[11px] text-rose-700 dark:text-rose-300 flex items-start gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" /> {batchError}
+            </p>
+          )}
+
+          {batchResult && (
+            <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/[0.05] p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                    ¡Lote procesado exitosamente!
+                  </p>
+                  <p className="text-[11px] text-zinc-600 dark:text-white/60">
+                    Se generaron {batchResult.predictions.length} predicciones con éxito.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDownloadEnrichedCSV}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition-all"
+                >
+                  <Download className="w-4 h-4" /> Descargar CSV con Resultados
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 3. MODO INTEGRACIÓN API / CÓDIGO */}
+      {activeTab === 'code' && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1 bg-black/5 dark:bg-white/5 p-1 rounded-lg">
+              <button
+                type="button"
+                onClick={() => setCodeLang('curl')}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-mono transition-all ${
+                  codeLang === 'curl'
+                    ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm'
+                    : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
+                }`}
+              >
+                cURL
+              </button>
+              <button
+                type="button"
+                onClick={() => setCodeLang('python')}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-mono transition-all ${
+                  codeLang === 'python'
+                    ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm'
+                    : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
+                }`}
+              >
+                Python
+              </button>
+              <button
+                type="button"
+                onClick={() => setCodeLang('javascript')}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-mono transition-all ${
+                  codeLang === 'javascript'
+                    ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm'
+                    : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
+                }`}
+              >
+                Node.js / JS
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={copyCode}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg glass-btn-secondary text-[11px] font-medium"
+            >
+              {codeCopied ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-500" /> Copiado
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" /> Copiar código
+                </>
+              )}
+            </button>
+          </div>
+
+          <div className="relative rounded-xl bg-zinc-950 p-3 font-mono text-[11px] text-zinc-100 overflow-x-auto border border-zinc-800 max-h-64">
+            <pre>{getCodeSnippet()}</pre>
+          </div>
+          <p className="text-[10px] text-zinc-500 dark:text-white/40">
+            Reemplaza <code className="font-mono text-sky-400">&lt;TU_JWT_TOKEN&gt;</code> con el token devuelto por <code className="font-mono">POST /auth/login</code>.
+          </p>
+        </div>
+      )}
+
+      {/* Resultados de inferencia individual */}
+      {activeTab === 'single' && result && (
         <div className="rounded-xl glass-inset border border-black/10 dark:border-white/10 p-3 space-y-2">
           {result.predictions.map((item) => (
             <div key={item.index} className="flex flex-wrap items-center justify-between gap-2">

@@ -13,6 +13,7 @@ Uso:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
 import os
@@ -155,7 +156,8 @@ class TrainingWorkerDaemon:
         if not target_column or not storage_key:
             raise DataPreparationError("El payload del trabajo no contiene target_column o storage_key")
 
-        seed = int(hyperparameters.get("random_seed", 42) or 42)
+        raw_seed = hyperparameters.get("random_seed")
+        seed = 42 if raw_seed is None else int(raw_seed)
         # Se aplica antes de construir el modelo: el determinismo de operaciones
         # debe activarse antes de crear capas y de ejecutar el primer paso.
         reproducibility = configure_determinism(
@@ -180,6 +182,13 @@ class TrainingWorkerDaemon:
         try:
             csv_path = _materialize_dataset(str(storage_key), job_id)
             downloaded_dataset = object_storage.enabled
+            expected_checksum = dataset.get("checksum")
+            if expected_checksum:
+                actual_checksum = hashlib.sha256(Path(csv_path).read_bytes()).hexdigest()
+                if actual_checksum != expected_checksum:
+                    raise DataPreparationError(
+                        f"Integridad del dataset comprometida: checksum esperado {expected_checksum[:12]}, obtenido {actual_checksum[:12]}"
+                    )
             validation_split = float(hyperparameters.get("validation_split", 0.15) or 0.15)
             try:
                 data: PreparedDataset = prepare_dataset(
@@ -199,6 +208,9 @@ class TrainingWorkerDaemon:
                 data.input_dim,
                 data.task,
             )
+            if self._check_cancel(job_id):
+                self._finish_cancelled(job_id, 0.0, "Cancelado tras preparar dataset")
+                return "CANCELLED" 
 
             model = KerasModelBuilder.build_model(
                 config=architecture.get("config_json") or {},
@@ -245,9 +257,10 @@ class TrainingWorkerDaemon:
 
             if outcome.status == "TIMEOUT":
                 message = "El entrenamiento excedió el tiempo máximo configurado"
-                db.set_job_status(job_id, "FAILED", progress=min(99.0, outcome.epochs_completed / max(1, total_epochs) * 100.0), error_message=message, ended_at=_now())
-                self.publisher.state(job_id, "FAILED", progress=0.0, error_message=message)
-                return "FAILED"
+                final_progress = min(99.0, outcome.epochs_completed / max(1, total_epochs) * 100.0)
+                db.set_job_status(job_id, "FAILED", progress=final_progress, error_message=message, ended_at=_now())
+                self.publisher.state(job_id, "FAILED", progress=final_progress, error_message=message)
+                return "FAILED" 
 
             logger.info("Trabajo %s: evaluando modelo final", job_id)
             evaluation = ModelEvaluator.evaluate(model, data)
@@ -498,6 +511,12 @@ class TrainingWorkerDaemon:
             DATA_DIR,
             MODEL_DIR,
         )
+        try:
+            recovered_count = db.recover_orphaned_jobs()
+            if recovered_count > 0:
+                logger.warning("Se recuperaron %d trabajos huérfanos que quedaron en RUNNING/PREPARING", recovered_count)
+        except Exception:
+            logger.exception("Error recuperando trabajos huérfanos al inicio del worker")
         if QUEUE_BACKEND == "filesystem":
             self._recover_processing()
         while not self._stopping:

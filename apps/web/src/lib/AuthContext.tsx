@@ -42,8 +42,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .finally(() => {
         if (active) setLoading(false);
       });
+
+    const handleUnauthorized = () => {
+      if (active) setUser(null);
+    };
+    window.addEventListener('neurolab:unauthorized', handleUnauthorized);
+
     return () => {
       active = false;
+      window.removeEventListener('neurolab:unauthorized', handleUnauthorized);
     };
   }, []);
 

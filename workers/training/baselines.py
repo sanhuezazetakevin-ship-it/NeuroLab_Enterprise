@@ -22,6 +22,7 @@ from typing import Any, Dict
 
 from sklearn.dummy import DummyClassifier, DummyRegressor
 from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 
 from metrics import classification_metrics, regression_metrics
 
@@ -39,6 +40,8 @@ def _classification_baselines(
     random_state: int,
 ) -> Dict[str, Any]:
     report: Dict[str, Any] = {}
+    n_samples = len(X_train)
+    k_neighbors = min(5, max(1, n_samples - 1))
     candidates = {
         "dummy_majority": (
             "Clase mayoritaria (sin aprendizaje)",
@@ -51,6 +54,10 @@ def _classification_baselines(
                 class_weight="balanced",
                 random_state=random_state,
             ),
+        ),
+        "knn": (
+            f"k-Nearest Neighbors (k={k_neighbors}, modelo no paramétrico)",
+            KNeighborsClassifier(n_neighbors=k_neighbors),
         ),
     }
     for name, (description, estimator) in candidates.items():
@@ -77,11 +84,17 @@ def _regression_baselines(
     y_test: np.ndarray,
 ) -> Dict[str, Any]:
     report: Dict[str, Any] = {}
+    n_samples = len(X_train)
+    k_neighbors = min(5, max(1, n_samples - 1))
     candidates = {
         "dummy_mean": ("Media del objetivo (sin aprendizaje)", DummyRegressor(strategy="mean")),
         "linear_regression": (
             "Regresión lineal (modelo lineal de referencia)",
             LinearRegression(),
+        ),
+        "knn": (
+            f"k-Nearest Neighbors (k={k_neighbors}, modelo no paramétrico)",
+            KNeighborsRegressor(n_neighbors=k_neighbors),
         ),
     }
     for name, (description, estimator) in candidates.items():

@@ -9,7 +9,7 @@ import {
   Info,
   Maximize2,
   TrendingUp,
-  Activity
+  Layers
 } from 'lucide-react';
 import { useApp } from '../../lib/AppContext';
 import { EnlargedChartModal } from '../../components/common/EnlargedChartModal';
@@ -41,8 +41,23 @@ export const FundamentalsView: React.FC = () => {
   }
   const y = Number(activated.toFixed(3));
 
+  // Compute derivative f'(z)
+  let gradVal = 0;
+  if (activationFn === 'relu') {
+    gradVal = z > 0 ? 1 : 0;
+  } else if (activationFn === 'sigmoid') {
+    const s = 1 / (1 + Math.exp(-z));
+    gradVal = s * (1 - s);
+  } else if (activationFn === 'tanh') {
+    const t = Math.tanh(z);
+    gradVal = 1 - t * t;
+  } else if (activationFn === 'leaky_relu') {
+    gradVal = z > 0 ? 1 : 0.1;
+  }
+  const grad = Number(gradVal.toFixed(3));
+
   // Modal enlargement state
-  const [enlargedModal, setEnlargedModal] = useState<'neuron' | 'activation' | null>(null);
+  const [enlargedModal, setEnlargedModal] = useState<'neuron' | 'activation' | 'boundary' | 'gradient' | 'contribution' | 'loss' | null>(null);
 
   const resetNeuron = () => {
     setX1(0.8);
@@ -59,9 +74,9 @@ export const FundamentalsView: React.FC = () => {
     const points: string[] = [];
     const minZ = -4;
     const maxZ = 4;
-    const width = isLarge ? 640 : 260;
-    const height = isLarge ? 240 : 90;
-    const padding = isLarge ? 30 : 12;
+    const width = isLarge ? 640 : 180;
+    const height = isLarge ? 240 : 115;
+    const padding = isLarge ? 30 : 10;
 
     for (let currentZ = minZ; currentZ <= maxZ; currentZ += 0.2) {
       let val = 0;
@@ -111,11 +126,264 @@ export const FundamentalsView: React.FC = () => {
     );
   };
 
+
+  // Render SVG 2D Decision Boundary
+  const renderDecisionBoundary = (isLarge = false) => {
+    const width = isLarge ? 560 : 180;
+    const height = isLarge ? 300 : 115;
+    const padding = isLarge ? 32 : 10;
+    const clipId = isLarge ? 'clip-boundary-lg' : 'clip-boundary-sm';
+
+    const scaleX = (width - 2 * padding) / 4.4;
+    const scaleY = (height - 2 * padding) / 4.4;
+    const toSvg = (px: number, py: number): [number, number] => [
+      width / 2 + px * scaleX,
+      height / 2 - py * scaleY,
+    ];
+
+    // Compute line endpoints: w1*x1 + w2*x2 + bias = 0 -> x2 = -(bias + w1*x1)/w2
+    let xA = -3, yA = 0, xB = 3, yB = 0;
+    if (Math.abs(w2) > 0.001) {
+      yA = -(bias + w1 * -3) / w2;
+      yB = -(bias + w1 * 3) / w2;
+    } else {
+      xA = -bias / (w1 || 0.001);
+      xB = xA;
+      yA = -3;
+      yB = 3;
+    }
+    const [lineX1, lineY1] = toSvg(xA, yA);
+    const [lineX2, lineY2] = toSvg(xB, yB);
+    const [ptX, ptY] = toSvg(Math.max(-2.1, Math.min(2.1, x1)), Math.max(-2.1, Math.min(2.1, x2)));
+
+    // Reference scatter points for Class 0 (faint blue) and Class 1 (faint rose)
+    const samples = [
+      { x: -1.2, y: -1.0, c: 0 },
+      { x: -0.7, y: -1.4, c: 0 },
+      { x: -1.4, y: -0.4, c: 0 },
+      { x: -0.4, y: -1.2, c: 0 },
+      { x: 1.1, y: 1.2, c: 1 },
+      { x: 1.4, y: 0.6, c: 1 },
+      { x: 0.8, y: 1.4, c: 1 },
+      { x: 1.5, y: 1.1, c: 1 },
+    ];
+
+    return (
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto overflow-visible select-none text-zinc-900 dark:text-white">
+        <defs>
+          <clipPath id={clipId}>
+            <rect x={padding} y={padding} width={width - 2 * padding} height={height - 2 * padding} rx="4" />
+          </clipPath>
+        </defs>
+
+        {/* Axes */}
+        <line x1={padding} y1={height / 2} x2={width - padding} y2={height / 2} stroke="currentColor" strokeOpacity="0.15" strokeDasharray="3 3" />
+        <line x1={width / 2} y1={padding} x2={width / 2} y2={height - padding} stroke="currentColor" strokeOpacity="0.15" strokeDasharray="3 3" />
+
+        <g clipPath={`url(#${clipId})`}>
+          {/* Reference scatter points */}
+          {samples.map((s, idx) => {
+            const [sx, sy] = toSvg(s.x, s.y);
+            return (
+              <circle
+                key={idx}
+                cx={sx}
+                cy={sy}
+                r={isLarge ? '3.5' : '2'}
+                fill={s.c === 1 ? '#f43f5e' : '#38bdf8'}
+                fillOpacity={0.4}
+              />
+            );
+          })}
+
+          {/* Decision boundary line: w1*x1 + w2*x2 + b = 0 */}
+          <line
+            x1={lineX1}
+            y1={lineY1}
+            x2={lineX2}
+            y2={lineY2}
+            stroke="#fb7185"
+            strokeWidth={isLarge ? '2.5' : '2'}
+            strokeLinecap="round"
+          />
+        </g>
+
+        {/* Current dynamic point P(x1, x2) */}
+        <circle
+          cx={ptX}
+          cy={ptY}
+          r={isLarge ? '5.5' : '3.5'}
+          fill={z > 0 ? '#f43f5e' : '#64748b'}
+          stroke="#ffffff"
+          strokeWidth="1.5"
+        />
+        {isLarge && (
+          <text x={ptX + 8} y={ptY - 8} fontSize="10" fill="currentColor" fontWeight="bold" fontFamily="monospace">
+            P({x1}, {x2}) {z > 0 ? '→ [Clase 1]' : '→ [Clase 0]'}
+          </text>
+        )}
+      </svg>
+    );
+  };
+
+  // Render SVG Gradient / Derivative Curve f'(z)
+  const renderGradientCurve = (isLarge = false) => {
+    const width = isLarge ? 640 : 180;
+    const height = isLarge ? 240 : 115;
+    const padding = isLarge ? 30 : 10;
+    const points: string[] = [];
+
+    for (let cz = -4; cz <= 4; cz += 0.2) {
+      let df = 0;
+      if (activationFn === 'relu') df = cz > 0 ? 1 : 0;
+      else if (activationFn === 'sigmoid') {
+        const s = 1 / (1 + Math.exp(-cz));
+        df = s * (1 - s);
+      } else if (activationFn === 'tanh') {
+        const t = Math.tanh(cz);
+        df = 1 - t * t;
+      } else if (activationFn === 'leaky_relu') {
+        df = cz > 0 ? 1 : 0.1;
+      }
+
+      const px = padding + ((cz - (-4)) / 8) * (width - 2 * padding);
+      const py = height - padding - (df / 1.15) * (height - 2 * padding);
+      points.push(`${px.toFixed(1)},${py.toFixed(1)}`);
+    }
+
+    const clampedZ = Math.max(-4, Math.min(4, z));
+    const dotX = padding + ((clampedZ - (-4)) / 8) * (width - 2 * padding);
+    const dotY = height - padding - (Math.min(1.15, Math.max(0, gradVal)) / 1.15) * (height - 2 * padding);
+
+    return (
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto overflow-visible select-none text-zinc-900 dark:text-white">
+        <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="currentColor" strokeOpacity="0.2" />
+        <line x1={width / 2} y1={padding} x2={width / 2} y2={height - padding} stroke="currentColor" strokeOpacity="0.15" strokeDasharray="3 3" />
+
+        {activationFn === 'sigmoid' && (
+          <line
+            x1={padding}
+            y1={height - padding - (0.25 / 1.15) * (height - 2 * padding)}
+            x2={width - padding}
+            y2={height - padding - (0.25 / 1.15) * (height - 2 * padding)}
+            stroke="#f59e0b"
+            strokeOpacity="0.3"
+            strokeDasharray="2 2"
+          />
+        )}
+
+        <polyline
+          fill="none"
+          stroke="#38bdf8"
+          strokeWidth={isLarge ? '2.5' : '2'}
+          points={points.join(' ')}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+
+        <circle
+          cx={dotX}
+          cy={dotY}
+          r={isLarge ? '5' : '3.5'}
+          fill="#38bdf8"
+          stroke="#ffffff"
+          strokeWidth="1.5"
+        />
+      </svg>
+    );
+  };
+
+
+  // Render SVG Synaptic Contribution Bars (w1*x1, w2*x2, bias)
+  const renderContributionBars = (isLarge = false) => {
+    const width = isLarge ? 560 : 180;
+    const height = isLarge ? 240 : 115;
+    const padding = isLarge ? 24 : 8;
+
+    const term1 = Number((w1 * x1).toFixed(2));
+    const term2 = Number((w2 * x2).toFixed(2));
+    const termB = Number(bias.toFixed(2));
+
+    const maxVal = Math.max(2.5, Math.abs(term1), Math.abs(term2), Math.abs(termB));
+    const midX = width / 2;
+    const rowH = (height - 2 * padding) / 3;
+
+    const renderRow = (val: number, rowIdx: number, label: string, color: string) => {
+      const barW = (Math.abs(val) / maxVal) * (width / 2 - padding - 36);
+      const barX = val >= 0 ? midX : midX - barW;
+      const barY = padding + rowIdx * rowH + rowH * 0.18;
+      const h = rowH * 0.64;
+      return (
+        <g key={rowIdx}>
+          <text x={padding + 2} y={barY + h * 0.72} fontSize={isLarge ? "10" : "8"} fill="currentColor" opacity="0.65" fontFamily="monospace">
+            {label}
+          </text>
+          <rect x={barX} y={barY} width={Math.max(2, barW)} height={h} rx="2" fill={color} />
+          <text
+            x={val >= 0 ? barX + barW + 4 : barX - 4}
+            y={barY + h * 0.72}
+            fontSize={isLarge ? "10" : "8"}
+            textAnchor={val >= 0 ? "start" : "end"}
+            fill="currentColor"
+            fontWeight="bold"
+            fontFamily="monospace"
+          >
+            {val > 0 ? `+${val}` : val}
+          </text>
+        </g>
+      );
+    };
+
+    return (
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto overflow-visible select-none text-zinc-900 dark:text-white">
+        <line x1={midX} y1={padding} x2={midX} y2={height - padding} stroke="currentColor" strokeOpacity="0.2" />
+        {renderRow(term1, 0, "w1·x1", term1 >= 0 ? "#f43f5e" : "#38bdf8")}
+        {renderRow(term2, 1, "w2·x2", term2 >= 0 ? "#f43f5e" : "#38bdf8")}
+        {renderRow(termB, 2, "sesgo", termB >= 0 ? "#fbbf24" : "#94a3b8")}
+      </svg>
+    );
+  };
+
+  // Render SVG Loss Surface Parabola
+  const renderLossSurface = (isLarge = false) => {
+    const width = isLarge ? 560 : 180;
+    const height = isLarge ? 240 : 115;
+    const padding = isLarge ? 24 : 10;
+
+    const wOpt = 0.5;
+    const currentLoss = Number((0.5 * Math.pow(w1 - wOpt, 2)).toFixed(3));
+    const gradDirection = w1 > wOpt ? "← Descenso" : "Descenso →";
+
+    const points: string[] = [];
+    for (let w = -2; w <= 2; w += 0.2) {
+      const l = 0.5 * Math.pow(w - wOpt, 2);
+      const px = padding + ((w - (-2)) / 4) * (width - 2 * padding);
+      const py = (height - padding) - (l / 3.2) * (height - 2 * padding);
+      points.push(`${px.toFixed(1)},${py.toFixed(1)}`);
+    }
+
+    const dotX = padding + ((w1 - (-2)) / 4) * (width - 2 * padding);
+    const dotY = (height - padding) - (Math.min(3.2, currentLoss) / 3.2) * (height - 2 * padding);
+
+    return (
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto overflow-visible select-none text-zinc-900 dark:text-white">
+        <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="currentColor" strokeOpacity="0.2" />
+        <polyline fill="none" stroke="#f43f5e" strokeWidth={isLarge ? "2.5" : "2"} points={points.join(' ')} strokeLinecap="round" />
+        <circle cx={dotX} cy={dotY} r={isLarge ? "5.5" : "3.5"} fill="#f43f5e" stroke="#ffffff" strokeWidth="1.5" />
+        {isLarge && (
+          <text x={dotX + 6} y={dotY - 6} fontSize="10" fill="currentColor" fontFamily="monospace">
+            L={currentLoss} ({gradDirection})
+          </text>
+        )}
+      </svg>
+    );
+  };
+
   // Render SVG Neuron Diagram in Frosted Grey Style
   const renderNeuronSVG = (isLarge = false) => {
-    const w = isLarge ? 600 : 280;
-    const h = isLarge ? 240 : 120;
-    const scale = isLarge ? 1.5 : 0.82;
+    const w = isLarge ? 600 : 175;
+    const h = isLarge ? 240 : 115;
+    const scale = isLarge ? 1.5 : 0.66;
 
     return (
       <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-auto overflow-visible select-none text-zinc-900 dark:text-white">
@@ -165,7 +433,7 @@ export const FundamentalsView: React.FC = () => {
         <text x={130 * scale} y={95 * scale} fontSize={8 * scale} textAnchor="middle" fill="currentColor" opacity="0.7" fontFamily="monospace">z={z}</text>
 
         {/* Activation Node */}
-        <rect x={195 * scale} y={67 * scale} width={36 * scale} height={36 * scale} rx={8 * scale} fill="currentColor" fillOpacity="0.15" stroke="currentColor" strokeOpacity="0.3" strokeWidth="1.5" />
+        <rect x={195 * scale} y={67 * scale} width={36 * scale} height={36 * scale} rx={isLarge ? 6 : 2} fill="currentColor" fillOpacity="0.15" stroke="currentColor" strokeOpacity="0.3" strokeWidth="1.5" />
         <text x={213 * scale} y={83 * scale} fontSize={8 * scale} textAnchor="middle" fill="currentColor" opacity="0.8" fontWeight="bold">{activationFn}</text>
         <text x={213 * scale} y={95 * scale} fontSize={9 * scale} textAnchor="middle" fill="currentColor" fontFamily="monospace" fontWeight="bold">y={y}</text>
       </svg>
@@ -401,59 +669,154 @@ export const FundamentalsView: React.FC = () => {
           </div>
         </div>
 
-        {/* RIGHT DOCK: Compact Previews with Click-to-Enlarge */}
-        <div className="space-y-3.5">
+        {/* RIGHT DOCK: 2-Column Grid of 8 Telemetry Cards (fills empty space seamlessly) */}
+        <div className="space-y-3">
           <div className="text-xs font-medium text-zinc-600 dark:text-white/50 flex items-center justify-between px-1">
             <span>Visualizaciones (Dock)</span>
-            <span className="text-[10px] text-zinc-800 dark:text-white/70">Clic para ampliar</span>
+            <span className="text-[10px] text-zinc-800 dark:text-white/70">6 Gráficos interactivos · Clic para ampliar</span>
           </div>
 
-          {/* Compact Card 1: Perceptron Diagram Preview */}
-          <div
-            onClick={() => setEnlargedModal('neuron')}
-            className="glass-card p-4 rounded-2xl glass-card-hover cursor-pointer space-y-2"
-          >
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-medium text-zinc-900 dark:text-white flex items-center gap-1">
-                <Network className="w-3.5 h-3.5 text-zinc-600 dark:text-white/70" /> Grafo Sináptico
-              </span>
-              <div className="flex items-center gap-1">
-                <span className="font-mono text-[10px] text-zinc-500 dark:text-white/60">z={z}</span>
-                <Maximize2 className="w-3 h-3 text-zinc-400 dark:text-white/40 hover:text-zinc-900 dark:hover:text-white transition-colors" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {/* Card 1: Grafo Sináptico */}
+            <div
+              onClick={() => setEnlargedModal('neuron')}
+              className="glass-card p-2.5 rounded-lg border border-black/10 dark:border-rose-500/20 glass-card-hover cursor-pointer space-y-1.5 shadow-sm"
+            >
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-medium text-zinc-900 dark:text-white flex items-center gap-1">
+                  <Network className="w-3 h-3 text-rose-500" /> Grafo Sináptico
+                </span>
+                <div className="flex items-center gap-1">
+                  <span className="font-mono text-[9px] text-zinc-500 dark:text-white/60">z={z}</span>
+                  <Maximize2 className="w-2.5 h-2.5 text-zinc-400 dark:text-white/40 hover:text-rose-400 transition-colors" />
+                </div>
+              </div>
+              <div className="p-1 glass-inset rounded-md flex items-center justify-center">
+                {renderNeuronSVG(false)}
+              </div>
+              <div className="flex justify-between items-center text-[9px] text-zinc-500 dark:text-white/40 px-0.5">
+                <span>Perceptrón artificial</span>
+                <span className="text-zinc-800 dark:text-rose-400 font-medium">Ampliar &rarr;</span>
               </div>
             </div>
 
-            <div className="p-2 glass-inset rounded-xl">
-              {renderNeuronSVG(false)}
-            </div>
-            <div className="flex justify-between items-center text-[10px] text-zinc-500 dark:text-white/40 px-0.5">
-              <span>Perceptrón artificial</span>
-              <span className="text-zinc-800 dark:text-white/70 font-medium">Ampliar &rarr;</span>
-            </div>
-          </div>
-
-          {/* Compact Card 2: Activation Curve Preview */}
-          <div
-            onClick={() => setEnlargedModal('activation')}
-            className="glass-card p-4 rounded-2xl glass-card-hover cursor-pointer space-y-2"
-          >
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-medium text-zinc-900 dark:text-white flex items-center gap-1">
-                <TrendingUp className="w-3.5 h-3.5 text-zinc-600 dark:text-white/70" /> Curva f(z): {activationFn}
-              </span>
-              <div className="flex items-center gap-1">
-                <span className="font-mono text-[10px] text-zinc-500 dark:text-white/60">y={y}</span>
-                <Maximize2 className="w-3 h-3 text-zinc-400 dark:text-white/40 hover:text-zinc-900 dark:hover:text-white transition-colors" />
+            {/* Card 2: Curva f(z) */}
+            <div
+              onClick={() => setEnlargedModal('activation')}
+              className="glass-card p-2.5 rounded-lg border border-black/10 dark:border-rose-500/20 glass-card-hover cursor-pointer space-y-1.5 shadow-sm"
+            >
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-medium text-zinc-900 dark:text-white flex items-center gap-1">
+                  <TrendingUp className="w-3 h-3 text-rose-500" /> Curva f(z): {activationFn}
+                </span>
+                <div className="flex items-center gap-1">
+                  <span className="font-mono text-[9px] text-zinc-500 dark:text-white/60">y={y}</span>
+                  <Maximize2 className="w-2.5 h-2.5 text-zinc-400 dark:text-white/40 hover:text-rose-400 transition-colors" />
+                </div>
+              </div>
+              <div className="p-1 glass-inset rounded-md flex items-center justify-center">
+                {renderActivationCurve(false)}
+              </div>
+              <div className="flex justify-between items-center text-[9px] text-zinc-500 dark:text-white/40 px-0.5">
+                <span>Plano cartesiano [-4, 4]</span>
+                <span className="text-zinc-800 dark:text-rose-400 font-medium">Ampliar &rarr;</span>
               </div>
             </div>
 
-            <div className="p-2 glass-inset rounded-xl">
-              {renderActivationCurve(false)}
+            {/* Card 3: Frontera 2D */}
+            <div
+              onClick={() => setEnlargedModal('boundary')}
+              className="glass-card p-2.5 rounded-lg border border-black/10 dark:border-rose-500/20 glass-card-hover cursor-pointer space-y-1.5 shadow-sm"
+            >
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-medium text-zinc-900 dark:text-white flex items-center gap-1">
+                  <Sliders className="w-3 h-3 text-rose-500" /> Frontera 2D
+                </span>
+                <div className="flex items-center gap-1">
+                  <span className={`font-mono text-[9px] font-semibold ${z > 0 ? 'text-rose-400' : 'text-sky-400'}`}>
+                    {z > 0 ? 'Clase 1' : 'Clase 0'}
+                  </span>
+                  <Maximize2 className="w-2.5 h-2.5 text-zinc-400 dark:text-white/40 hover:text-rose-400 transition-colors" />
+                </div>
+              </div>
+              <div className="p-1 glass-inset rounded-md flex items-center justify-center">
+                {renderDecisionBoundary(false)}
+              </div>
+              <div className="flex justify-between items-center text-[9px] text-zinc-500 dark:text-white/40 px-0.5">
+                <span>w1·x1 + w2·x2 + b = 0</span>
+                <span className="text-zinc-800 dark:text-rose-400 font-medium">Ampliar &rarr;</span>
+              </div>
             </div>
-            <div className="flex justify-between items-center text-[10px] text-zinc-500 dark:text-white/40 px-0.5">
-              <span>Plano cartesiano [-4, 4]</span>
-              <span className="text-zinc-800 dark:text-white/70 font-medium">Ampliar &rarr;</span>
+
+            {/* Card 4: Gradiente f'(z) */}
+            <div
+              onClick={() => setEnlargedModal('gradient')}
+              className="glass-card p-2.5 rounded-lg border border-black/10 dark:border-rose-500/20 glass-card-hover cursor-pointer space-y-1.5 shadow-sm"
+            >
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-medium text-zinc-900 dark:text-white flex items-center gap-1">
+                  <BookOpen className="w-3 h-3 text-sky-400" /> Gradiente f&apos;(z)
+                </span>
+                <div className="flex items-center gap-1">
+                  <span className="font-mono text-[9px] text-sky-400 font-semibold">f&apos;={grad}</span>
+                  <Maximize2 className="w-2.5 h-2.5 text-zinc-400 dark:text-white/40 hover:text-sky-400 transition-colors" />
+                </div>
+              </div>
+              <div className="p-1 glass-inset rounded-md flex items-center justify-center">
+                {renderGradientCurve(false)}
+              </div>
+              <div className="flex justify-between items-center text-[9px] text-zinc-500 dark:text-white/40 px-0.5">
+                <span>{activationFn === 'sigmoid' ? 'Máx 0.25 (Vanishing)' : activationFn === 'relu' && z <= 0 ? "f'=0 (Dying ReLU)" : 'Retropropagación'}</span>
+                <span className="text-zinc-800 dark:text-rose-400 font-medium">Ampliar &rarr;</span>
+              </div>
             </div>
+
+            {/* Card 5: Aportes Ponderados */}
+            <div
+              onClick={() => setEnlargedModal('contribution')}
+              className="glass-card p-2.5 rounded-lg border border-black/10 dark:border-rose-500/20 glass-card-hover cursor-pointer space-y-1.5 shadow-sm"
+            >
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-medium text-zinc-900 dark:text-white flex items-center gap-1">
+                  <Layers className="w-3 h-3 text-amber-500" /> Aportes Sinápticos
+                </span>
+                <div className="flex items-center gap-1">
+                  <span className="font-mono text-[9px] text-zinc-500 dark:text-white/60">z={z}</span>
+                  <Maximize2 className="w-2.5 h-2.5 text-zinc-400 dark:text-white/40 hover:text-amber-400 transition-colors" />
+                </div>
+              </div>
+              <div className="p-1 glass-inset rounded-md flex items-center justify-center">
+                {renderContributionBars(false)}
+              </div>
+              <div className="flex justify-between items-center text-[9px] text-zinc-500 dark:text-white/40 px-0.5">
+                <span>Pesos w1, w2 y sesgo b</span>
+                <span className="text-zinc-800 dark:text-rose-400 font-medium">Ampliar &rarr;</span>
+              </div>
+            </div>
+
+            {/* Card 6: Superficie de Pérdida */}
+            <div
+              onClick={() => setEnlargedModal('loss')}
+              className="glass-card p-2.5 rounded-lg border border-black/10 dark:border-rose-500/20 glass-card-hover cursor-pointer space-y-1.5 shadow-sm"
+            >
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-medium text-zinc-900 dark:text-white flex items-center gap-1">
+                  <TrendingUp className="w-3 h-3 text-rose-500" /> Función de Coste
+                </span>
+                <div className="flex items-center gap-1">
+                  <span className="font-mono text-[9px] text-zinc-500 dark:text-white/60">J(w)</span>
+                  <Maximize2 className="w-2.5 h-2.5 text-zinc-400 dark:text-white/40 hover:text-rose-400 transition-colors" />
+                </div>
+              </div>
+              <div className="p-1 glass-inset rounded-md flex items-center justify-center">
+                {renderLossSurface(false)}
+              </div>
+              <div className="flex justify-between items-center text-[9px] text-zinc-500 dark:text-white/40 px-0.5">
+                <span>Descenso de gradiente</span>
+                <span className="text-zinc-800 dark:text-rose-400 font-medium">Ampliar &rarr;</span>
+              </div>
+            </div>
+
           </div>
         </div>
       </div>
@@ -462,18 +825,66 @@ export const FundamentalsView: React.FC = () => {
       <EnlargedChartModal
         isOpen={enlargedModal !== null}
         onClose={() => setEnlargedModal(null)}
-        title={enlargedModal === 'neuron' ? 'Esquema Sináptico del Perceptrón (Vista Ampliada)' : `Función de Activación ${activationFn.toUpperCase()} (Detalle Matemático)`}
-        subtitle={enlargedModal === 'neuron' ? 'Visualización vectorial de entradas ponderadas x_i * w_i, sesgo b y nodo de activación' : 'Plano cartesiano de alta definición con punto de operación (z, y) en tiempo real'}
+        title={
+          enlargedModal === 'neuron'
+            ? 'Esquema Sináptico del Perceptrón (Vista Ampliada)'
+            : enlargedModal === 'activation'
+            ? `Función de Activación ${activationFn.toUpperCase()} (Detalle Matemático)`
+            : enlargedModal === 'boundary'
+            ? 'Frontera de Decisión Lineal 2D (Espacio R²)'
+            : enlargedModal === 'gradient'
+            ? `Curva del Gradiente f'(z) para ${activationFn.toUpperCase()} (Backpropagation)`
+            : enlargedModal === 'contribution'
+            ? 'Desglose Ponderado de Entradas y Sesgo (Suma z)'
+            : 'Superficie de Función de Coste J(w) y Descenso de Gradiente'
+        }
+        subtitle={
+          enlargedModal === 'neuron'
+            ? 'Visualización vectorial de entradas ponderadas x_i * w_i, sesgo b y nodo de activación'
+            : enlargedModal === 'activation'
+            ? 'Plano cartesiano de alta definición con punto de operación (z, y) en tiempo real'
+            : enlargedModal === 'boundary'
+            ? 'Hiperplano separador w1·x1 + w2·x2 + b = 0 dividiendo el espacio en dos regiones de clasificación'
+            : enlargedModal === 'gradient'
+            ? 'Derivada local de la función de activación determinando el flujo del gradiente hacia capas anteriores'
+            : enlargedModal === 'contribution'
+            ? 'Contribución neta de cada peso w_i·x_i y sesgo b que conforman el potencial z'
+            : 'Curva cuadrática de error mostrando la dirección de optimización hacia el mínimo global'
+        }
         badge="Fundamentos Semana 11"
       >
         <div className="space-y-4">
           <div className="p-6 glass-inset rounded-2xl border border-black/10 dark:border-white/10 flex justify-center">
             {enlargedModal === 'neuron' && renderNeuronSVG(true)}
             {enlargedModal === 'activation' && renderActivationCurve(true)}
+            {enlargedModal === 'boundary' && renderDecisionBoundary(true)}
+            {enlargedModal === 'gradient' && renderGradientCurve(true)}
+            {enlargedModal === 'contribution' && renderContributionBars(true)}
+            {enlargedModal === 'loss' && renderLossSurface(true)}
           </div>
 
           <div className="p-3.5 rounded-2xl glass-inset border border-black/10 dark:border-white/10 text-xs text-zinc-700 dark:text-white/70">
-            Valores activos: Entrada x1={x1}, x2={x2} | Pesos w1={w1}, w2={w2} | Sesgo b={bias} | Suma z={z} | Salida y={y}
+            {enlargedModal === 'boundary' ? (
+              <div>
+                Ecuación de la recta: <strong>{w1}·x1 + {w2}·x2 + ({bias}) = 0</strong> | Punto actual: ({x1}, {x2}) | Suma neta z = {z} ({z > 0 ? 'Clase 1 positiva' : 'Clase 0 negativa'})
+              </div>
+            ) : enlargedModal === 'gradient' ? (
+              <div>
+                Derivada en punto z={z}: <strong>f&apos;({z}) = {grad}</strong> | {activationFn === 'sigmoid' ? 'Nota: La derivada de Sigmoid nunca supera 0.25, provocando desvanecimiento del gradiente en capas profundas.' : activationFn === 'relu' ? 'Nota: ReLU preserva gradiente 1.0 para z > 0, pero se anula si z <= 0 (Dying ReLU).' : 'La derivada modula la velocidad de ajuste de los pesos durante el descenso de gradiente.'}
+              </div>
+            ) : enlargedModal === 'contribution' ? (
+              <div>
+                Desglose: w1·x1 = <strong>{(w1*x1).toFixed(2)}</strong>, w2·x2 = <strong>{(w2*x2).toFixed(2)}</strong>, sesgo b = <strong>{bias.toFixed(2)}</strong> | Total z = <strong>{z}</strong>
+              </div>
+            ) : enlargedModal === 'loss' ? (
+              <div>
+                Valor de coste cuadrático respecto al objetivo óptimo: <strong>{((w1 - 0.5)**2 / 2).toFixed(3)}</strong> | Dirección de descenso recomendada para w1: {w1 > 0.5 ? 'Reducir valor (-)' : 'Aumentar valor (+)'}
+              </div>
+            ) : (
+              <div>
+                Valores activos: Entrada x1={x1}, x2={x2} | Pesos w1={w1}, w2={w2} | Sesgo b={bias} | Suma z={z} | Salida y={y}
+              </div>
+            )}
           </div>
         </div>
       </EnlargedChartModal>

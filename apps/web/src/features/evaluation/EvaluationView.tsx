@@ -70,7 +70,12 @@ function ConfusionMatrix({ matrix, labels, large = false }: ConfusionMatrixProps
                         : 'text-zinc-500 dark:text-white/45'
                     }`}
                     style={{
-                      backgroundColor: `rgba(110, 110, 120, ${0.08 + intensity * 0.45})`,
+                      backgroundColor: correctlyClassified
+                        ? `rgba(225, 29, 72, ${0.2 + intensity * 0.65})`
+                        : `rgba(120, 120, 130, ${0.05 + intensity * 0.25})`,
+                      boxShadow: correctlyClassified && intensity > 0.3
+                        ? '0 0 12px rgba(225, 29, 72, 0.35)'
+                        : 'none',
                     }}
                     title={`Real ${labels[rowIndex]} → Predicho ${labels[colIndex]}: ${value}`}
                   >

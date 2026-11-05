@@ -15,6 +15,7 @@ worker; nunca se deserializa contenido enviado por un cliente.
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import logging
 import pickle
@@ -123,7 +124,11 @@ class _ModelCache:
         self._entries: "OrderedDict[str, LoadedModel]" = OrderedDict()
         self._lock = threading.Lock()
 
-    def get(self, storage_key: str) -> LoadedModel:
+    def get(
+        self,
+        storage_key: str,
+        expected_checksums: Optional[Dict[str, str]] = None,
+    ) -> LoadedModel:
         with self._lock:
             cached = self._entries.get(storage_key)
             if cached is not None:
@@ -132,7 +137,7 @@ class _ModelCache:
 
             # Se carga dentro del lock para evitar que dos peticiones simultáneas
             # carguen TensorFlow y el modelo a la vez (duplicaría memoria).
-            loaded = _load_model(storage_key)
+            loaded = _load_model(storage_key, expected_checksums=expected_checksums)
             self._entries[storage_key] = loaded
             self._entries.move_to_end(storage_key)
             while len(self._entries) > self._max_entries:
@@ -153,7 +158,10 @@ def clear_cache() -> None:
     _model_cache.clear()
 
 
-def _load_model(storage_key: str) -> LoadedModel:
+def _load_model(
+    storage_key: str,
+    expected_checksums: Optional[Dict[str, str]] = None,
+) -> LoadedModel:
     missing = missing_dependencies()
     if missing:
         raise InferenceUnavailable(
@@ -168,6 +176,14 @@ def _load_model(storage_key: str) -> LoadedModel:
         raise InferenceUnavailable(f"No fue posible importar TensorFlow: {exc}") from exc
 
     bundle_bytes = _read_bytes(storage_key, "scaler.pkl")
+    if expected_checksums and "scaler.pkl" in expected_checksums:
+        actual_scaler_hash = hashlib.sha256(bundle_bytes).hexdigest()
+        if actual_scaler_hash != expected_checksums["scaler.pkl"]:
+            raise InferenceError(
+                "Integridad violada: el hash SHA-256 del artefacto scaler.pkl no coincide con el registrado. "
+                f"Esperado: {expected_checksums['scaler.pkl'][:12]}, Obtenido: {actual_scaler_hash[:12]}"
+            )
+
     try:
         bundle = pickle.loads(bundle_bytes)
     except Exception as exc:
@@ -176,6 +192,14 @@ def _load_model(storage_key: str) -> LoadedModel:
         raise InferenceError("El paquete de preprocesamiento tiene un formato inesperado")
 
     model_bytes = _read_bytes(storage_key, "model.keras")
+    if expected_checksums and "model.keras" in expected_checksums:
+        actual_model_hash = hashlib.sha256(model_bytes).hexdigest()
+        if actual_model_hash != expected_checksums["model.keras"]:
+            raise InferenceError(
+                "Integridad violada: el hash SHA-256 del artefacto model.keras no coincide con el registrado. "
+                f"Esperado: {expected_checksums['model.keras'][:12]}, Obtenido: {actual_model_hash[:12]}"
+            )
+
     try:
         with tempfile.TemporaryDirectory(prefix="neurolab_inference_") as tmp:
             model_path = Path(tmp) / "model.keras"
@@ -398,7 +422,15 @@ def predict(
 ) -> Dict[str, Any]:
     """Ejecuta la inferencia y devuelve una respuesta serializable."""
     metrics_summary = metrics_summary or {}
-    loaded = _model_cache.get(storage_key)
+    raw_artifacts = metrics_summary.get("artifacts") or {}
+    expected_checksums: Dict[str, str] = {}
+    if isinstance(raw_artifacts, dict):
+        for fname, info in raw_artifacts.items():
+            if isinstance(info, dict) and info.get("sha256"):
+                expected_checksums[fname] = info["sha256"]
+            elif isinstance(info, str):
+                expected_checksums[fname] = info
+    loaded = _model_cache.get(storage_key, expected_checksums=expected_checksums)
     frame, warnings = build_frame(records, loaded.bundle)
     matrix = _transform(loaded, frame)
     raw = _run_model(loaded, matrix)

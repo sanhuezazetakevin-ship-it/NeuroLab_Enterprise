@@ -10,6 +10,8 @@ import {
   ArrowRight,
   Database,
   FolderGit2,
+  Minimize2,
+  Maximize2,
 } from 'lucide-react';
 import { useApp } from '../../lib/AppContext';
 import type { NavTab } from '../layout/Shell';
@@ -21,6 +23,7 @@ interface WalkthroughModalProps {
 export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTab }) => {
   const { walkthroughOpen, setWalkthroughOpen } = useApp();
   const [currentStep, setCurrentStep] = useState(0);
+  const [minimized, setMinimized] = useState(false);
 
   if (!walkthroughOpen) return null;
 
@@ -31,20 +34,19 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
       icon: Layers,
       badge: 'Semana 11',
       content: (
-        <div className="space-y-3 text-xs text-zinc-700 dark:text-white/70">
+        <div className="space-y-2.5 text-xs text-zinc-700 dark:text-white/70">
           <p>
             Esta instancia opera contra la API <strong>/api/v1</strong>, PostgreSQL y workers
-            TensorFlow/Keras aislados. No hay datos simulados: todo lo que ve proviene de su
-            proyecto y de la cola de entrenamientos.
+            TensorFlow/Keras aislados. Todos los datos provienen de la base de datos real.
           </p>
-          <div className="p-3.5 rounded-2xl glass-inset space-y-1.5 border border-black/10 dark:border-white/10">
-            <span className="text-[11px] font-semibold text-zinc-900 dark:text-white/90 uppercase tracking-wider">
+          <div className="p-2.5 rounded-xl bg-zinc-50 dark:bg-black/40 space-y-1 border border-zinc-200/80 dark:border-white/10 text-[11px]">
+            <span className="font-semibold text-zinc-900 dark:text-white/90 uppercase tracking-wider block">
               Flujo verificado
             </span>
-            <ul className="space-y-1 list-disc list-inside text-zinc-600 dark:text-white/60">
-              <li>Autenticación JWT y permisos por rol efectivo del proyecto.</li>
-              <li>Entrenamiento asíncrono real con telemetría persistida por época.</li>
-              <li>Versiones de modelo inmutables con checksum SHA-256 descargable.</li>
+            <ul className="space-y-0.5 list-disc list-inside text-zinc-600 dark:text-white/60">
+              <li>Autenticación JWT y permisos por rol efectivo.</li>
+              <li>Entrenamiento asíncrono con telemetría persistida.</li>
+              <li>Modelos inmutables con verificación SHA-256.</li>
             </ul>
           </div>
         </div>
@@ -58,14 +60,13 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
       icon: FolderGit2,
       badge: 'Módulo 02',
       content: (
-        <div className="space-y-3 text-xs text-zinc-700 dark:text-white/70">
+        <div className="space-y-2.5 text-xs text-zinc-700 dark:text-white/70">
           <p>
-            Cree un proyecto o seleccione uno existente. El rol efectivo determina qué puede
-            hacer: los roles <strong>Lector</strong> y <strong>Revisor / Auditor</strong> solo consultan,
-            mientras que <strong>Ingeniero de IA</strong>, <strong>Responsable de Proyecto</strong> y{' '}
-            <strong>Administrador</strong> pueden cargar datos y entrenar.
+            Cree un proyecto o seleccione uno existente. El rol efectivo determina sus permisos:
+            los roles <strong>Lector</strong> y <strong>Revisor</strong> consultan, mientras que{' '}
+            <strong>Ingeniero de IA</strong> y <strong>Administrador</strong> entrenan.
           </p>
-          <div className="p-3 rounded-2xl glass-inset border border-black/10 dark:border-white/10 text-zinc-800 dark:text-white/80 text-[11px]">
+          <div className="p-2.5 rounded-xl bg-zinc-50 dark:bg-black/40 border border-zinc-200/80 dark:border-white/10 text-zinc-800 dark:text-white/80 text-[11px]">
             El selector de proyecto en la barra superior cambia el contexto de todos los módulos.
           </div>
         </div>
@@ -74,20 +75,19 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
       actionTab: 'projects' as NavTab,
     },
     {
-      title: '2. Fundamentos y arquitecturas',
-      subtitle: 'Perceptrón, funciones de activación y validación dimensional',
+      title: '2. Fundamentos y diseñador',
+      subtitle: 'Topologías neuronales y validación dimensional',
       icon: Cpu,
       badge: 'Módulos 03–04',
       content: (
-        <div className="space-y-3 text-xs text-zinc-700 dark:text-white/70">
+        <div className="space-y-2.5 text-xs text-zinc-700 dark:text-white/70">
           <p>
-            Revise los fundamentos neuronales y luego configure una topología. La API valida
-            dimensiones, parámetros y compatibilidad de capas antes de guardar.
+            Diseñe y configure su red neuronal. La API valida las dimensiones de tensores y la
+            compatibilidad de capas en tiempo real antes de guardar.
           </p>
-          <div className="p-3 rounded-2xl glass-inset border border-black/10 dark:border-white/10 text-zinc-800 dark:text-white/80 text-[11px]">
-            En esta versión el entrenamiento está habilitado para redes{' '}
-            <strong>Feedforward</strong>. Las familias RNN, CNN y GAN se pueden diseñar y guardar,
-            pero la API devolverá un motivo explícito si intenta entrenarlas.
+          <div className="p-2.5 rounded-xl bg-zinc-50 dark:bg-black/40 border border-zinc-200/80 dark:border-white/10 text-zinc-800 dark:text-white/80 text-[11px]">
+            Entrenamiento habilitado para arquitecturas <strong>Feedforward (MLP)</strong>,{' '}
+            <strong>RNN (LSTM/GRU)</strong> y <strong>CNN (1D)</strong> con workers aislados.
           </div>
         </div>
       ),
@@ -96,18 +96,17 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
     },
     {
       title: '3. Conjuntos de datos verificados',
-      subtitle: 'CSV con validación de esquema, columna objetivo y checksum',
+      subtitle: 'Validación de esquema, columna objetivo y checksum',
       icon: Database,
       badge: 'Módulo 05',
       content: (
-        <div className="space-y-3 text-xs text-zinc-700 dark:text-white/70">
+        <div className="space-y-2.5 text-xs text-zinc-700 dark:text-white/70">
           <p>
-            Cargue un archivo CSV indicando la columna objetivo. El servidor valida encabezados,
-            tamaño, filas mínimas y tipos, calcula el SHA-256 y persiste una vista previa y los
-            conteos de nulos.
+            Cargue su archivo CSV indicando la columna objetivo. El servidor valida tipos,
+            partición determinista 70/15/15 y genera checksum SHA-256.
           </p>
-          <div className="p-3 rounded-2xl glass-inset border border-black/10 dark:border-white/10 text-zinc-800 dark:text-white/80 text-[11px]">
-            Un conjunto de datos sin columna objetivo no podrá usarse para entrenar.
+          <div className="p-2.5 rounded-xl bg-zinc-50 dark:bg-black/40 border border-zinc-200/80 dark:border-white/10 text-zinc-800 dark:text-white/80 text-[11px]">
+            La partición previene la fuga de datos al calcular escaladores y medias solo con Train.
           </div>
         </div>
       ),
@@ -116,18 +115,17 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
     },
     {
       title: '4. Entrenamiento y telemetría',
-      subtitle: 'Cola Redis, worker Keras y SSE con recuperación',
+      subtitle: 'Cola Redis, worker Keras y SSE con replay',
       icon: PlayCircle,
       badge: 'Módulo 06',
       content: (
-        <div className="space-y-3 text-xs text-zinc-700 dark:text-white/70">
+        <div className="space-y-2.5 text-xs text-zinc-700 dark:text-white/70">
           <p>
-            Inicie un trabajo con arquitectura y conjunto de datos verificados. El estado avanza{' '}
-            <strong>En cola → Preparando → En ejecución → Completado / Fallido / Cancelado</strong>. Las
-            curvas llegan por SSE y se reconstruyen desde PostgreSQL al reconectar.
+            Lance trabajos asíncronos y supervise la curva de pérdida y exactitud en tiempo real
+            vía Server-Sent Events con reconexión automática.
           </p>
-          <div className="p-3 rounded-2xl glass-inset border border-black/10 dark:border-white/10 text-zinc-800 dark:text-white/80 text-[11px]">
-            La cancelación es cooperativa: el worker la aplica al finalizar la época en curso.
+          <div className="p-2.5 rounded-xl bg-zinc-50 dark:bg-black/40 border border-zinc-200/80 dark:border-white/10 text-zinc-800 dark:text-white/80 text-[11px]">
+            Si cierra el navegador, el entrenamiento continúa y se recupera desde PostgreSQL.
           </div>
         </div>
       ),
@@ -136,19 +134,17 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
     },
     {
       title: '5. Evaluación y registro',
-      subtitle: 'Métricas de prueba, ciclo de vida y artefacto inmutable',
+      subtitle: 'Métricas, matriz de confusión e inferencia en lote',
       icon: Box,
       badge: 'Módulos 07–09',
       content: (
-        <div className="space-y-3 text-xs text-zinc-700 dark:text-white/70">
+        <div className="space-y-2.5 text-xs text-zinc-700 dark:text-white/70">
           <p>
-            Al completar, el worker evalúa el conjunto de prueba y registra una versión{' '}
-            <strong>Borrador</strong> con métricas y checksum. Revise la matriz de confusión, apruebe
-            o retire la versión según su rol y descargue el artefacto <code>.keras</code>.
+            Inspeccione la matriz de confusión térmica, compare versiones, apruebe modelos
+            para producción y ejecute predicciones individuales o por archivo CSV.
           </p>
-          <div className="p-3 rounded-2xl glass-inset border border-black/10 dark:border-white/10 text-zinc-800 dark:text-white/80 text-[11px]">
-            La aprobación requiere <strong>Responsable de Proyecto</strong> o <strong>Administrador</strong>. Cada
-            cambio de estado queda en el registro de auditoría.
+          <div className="p-2.5 rounded-xl bg-zinc-50 dark:bg-black/40 border border-zinc-200/80 dark:border-white/10 text-zinc-800 dark:text-white/80 text-[11px]">
+            Descargue artefactos <code>.keras</code> y use fragmentos de código cURL, Python y Node.js.
           </div>
         </div>
       ),
@@ -157,17 +153,17 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
     },
     {
       title: 'Fundamentos interactivos',
-      subtitle: 'Simulador del perceptrón y familias de redes',
+      subtitle: 'Simulador del perceptrón y telemetría matemática',
       icon: BookOpen,
       badge: 'Módulo 03',
       content: (
-        <div className="space-y-3 text-xs text-zinc-700 dark:text-white/70">
+        <div className="space-y-2.5 text-xs text-zinc-700 dark:text-white/70">
           <p>
-            El módulo de Fundamentos incluye un simulador del perceptrón con pesos, sesgo y
-            función de activación, además de la referencia de familias y capas estándar.
+            Ajuste pesos, sesgo y funciones de activación para visualizar el grafo sináptico, la
+            curva de activación, la frontera de decisión 2D y el gradiente $f'(z)$.
           </p>
-          <div className="p-3 rounded-2xl glass-inset border border-black/10 dark:border-white/10 text-zinc-800 dark:text-white/80 text-[11px]">
-            Ajuste los controles y observe el potencial de disparo calculado en el navegador.
+          <div className="p-2.5 rounded-xl bg-zinc-50 dark:bg-black/40 border border-zinc-200/80 dark:border-white/10 text-zinc-800 dark:text-white/80 text-[11px]">
+            Todos los cálculos se actualizan reactivamente en tiempo real.
           </div>
         </div>
       ),
@@ -193,68 +189,116 @@ export const WalkthroughModal: React.FC<WalkthroughModalProps> = ({ onNavigateTa
     handleNext();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg glass-panel rounded-3xl p-6 shadow-glass border border-black/15 dark:border-white/15 space-y-5 animate-in zoom-in-95 duration-200">
+  // Minimized floating pill
+  if (minimized) {
+    return (
+      <div className="fixed bottom-5 right-5 z-50 flex items-center gap-2.5 p-2.5 rounded-2xl bg-white dark:bg-[#0c0d14] border border-zinc-200 dark:border-rose-500/30 shadow-2xl animate-in slide-in-from-bottom-2 duration-150 select-none">
+        <div className="p-1.5 rounded-xl bg-rose-500/10 text-rose-500">
+          <Icon className="w-4 h-4" />
+        </div>
+        <div className="text-xs pr-1">
+          <p className="font-semibold text-zinc-900 dark:text-white leading-tight">
+            Guía · Paso {currentStep + 1}/{steps.length}
+          </p>
+          <p className="text-[10px] text-zinc-500 dark:text-white/50 truncate max-w-[160px]">
+            {step.title}
+          </p>
+        </div>
+        <button
+          onClick={() => setMinimized(false)}
+          className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-white/10 text-zinc-600 dark:text-white/70 hover:text-zinc-900 dark:hover:text-white transition-colors"
+          title="Expandir guía"
+        >
+          <Maximize2 className="w-3.5 h-3.5" />
+        </button>
         <button
           onClick={() => setWalkthroughOpen(false)}
-          className="absolute right-4 top-4 p-1.5 rounded-xl glass-inset hover:bg-black/5 dark:hover:bg-white/10 text-zinc-500 dark:text-white/50 hover:text-zinc-900 dark:hover:text-white transition-colors"
+          className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-white/10 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition-colors"
+          title="Cerrar guía"
         >
-          <X className="w-4 h-4" />
+          <X className="w-3.5 h-3.5" />
         </button>
+      </div>
+    );
+  }
 
+  // Expanded floating coachmark card (no full-screen backdrop so user sees the app!)
+  return (
+    <div className="fixed bottom-5 right-5 z-50 w-[380px] max-w-[calc(100vw-2.5rem)] bg-white dark:bg-[#0c0d14] rounded-2xl p-4 sm:p-5 shadow-2xl border border-zinc-200 dark:border-rose-500/30 space-y-3.5 animate-in slide-in-from-bottom-3 duration-200">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           {steps.map((_, i) => (
             <div
               key={i}
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                i === currentStep ? 'w-6 bg-zinc-900 dark:bg-white' : 'w-1.5 bg-black/20 dark:bg-white/20'
+              className={`h-1 rounded-full transition-all duration-300 ${
+                i === currentStep
+                  ? 'w-5 bg-rose-500 shadow-[0_0_6px_#f43f5e]'
+                  : 'w-1.5 bg-zinc-300 dark:bg-white/20'
               }`}
             />
           ))}
         </div>
 
-        <div className="flex items-start gap-3 pt-1">
-          <div className="p-2.5 rounded-2xl glass-inset border border-black/10 dark:border-white/15 text-zinc-900 dark:text-white/90">
-            <Icon className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-black/5 dark:bg-white/10 text-zinc-700 dark:text-white/80 font-semibold border border-black/10 dark:border-white/10">
-                {step.badge}
-              </span>
-              <span className="text-xs text-zinc-500 dark:text-white/40">
-                Paso {currentStep + 1} de {steps.length}
-              </span>
-            </div>
-            <h2 className="text-lg font-semibold text-zinc-900 dark:text-white mt-1">{step.title}</h2>
-            <p className="text-xs text-zinc-600 dark:text-white/50">{step.subtitle}</p>
-          </div>
-        </div>
-
-        <div>{step.content}</div>
-
-        <div className="flex items-center justify-between pt-3 border-t border-black/10 dark:border-white/10">
+        <div className="flex items-center gap-1">
           <button
-            onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
-            disabled={currentStep === 0}
-            className={`flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-xl transition-colors ${
-              currentStep === 0
-                ? 'opacity-30 cursor-not-allowed text-zinc-400 dark:text-white/40'
-                : 'text-zinc-700 dark:text-white/70 hover:text-zinc-900 dark:hover:text-white glass-inset'
-            }`}
+            onClick={() => setMinimized(true)}
+            className="p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-white/10 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition-colors"
+            title="Minimizar a pestaña pequeña"
           >
-            <ChevronLeft className="w-4 h-4" /> Anterior
+            <Minimize2 className="w-3.5 h-3.5" />
           </button>
-
           <button
-            onClick={handleAction}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl glass-btn-primary text-xs font-semibold"
+            onClick={() => setWalkthroughOpen(false)}
+            className="p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-white/10 text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition-colors"
+            title="Cerrar guía"
           >
-            <span>{step.actionLabel}</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
+      </div>
+
+      <div className="flex items-start gap-2.5">
+        <div className="p-2 rounded-xl bg-rose-500/10 text-rose-500 border border-rose-500/20 shrink-0">
+          <Icon className="w-4 h-4" />
+        </div>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-300 font-semibold border border-rose-500/20">
+              {step.badge}
+            </span>
+            <span className="text-[11px] text-zinc-500 dark:text-white/40">
+              Paso {currentStep + 1} de {steps.length}
+            </span>
+          </div>
+          <h2 className="text-sm font-semibold text-zinc-900 dark:text-white mt-1 leading-snug">
+            {step.title}
+          </h2>
+          <p className="text-[11px] text-zinc-500 dark:text-white/50">{step.subtitle}</p>
+        </div>
+      </div>
+
+      <div className="text-xs">{step.content}</div>
+
+      <div className="flex items-center justify-between pt-2.5 border-t border-zinc-100 dark:border-white/10">
+        <button
+          onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
+          disabled={currentStep === 0}
+          className={`flex items-center gap-1 text-[11px] font-medium px-2.5 py-1.5 rounded-lg transition-colors ${
+            currentStep === 0
+              ? 'opacity-30 cursor-not-allowed text-zinc-400 dark:text-white/40'
+              : 'text-zinc-700 dark:text-white/70 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10'
+          }`}
+        >
+          <ChevronLeft className="w-3.5 h-3.5" /> Anterior
+        </button>
+
+        <button
+          onClick={handleAction}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl glass-btn-primary text-xs font-semibold"
+        >
+          <span>{step.actionLabel}</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </button>
       </div>
     </div>
   );

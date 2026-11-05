@@ -29,6 +29,13 @@ class LayerConfig(BaseModel):
     pool_size: Optional[List[int]] = None
     return_sequences: Optional[bool] = None
 
+    @field_validator("kernel_size", "pool_size", mode="before")
+    @classmethod
+    def _normalize_size_list(cls, value):
+        if isinstance(value, int):
+            return [value]
+        return value
+
     @field_validator("activation")
     @classmethod
     def _activation_supported(cls, value: Optional[str]) -> Optional[str]:

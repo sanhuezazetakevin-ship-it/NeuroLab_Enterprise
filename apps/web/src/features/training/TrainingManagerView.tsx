@@ -216,19 +216,26 @@ function MetricChart({ metrics, metric, totalEpochs, isLarge = false }: ChartPro
         </>
       )}
 
+      <defs>
+        <filter id={`glow-${metric}`} x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="0" stdDeviation="2.5" floodColor="#f43f5e" floodOpacity="0.65" />
+        </filter>
+      </defs>
+
       <polyline
         fill="none"
-        stroke="currentColor"
+        stroke="#f43f5e"
         strokeWidth={isLarge ? '2.5' : '2'}
         points={trainPoints.join(' ')}
         strokeLinecap="round"
         strokeLinejoin="round"
+        filter={`url(#glow-${metric})`}
       />
       {valPoints.length > 1 && (
         <polyline
           fill="none"
-          stroke="currentColor"
-          strokeOpacity="0.45"
+          stroke="#38bdf8"
+          strokeOpacity="0.85"
           strokeWidth={isLarge ? '2' : '1.5'}
           strokeDasharray="4 3"
           points={valPoints.join(' ')}
@@ -241,7 +248,9 @@ function MetricChart({ metrics, metric, totalEpochs, isLarge = false }: ChartPro
           cx={lastTrainPoint[0]}
           cy={lastTrainPoint[1]}
           r={isLarge ? '5' : '3.5'}
-          fill="currentColor"
+          fill="#f43f5e"
+          stroke="#ffffff"
+          strokeWidth="1.5"
         />
       )}
     </svg>
@@ -919,9 +928,16 @@ export const TrainingManagerView: React.FC = () => {
             <div className="p-2 glass-inset rounded-xl">
               <MetricChart metrics={metrics} metric="loss" totalEpochs={totalEpochs} />
             </div>
-            <div className="flex justify-between items-center text-[10px] text-zinc-500 dark:text-white/40 px-0.5">
-              <span>Pérdida: entrenamiento vs validación</span>
-              <span className="text-zinc-800 dark:text-white/70 font-medium">Ampliar →</span>
+            <div className="flex justify-between items-center text-[10px] px-0.5">
+              <span className="flex items-center gap-2.5 text-zinc-500 dark:text-white/50">
+                <span className="flex items-center gap-1 font-mono text-[9px]">
+                  <span className="w-2.5 h-0.5 bg-rose-500 inline-block rounded-full shadow-[0_0_6px_#f43f5e]" /> Entren.
+                </span>
+                <span className="flex items-center gap-1 font-mono text-[9px]">
+                  <span className="w-2.5 h-0.5 bg-sky-400 inline-block border-b border-dashed border-sky-400" /> Valid.
+                </span>
+              </span>
+              <span className="text-zinc-800 dark:text-rose-400 font-medium">Ampliar →</span>
             </div>
           </div>
 
@@ -952,9 +968,16 @@ export const TrainingManagerView: React.FC = () => {
                 </div>
               )}
             </div>
-            <div className="flex justify-between items-center text-[10px] text-zinc-500 dark:text-white/40 px-0.5">
-              <span>Exactitud: entrenamiento vs validación</span>
-              <span className="text-zinc-800 dark:text-white/70 font-medium">
+            <div className="flex justify-between items-center text-[10px] px-0.5">
+              <span className="flex items-center gap-2.5 text-zinc-500 dark:text-white/50">
+                <span className="flex items-center gap-1 font-mono text-[9px]">
+                  <span className="w-2.5 h-0.5 bg-rose-500 inline-block rounded-full shadow-[0_0_6px_#f43f5e]" /> Entren.
+                </span>
+                <span className="flex items-center gap-1 font-mono text-[9px]">
+                  <span className="w-2.5 h-0.5 bg-sky-400 inline-block border-b border-dashed border-sky-400" /> Valid.
+                </span>
+              </span>
+              <span className="text-zinc-800 dark:text-rose-400 font-medium">
                 {hasAccuracy ? 'Ampliar →' : '—'}
               </span>
             </div>

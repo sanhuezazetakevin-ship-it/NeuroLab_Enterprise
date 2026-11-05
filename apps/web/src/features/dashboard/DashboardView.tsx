@@ -274,9 +274,10 @@ export const DashboardView: React.FC<DashboardProps> = ({ onNavigate }) => {
 
   return (
     <div className="space-y-4 animate-in fade-in duration-200">
-      <div className="glass-card p-6 sm:p-7 rounded-3xl relative overflow-hidden space-y-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[10px] uppercase font-mono tracking-wider px-2.5 py-1 rounded-full bg-black/5 dark:bg-white/10 text-zinc-700 dark:text-white/80 border border-black/10 dark:border-white/10">
+      <div className="glass-card p-6 sm:p-7 rounded-3xl relative overflow-hidden space-y-4 border border-rose-500/15">
+        <div className="absolute -right-24 -top-24 w-96 h-96 rounded-full bg-rose-600/10 dark:bg-rose-600/15 blur-3xl pointer-events-none" />
+        <div className="flex flex-wrap items-center gap-2 relative z-10">
+          <span className="text-[10px] uppercase font-mono tracking-wider px-2.5 py-1 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/30 shadow-[0_0_8px_rgba(225,29,72,0.2)]">
             Proyecto: {activeProject.name}
           </span>
           <span className="text-[10px] uppercase font-mono tracking-wider px-2.5 py-1 rounded-full bg-black/5 dark:bg-white/10 text-zinc-700 dark:text-white/80 border border-black/10 dark:border-white/10">
@@ -346,7 +347,7 @@ export const DashboardView: React.FC<DashboardProps> = ({ onNavigate }) => {
             <div key={kpi.label} className="glass-card p-5 rounded-2xl glass-card-hover flex flex-col justify-between">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-zinc-600 dark:text-white/60">{kpi.label}</span>
-                <div className="p-1.5 rounded-xl glass-inset text-zinc-700 dark:text-white/70">
+                <div className="p-1.5 rounded-xl glass-inset text-rose-400 border border-rose-500/20 shadow-[0_0_8px_rgba(225,29,72,0.15)]">
                   <Icon className="w-4 h-4" />
                 </div>
               </div>

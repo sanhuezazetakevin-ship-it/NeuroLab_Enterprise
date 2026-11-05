@@ -82,7 +82,7 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5173",
         "http://localhost:3000",
     ]
-    CORS_ORIGIN_REGEX: str = ""
+    CORS_ORIGIN_REGEX: str = r"^https:\/\/.*\.vercel\.app$"
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
@@ -154,8 +154,28 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     settings = Settings()
-    if settings.is_production and "insecure_default" in settings.SECRET_KEY:
-        raise RuntimeError("SECRET_KEY insegura: configure una clave robusta en producción.")
+    if settings.is_production:
+        insecure_keys = {
+            "neurolab_insecure_default_secret_key_change_me_32chars",
+            "change_this_to_a_super_secret_enterprise_key_in_production_32chars",
+        }
+        if (
+            settings.SECRET_KEY in insecure_keys
+            or "insecure_default" in settings.SECRET_KEY
+            or len(settings.SECRET_KEY) < 32
+        ):
+            raise RuntimeError(
+                "SECRET_KEY insegura o de ejemplo detectada en producción. "
+                "Configure una clave criptográfica de al menos 32 caracteres."
+            )
+        if (
+            settings.SEED_ADMIN_PASSWORD in {"Admin123!", "admin", "password"}
+            or len(settings.SEED_ADMIN_PASSWORD) < 8
+        ):
+            raise RuntimeError(
+                "SEED_ADMIN_PASSWORD insegura en producción. "
+                "Defina una contraseña robusta para el administrador inicial."
+            )
     return settings
 
 

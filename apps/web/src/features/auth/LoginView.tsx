@@ -29,12 +29,12 @@ export const LoginView: React.FC = () => {
         <div className="glass-panel rounded-3xl p-8 hidden lg:flex flex-col justify-between relative overflow-hidden">
           <div className="space-y-5">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/20 flex items-center justify-center text-zinc-900 dark:text-white">
-                <Network className="w-5 h-5" />
+              <div className="w-11 h-11 rounded-2xl bg-rose-500/15 text-rose-500 border border-rose-500/30 shadow-[0_0_15px_rgba(225,29,72,0.35)] flex items-center justify-center">
+                <Network className="w-5 h-5 text-rose-500 drop-shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
               </div>
               <div>
                 <p className="text-lg font-semibold text-zinc-900 dark:text-white tracking-tight">
-                  NeuroLab <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded-full bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/15">Enterprise</span>
+                  NeuroLab <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30 shadow-[0_0_8px_rgba(225,29,72,0.2)]">Enterprise</span>
                 </p>
                 <p className="text-[11px] text-zinc-500 dark:text-white/50">Aprendizaje profundo • Semana 11</p>
               </div>
@@ -51,16 +51,16 @@ export const LoginView: React.FC = () => {
             </div>
 
             <ul className="space-y-2.5 text-xs text-zinc-600 dark:text-white/60">
-              <li className="flex items-center gap-2"><ShieldCheck className="w-4 h-4" /> Autenticación JWT y RBAC por proyecto</li>
-              <li className="flex items-center gap-2"><Activity className="w-4 h-4" /> Telemetría SSE con replay desde PostgreSQL</li>
-              <li className="flex items-center gap-2"><Lock className="w-4 h-4" /> Modelos inmutables verificados con SHA-256</li>
+              <li className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-rose-400 drop-shadow-[0_0_4px_rgba(244,63,94,0.5)]" /> Autenticación JWT y RBAC por proyecto</li>
+              <li className="flex items-center gap-2"><Activity className="w-4 h-4 text-rose-400 drop-shadow-[0_0_4px_rgba(244,63,94,0.5)]" /> Telemetría SSE con replay desde PostgreSQL</li>
+              <li className="flex items-center gap-2"><Lock className="w-4 h-4 text-rose-400 drop-shadow-[0_0_4px_rgba(244,63,94,0.5)]" /> Modelos inmutables verificados con SHA-256</li>
             </ul>
           </div>
 
           <p className="text-[10px] text-zinc-500 dark:text-white/40 font-mono">
             NeuroLab Enterprise Engine · v1.0.0
           </p>
-          <div className="absolute -right-16 -bottom-16 w-64 h-64 rounded-full bg-black/5 dark:bg-white/5 blur-2xl" />
+          <div className="absolute -right-16 -bottom-16 w-64 h-64 rounded-full bg-rose-600/10 dark:bg-rose-600/20 blur-3xl pointer-events-none" />
         </div>
 
         {/* Login form */}

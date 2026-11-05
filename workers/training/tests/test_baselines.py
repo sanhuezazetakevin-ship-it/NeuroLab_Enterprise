@@ -36,7 +36,7 @@ def test_classification_baselines_are_computed(tmp_path):
     data = prepare_dataset(_separable_binary(tmp_path / "sep.csv"), target_column="target")
     report = compute_baselines(data, random_state=42)
 
-    assert set(report) == {"dummy_majority", "logistic_regression"}
+    assert set(report) == {"dummy_majority", "logistic_regression", "knn"}
     for name in report:
         assert "metrics" in report[name], report[name]
         assert report[name]["metrics"]["task"] == "classification"
@@ -52,7 +52,7 @@ def test_regression_baselines_are_computed(tmp_path):
     data = prepare_dataset(_regression(tmp_path / "reg.csv"), target_column="target")
     report = compute_baselines(data, random_state=42)
 
-    assert set(report) == {"dummy_mean", "linear_regression"}
+    assert set(report) == {"dummy_mean", "linear_regression", "knn"}
     assert report["linear_regression"]["metrics"]["r2_score"] > 0.9
     # Predecir la media no explica nada del objetivo (R² nulo o negativo).
     assert report["dummy_mean"]["metrics"]["r2_score"] <= 0.05

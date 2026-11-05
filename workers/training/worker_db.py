@@ -307,24 +307,30 @@ def create_model_version(
     metrics_summary: Dict[str, Any],
 ) -> Dict[str, Any]:
     with connection() as conn:
-        existing = conn.execute(
-            select(func.count()).select_from(model_versions).where(model_versions.c.project_id == project_id)
-        ).scalar_one()
-        version = f"v1.{int(existing)}"
-        model_id = uuid.uuid4()
-        row = {
-            "id": model_id,
-            "project_id": project_id,
-            "job_id": job_id,
-            "version": version,
-            "storage_key": storage_key,
-            "status": "DRAFT",
-            "checksum": checksum,
-            "metrics_summary": metrics_summary,
-            "created_at": utcnow(),
-        }
-        conn.execute(insert(model_versions).values(**row))
-        return row
+        for attempt in range(10):
+            existing = conn.execute(
+                select(func.count()).select_from(model_versions).where(model_versions.c.project_id == project_id)
+            ).scalar_one()
+            version = f"v1.{int(existing) + attempt}"
+            model_id = uuid.uuid4()
+            row = {
+                "id": model_id,
+                "project_id": project_id,
+                "job_id": job_id,
+                "version": version,
+                "storage_key": storage_key,
+                "status": "DRAFT",
+                "checksum": checksum,
+                "metrics_summary": metrics_summary,
+                "created_at": utcnow(),
+            }
+            try:
+                conn.execute(insert(model_versions).values(**row))
+                return row
+            except Exception as exc:
+                if attempt == 9:
+                    raise
+                logger.warning("Reintentando creación de versión por colisión concurrente (%s): %s", version, exc)
 
 
 def update_model_artifacts(
@@ -379,3 +385,18 @@ def record_audit(
 def cancel_requested(job_id: uuid.UUID) -> bool:
     job = get_job(job_id)
     return bool(job and job.get("cancel_requested"))
+
+
+def recover_orphaned_jobs() -> int:
+    """Identifica trabajos en RUNNING o PREPARING que quedaron huérfanos tras caída del worker."""
+    with connection() as conn:
+        result = conn.execute(
+            update(training_jobs)
+            .where(training_jobs.c.status.in_(["RUNNING", "PREPARING"]))
+            .values(
+                status="FAILED",
+                error_message="El proceso de entrenamiento se interrumpió inesperadamente (recuperado al reiniciar el worker)",
+                ended_at=utcnow(),
+            )
+        )
+        return int(result.rowcount or 0)

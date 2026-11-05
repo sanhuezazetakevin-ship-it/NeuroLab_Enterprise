@@ -395,6 +395,9 @@ export class ApiClient {
 
     if (response.status === 401) {
       this.clearToken();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('neurolab:unauthorized'));
+      }
     }
 
     if (!response.ok) {
