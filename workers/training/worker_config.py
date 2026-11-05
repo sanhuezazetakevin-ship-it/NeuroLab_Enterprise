@@ -13,13 +13,16 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
-API_DIR = ROOT_DIR / "services" / "api"
+_parents = Path(__file__).resolve().parents
+ROOT_DIR = _parents[2] if len(_parents) > 2 else Path(__file__).resolve().parent
+API_DIR = ROOT_DIR / "services" / "api" if (ROOT_DIR / "services" / "api").exists() else ROOT_DIR
 
 # El archivo .env de la raíz es el que usa docker-compose. El de la API se usa
 # como respaldo para ejecuciones locales desde services/api.
-load_dotenv(ROOT_DIR / ".env")
-load_dotenv(API_DIR / ".env")
+if (ROOT_DIR / ".env").exists():
+    load_dotenv(ROOT_DIR / ".env")
+if (API_DIR / ".env").exists():
+    load_dotenv(API_DIR / ".env")
 
 
 def _absolute_dir(value: str, default: Path) -> Path:
